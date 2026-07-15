@@ -30,8 +30,9 @@ SENSITIVE_CANDIDATES = (
 )
 
 SENSITIVE_TRACKED_PATH = re.compile(
-    r"(?:^|/)(?:reports|state|ledger|outbox)(?:/|$)"
-    r"|(?:^|/)[^/]*(?:checkpoint|outbox)[^/]*(?:/|$)"
+    r"^(?:reports|state|ledger|outbox)(?:/|$)"
+    r"|^(?!(?:src/zentao_ai/state|tests/unit/state)/)"
+    r"(?:.*/)?[^/]*(?:checkpoint|outbox)[^/]*(?:/|$)"
     r"|(?:^|/)\.codex/zentao-ai-bug\.yaml$"
     r"|(?:^|/)\.codex/[^/]+\.local-backup$"
     r"|(?:^|/)\.env[^/]*$"
@@ -105,6 +106,22 @@ def test_sensitive_path_detection_covers_checkpoint_and_outbox_names() -> None:
         "nested/runtime-outbox.json",
     )
     assert all(SENSITIVE_TRACKED_PATH.search(path) for path in paths)
+
+
+def test_sensitive_path_detection_distinguishes_source_state_from_runtime_data() -> None:
+    safe_paths = (
+        "src/zentao_ai/state/ledger.py",
+        "tests/unit/state/test_ledger.py",
+    )
+    root_runtime_paths = (
+        "state/checkpoint.json",
+        "ledger/events.jsonl",
+        "outbox/pending.json",
+        "reports/daily.md",
+    )
+
+    assert all(SENSITIVE_TRACKED_PATH.search(path) is None for path in safe_paths)
+    assert all(SENSITIVE_TRACKED_PATH.search(path) for path in root_runtime_paths)
 
 
 def test_tracked_configuration_has_no_plaintext_secrets() -> None:
