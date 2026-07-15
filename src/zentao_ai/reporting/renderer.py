@@ -8,6 +8,23 @@ from typing import Any
 from .models import ReportError, integer, optional_text, require_list, require_mapping, text
 
 
+def render_resolution_comment(payload: object) -> str:
+    """Render the typed local-candidate result without claiming delivery or resolution."""
+    from zentao_ai.workflows.models import ResolutionCommentPayload
+
+    if not isinstance(payload, ResolutionCommentPayload):
+        raise TypeError("ResolutionCommentPayload is required")
+    summary = payload.summary.strip()
+    if not summary:
+        raise ValueError("resolution summary is required")
+    tests = ", ".join(
+        f"{result.command}: {'passed' if result.passed else 'failed'}"
+        for result in payload.testResults
+    )
+    suffix = f"\nConfigured tests: {tests}" if tests else ""
+    return f"[zentao-ai:v2:fix-candidate]\n{summary}{suffix}"
+
+
 def _join_cn(values: Any, field: str) -> str:
     return "、".join(text(item, field) for item in require_list(values, field))
 

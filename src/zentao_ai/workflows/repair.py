@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .analysis import analyze_bug
 from .models import AnalysisPhase, Decision, PatchOutcome, RepairResult, RunContext
-from .models import TestResult
+from .models import ResolutionCommentPayload, TestResult
 from .comments import write_resolution_comment
 
 
@@ -148,12 +148,25 @@ def repair_bug(context: RunContext, bug_id: int | str) -> RepairResult:
         comment_result = write_resolution_comment(
             context,
             second,
-            "Local patch and configured tests passed; candidate retained for human validation.",
+            ResolutionCommentPayload(
+                summary=(
+                    "Local patch passed the configured validation and remains an "
+                    "uncommitted candidate for human review."
+                ),
+                testResults=test_results,
+            ),
         )
+    local_candidate = final.decision is Decision.FIX_CANDIDATE
+    comment_delivered = comment_result is not None and comment_result.status in {
+        "CREATED",
+        "ALREADY_EXISTS",
+    }
     return RepairResult(
         str(bug_id),
         final.decision,
-        success=final.decision is Decision.FIX_CANDIDATE,
+        success=local_candidate and comment_delivered,
+        localCandidateSuccess=local_candidate,
+        commentDelivered=comment_delivered,
         localChangesRetained=True,
         commentResult=comment_result,
         testResults=test_results,

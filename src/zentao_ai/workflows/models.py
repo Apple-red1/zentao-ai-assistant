@@ -165,6 +165,12 @@ class CommentResult:
 
 
 @dataclass(frozen=True)
+class ResolutionCommentPayload:
+    summary: str
+    testResults: tuple[TestResult, ...] = ()
+
+
+@dataclass(frozen=True)
 class TestResult:
     command: str
     passed: bool
@@ -218,6 +224,8 @@ class RepairResult:
     bugId: str
     decision: Decision
     success: bool = False
+    localCandidateSuccess: bool = False
+    commentDelivered: bool = False
     localChangesRetained: bool = False
     reasons: tuple[str, ...] = ()
     commentResult: CommentResult | None = None
