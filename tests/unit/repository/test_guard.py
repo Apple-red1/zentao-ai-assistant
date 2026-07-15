@@ -1,7 +1,7 @@
 import subprocess
 from pathlib import Path
 
-from zentao_ai.repository import RepositoryMapping, preflight_repository
+from zentao_ai.repository import RepositoryMapping, preflight_repository, verify_repository_unchanged
 
 
 def git(path: Path, *args: str) -> str:
@@ -26,16 +26,21 @@ def repository(tmp_path: Path) -> Path:
 def test_clean_exact_repository_passes_without_changing_head(tmp_path):
     repo = repository(tmp_path)
     before = git(repo, "rev-parse", "HEAD")
-    result = preflight_repository(RepositoryMapping(repository="example", path=repo, targetBranch="main", testCommands=("pytest",)))
+    result = preflight_repository(RepositoryMapping(repository="example", path=repo, targetBranch="main", testCommands=("pytest",), configPath=tmp_path / "trusted.yaml", repositoryKey="scope"))
     assert result.allowed and result.ahead == result.behind == 0
     assert result.head == before == git(repo, "rev-parse", "HEAD")
+    assert result.indexFingerprint and result.worktreeFingerprint and result.preimageFingerprint
+    assert verify_repository_unchanged(result).unchanged
+    (repo / "new.txt").write_text("changed", encoding="utf-8")
+    changed = verify_repository_unchanged(result)
+    assert not changed.unchanged and "WORKTREE_CHANGED" in changed.reasons
 
 
 def test_dirty_staged_wrong_branch_and_unknown_test_fail_closed(tmp_path):
     repo = repository(tmp_path)
     (repo / "a.txt").write_text("dirty", encoding="utf-8")
     def mapping(branch="main", commands=("pytest",)):
-        return RepositoryMapping(repository="example", path=repo, targetBranch=branch, testCommands=commands)
+        return RepositoryMapping(repository="example", path=repo, targetBranch=branch, testCommands=commands, configPath=tmp_path / "trusted.yaml", repositoryKey="scope")
     assert not preflight_repository(mapping()).allowed
     git(repo, "add", "a.txt")
     assert "STAGED_CHANGES_FORBIDDEN" in preflight_repository(mapping()).reasons

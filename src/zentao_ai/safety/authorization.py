@@ -17,11 +17,22 @@ def authorize(action: ActionRequest, context: AuthorizationContext) -> Authoriza
         return AuthorizationDecision(allowed=False, reason="GIT_WRITE_UNAUTHORIZED")
     if context.scheduled:
         return AuthorizationDecision(allowed=False, reason="SCHEDULED_PROTECTED_ACTION_FORBIDDEN")
+    exact_record = any(
+        record.turnId == context.currentTurnId
+        and record.source == "user"
+        and record.action.casefold() == name
+        and record.bugId == action.bugId
+        and record.parameters == action.parameters
+        for record in context.authorizationRecords
+    )
     if name == "comment":
         gates = (context.commentEnabled, context.snapshotStable, context.historyChecked, context.cooldownPassed, context.idempotencyPassed)
-        return AuthorizationDecision(allowed=all(gates), reason="COMMENT_GATES_PASSED" if all(gates) else "COMMENT_GATES_FAILED")
+        allowed = all(gates) and exact_record
+        return AuthorizationDecision(allowed=allowed, reason="COMMENT_GATES_PASSED" if allowed else "COMMENT_GATES_FAILED")
     if name == "write_code":
         code_gates = context.codeWriteEnabled and context.routingUnique and context.repositoryGuardPassed
         return AuthorizationDecision(allowed=code_gates, reason="CODE_WRITE_GATES_PASSED" if code_gates else "CODE_WRITE_GATES_FAILED")
-    exact = name in context.explicitActions and action.bugId == context.bugId and action.parameters == context.parameters
+    if name in {"update_steps", "update_steps_with_image"} and not context.stepUpdateEnabled:
+        return AuthorizationDecision(allowed=False, reason="STEP_UPDATE_DISABLED")
+    exact = exact_record
     return AuthorizationDecision(allowed=exact, reason="CURRENT_TURN_EXACT_AUTHORIZATION" if exact else "CURRENT_TURN_AUTHORIZATION_REQUIRED")

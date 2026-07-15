@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Mapping
@@ -41,6 +42,9 @@ def _custom_errors(data: Mapping[str, Any]) -> list[ValidationError]:
             scopes.extend(str(item) for item in value["scopeNames"])
     repositories = data.get("repositories")
     repository_keys = set(repositories) if isinstance(repositories, Mapping) else set()
+    normalized_keys = [unicodedata.normalize("NFC", str(key)).strip().casefold() for key in repository_keys]
+    if len(set(normalized_keys)) != len(normalized_keys):
+        errors.append(ValidationError(field="repositories", message="repository keys must be unique after normalization"))
     for scope in scopes:
         if scope not in repository_keys:
             errors.append(ValidationError(field=f"repositories.{scope}", message="repository mapping is required"))

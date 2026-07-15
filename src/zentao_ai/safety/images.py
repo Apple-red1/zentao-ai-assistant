@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 MAGIC = {".png": (b"\x89PNG\r\n\x1a\n",), ".jpg": (b"\xff\xd8\xff",), ".jpeg": (b"\xff\xd8\xff",), ".webp": (b"RIFF",)}
+REPARSE_POINT = 0x400
 
 
 class CurrentTurnAuthorization(BaseModel):
@@ -24,9 +25,22 @@ def validate_user_image(path: Path, authorization: CurrentTurnAuthorization) -> 
     if not path.is_absolute():
         return ImageValidationResult(valid=False, reasons=["ABSOLUTE_PATH_REQUIRED"], path=str(path))
     normalized = Path(os.path.normcase(str(path.resolve(strict=False))))
-    approved = {Path(os.path.normcase(str(item.resolve(strict=False)))) for item in authorization.paths if item.is_absolute()}
+    normalized_values = [Path(os.path.normcase(str(item.resolve(strict=False)))) for item in authorization.paths if item.is_absolute()]
+    approved = set(normalized_values)
+    if len(normalized_values) != len(approved):
+        reasons.append("AUTHORIZATION_PATH_CONFLICT")
     if authorization.source != "user" or normalized not in approved:
         reasons.append("CURRENT_TURN_USER_PATH_REQUIRED")
+    current = Path(path.anchor)
+    try:
+        for part in path.parts[1:]:
+            current /= part
+            stat = current.lstat()
+            if current.is_symlink() or getattr(stat, "st_file_attributes", 0) & REPARSE_POINT:
+                reasons.append("SYMLINK_OR_REPARSE_COMPONENT")
+                break
+    except OSError:
+        pass
     suffix = path.suffix.casefold()
     if suffix not in MAGIC:
         reasons.append("UNSUPPORTED_IMAGE_EXTENSION")

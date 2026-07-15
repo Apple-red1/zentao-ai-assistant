@@ -140,3 +140,13 @@ def test_redaction_is_recursive_case_insensitive_and_non_mutating() -> None:
         "authorizationHeader": "***REDACTED***",
     }
     assert original == snapshot
+
+
+def test_repository_keys_that_collide_after_unicode_casefold_are_rejected(tmp_path: Path) -> None:
+    data = minimal()
+    first = data["repositories"]["example-personal"]  # type: ignore[index]
+    data["repositories"] = {"Scope": first, " scope ": first}
+    data["personal"] = {"scopeNames": ["Scope"]}
+    data["team"] = {"scopeNames": [" scope "], "members": []}
+    result = validate_config(write_yaml(tmp_path / "bad.yaml", data))
+    assert "repositories" in {error.field for error in result.errors}

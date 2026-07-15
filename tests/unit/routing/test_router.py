@@ -34,3 +34,13 @@ def test_ambiguous_or_unmatched_routes_fail_closed(tmp_path):
 def test_backend_keywords_are_case_insensitive(tmp_path):
     result = route_bug(BugSnapshot(identifier="x", title="AI API DataBase PERMISSION"), config(tmp_path))
     assert result.layer == "backend"
+
+
+def test_exact_scope_is_unicode_casefolded_and_requires_layer(tmp_path):
+    assert route_bug(BugSnapshot(identifier="x", title="UI", scope="SITE"), config(tmp_path)).selectedRepository == "example-web"
+    assert route_bug(BugSnapshot(identifier="x", title="unknown", scope="SITE"), config(tmp_path)).selectedRepository is None
+
+
+def test_marker_uses_token_boundaries_and_does_not_match_email(tmp_path):
+    result = route_bug(BugSnapshot(identifier="x", title="UI user@site.example"), config(tmp_path))
+    assert result.selectedRepository is None
