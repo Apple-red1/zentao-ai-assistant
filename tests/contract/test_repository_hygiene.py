@@ -16,6 +16,11 @@ SENSITIVE_CANDIDATES = (
     "state/checkpoint.json",
     "ledger/events.jsonl",
     "outbox/pending.json",
+    "checkpoint.json",
+    "runtime-checkpoint.json",
+    "nested/runtime-checkpoint.json",
+    "runtime-outbox.json",
+    "nested/runtime-outbox.json",
     "data/cache.sqlite3",
     "session.cookie",
     "__pycache__/module.pyc",
@@ -26,6 +31,7 @@ SENSITIVE_CANDIDATES = (
 
 SENSITIVE_TRACKED_PATH = re.compile(
     r"(?:^|/)(?:reports|state|ledger|outbox)(?:/|$)"
+    r"|(?:^|/)[^/]*(?:checkpoint|outbox)[^/]*(?:/|$)"
     r"|(?:^|/)\.codex/zentao-ai-bug\.yaml$"
     r"|(?:^|/)\.codex/[^/]+\.local-backup$"
     r"|(?:^|/)\.env[^/]*$"
@@ -50,6 +56,7 @@ def git(*args: str, input_text: str | None = None) -> subprocess.CompletedProces
         capture_output=True,
         text=True,
         encoding="utf-8",
+        errors="replace",
         check=False,
     )
 
@@ -58,6 +65,18 @@ def tracked_files() -> list[str]:
     result = git("ls-files")
     assert result.returncode == 0, result.stderr
     return [line for line in result.stdout.splitlines() if line]
+
+
+def plaintext_secret_files() -> list[str]:
+    findings: list[str] = []
+    for relative_path in tracked_files():
+        if Path(relative_path).suffix.lower() not in CONFIG_SUFFIXES:
+            continue
+        blob = git("show", "--no-textconv", f":{relative_path}")
+        assert blob.returncode == 0, f"Unable to read index blob: {relative_path}"
+        if PLAINTEXT_SECRET.search(blob.stdout):
+            findings.append(relative_path)
+    return findings
 
 
 def test_sensitive_and_generated_paths_are_ignored() -> None:
@@ -78,14 +97,27 @@ def test_sensitive_paths_are_not_tracked() -> None:
     assert sensitive == []
 
 
-def test_tracked_configuration_has_no_plaintext_secrets() -> None:
-    findings: list[str] = []
-    for relative_path in tracked_files():
-        path = ROOT / relative_path
-        if path.suffix.lower() not in CONFIG_SUFFIXES or not path.is_file():
-            continue
-        text = path.read_text(encoding="utf-8", errors="replace")
-        if PLAINTEXT_SECRET.search(text):
-            findings.append(relative_path)
+def test_sensitive_path_detection_covers_checkpoint_and_outbox_names() -> None:
+    paths = (
+        "checkpoint.json",
+        "nested/runtime-checkpoint.json",
+        "runtime-outbox.json",
+        "nested/runtime-outbox.json",
+    )
+    assert all(SENSITIVE_TRACKED_PATH.search(path) for path in paths)
 
-    assert findings == []
+
+def test_tracked_configuration_has_no_plaintext_secrets() -> None:
+    assert plaintext_secret_files() == []
+
+
+def test_plaintext_secret_scan_reads_the_index_blob(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(__import__(__name__), "ROOT", tmp_path)
+    assert git("init", "-b", "main").returncode == 0
+
+    config = tmp_path / "config.yaml"
+    config.write_text("token: ${ZENTAO_TOKEN}\n", encoding="utf-8")
+    assert git("add", "config.yaml").returncode == 0
+
+    config.write_text("token: worktree-only-secret\n", encoding="utf-8")
+    assert plaintext_secret_files() == []

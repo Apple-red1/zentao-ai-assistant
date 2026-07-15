@@ -8,6 +8,8 @@ reports/
 state/
 ledger/
 outbox/
+*checkpoint*
+*outbox*
 *.sqlite3
 *.cookie
 
