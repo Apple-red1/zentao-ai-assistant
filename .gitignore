@@ -1,0 +1,32 @@
+# Local credentials and overrides
+.codex/zentao-ai-bug.yaml
+.codex/*.local-backup
+.env*
+
+# Runtime and workflow data
+reports/
+state/
+ledger/
+outbox/
+*.sqlite3
+*.cookie
+
+# Python caches and test artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Build and packaging artifacts
+build/
+dist/
+*.egg-info/
+
+# Invalid repository metadata retained as a local backup
+.git.invalid-backup/
+
+# Local agent coordination artifacts
+.superpowers/
