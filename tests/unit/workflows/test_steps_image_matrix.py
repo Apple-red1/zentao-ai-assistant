@@ -11,6 +11,7 @@ import pytest
 
 from zentao_ai.config.models import AppConfig
 from zentao_ai.safety.actions import AuthorizationRecord
+from zentao_ai.safety.images import REPARSE_POINT
 from zentao_ai.workflows.models import RunContext
 from zentao_ai.workflows.steps import (
     ReproductionStep,
@@ -42,6 +43,13 @@ class RecordingProvider:
         self.calls.append(("image", *args))
         return self.result
 
+
+class RecordingReportSink:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    def write(self, payload: dict[str, object]) -> None:
+        self.calls.append(payload)
 
 class ExplodingProvider(RecordingProvider):
     def update_bug_steps(self, *args: object) -> StepUpdateResult:
@@ -199,6 +207,24 @@ def test_image_provider_receives_exact_validated_immutable_bytes_and_no_path(
     assert str(image) not in repr(call)
     assert str(image) not in repr(ctx.authorizationRecords[0].parameters)
     assert str(image) not in repr(result)
+
+
+def test_public_steps_apis_have_no_report_sink_output_or_path_channel(
+    tmp_path: Path,
+) -> None:
+    image = (tmp_path / "proof.png").resolve()
+    image.write_bytes(PNG)
+    provider = RecordingProvider()
+    sink = RecordingReportSink()
+    base = context(provider, reportSink=sink)
+
+    plain = replace_steps(base, 7, STEPS)
+    image_result = replace_steps_with_image(
+        authorize_image(base, image), 7, STEPS, image
+    )
+
+    assert sink.calls == []
+    assert str(image) not in repr((plain, image_result))
 
 
 @pytest.mark.parametrize(
@@ -373,6 +399,7 @@ def test_windows_junction_image_is_rejected_or_explicitly_skipped(
     if created.returncode:
         pytest.skip("junction creation is unavailable")
     image = junction / "proof.png"
+    assert junction.lstat().st_file_attributes & REPARSE_POINT
     provider = RecordingProvider()
     with pytest.raises(PermissionError):
         replace_steps_with_image(authorize_image(context(provider), image), 7, STEPS, image)
