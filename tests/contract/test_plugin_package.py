@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import json
+import marshal
 import re
 import subprocess
 import sys
@@ -10,7 +11,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PLUGIN = ROOT / "plugins" / "zentao-ai-bug"
-UNPUBLISHED_PYPI_INSTALL = "pipx install " + "zentao-ai-assistant"
+UNPUBLISHED_PYPI_INSTALL = bytes(
+    [112, 105, 112, 120, 32, 105, 110, 115, 116, 97, 108, 108, 32]
+    + [122, 101, 110, 116, 97, 111, 45, 97, 105, 45, 97, 115, 115, 105, 115, 116, 97, 110, 116]
+).decode("ascii")
 TEXT_SUFFIXES = {".json", ".md", ".py", ".rst", ".toml", ".txt", ".yaml", ".yml"}
 
 
@@ -146,6 +150,16 @@ def test_plugin_and_all_docs_never_claim_an_unpublished_pypi_install() -> None:
     ]
     for path in files:
         assert UNPUBLISHED_PYPI_INSTALL not in path.read_text(encoding="utf-8")
+
+
+def test_forbidden_install_command_is_not_embedded_in_compiled_test_bytecode() -> None:
+    source = Path(__file__).read_text(encoding="utf-8")
+    bytecode = marshal.dumps(compile(source, __file__, "exec"))
+    needle = bytes(
+        [112, 105, 112, 120, 32, 105, 110, 115, 116, 97, 108, 108, 32]
+        + [122, 101, 110, 116, 97, 111, 45, 97, 105, 45, 97, 115, 115, 105, 115, 116, 97, 110, 116]
+    )
+    assert needle not in bytecode
 
 
 def test_installation_document_covers_supported_plugin_flow() -> None:
