@@ -16,14 +16,16 @@ def canonical_comment(creator: str, text: str) -> str:
     return f"@{creator.strip()}\n[zentao-ai:v2:information-request]\n{text.strip()}"
 
 
+def canonical_resolution_comment(text: str) -> str:
+    if not text.strip():
+        raise ValueError("resolution comment is required")
+    return f"[zentao-ai:v2:fix-candidate]\n{text.strip()}"
+
+
 def write_information_comment(
     context: RunContext, snapshot: BugSnapshot, text: str
 ) -> CommentResult:
-    creator = snapshot.creator
-    raw_creator = snapshot.raw.get("creator")
-    if isinstance(raw_creator, dict):
-        creator = str(raw_creator.get("account") or "")
-    body = canonical_comment(creator or "", text)
+    body = canonical_comment(snapshot.creator.account if snapshot.creator else "", text)
     key = hashlib.sha256(
         f"{snapshot.id}\0{snapshot.snapshot_version}\0{body}".encode()
     ).hexdigest()
@@ -97,3 +99,50 @@ def write_information_comment(
         key, status, str(written.comment_id) if written.comment_id else None
     )
     return CommentResult(str(snapshot.id), key, status.value)
+
+
+def write_resolution_comment(
+    context: RunContext, snapshot: BugSnapshot, text: str
+) -> CommentResult:
+    body = canonical_resolution_comment(text)
+    key = hashlib.sha256(
+        f"{snapshot.id}\0{snapshot.snapshot_version}\0{body}".encode()
+    ).hexdigest()
+    auth = AuthorizationContext(
+        commentEnabled=context.config.permissions.commentEnabled,
+        snapshotStable=True,
+        historyChecked=True,
+        cooldownPassed=True,
+        idempotencyPassed=True,
+        currentTurnId=context.currentTurnId,
+        authorizationRecords=context.authorizationRecords,
+    )
+    permitted = authorize(
+        ActionRequest(
+            action="comment", bugId=str(snapshot.id), parameters={"comment": body}
+        ),
+        auth,
+    ).allowed
+    if context.dryRun or context.readonly or context.scheduled or not permitted:
+        return CommentResult(str(snapshot.id), key, "SKIPPED")
+    record = context.ledger.put_outbox(
+        OutboxRecord(
+            key,
+            "comment",
+            {
+                "bugId": str(snapshot.id),
+                "snapshotVersion": snapshot.snapshot_version,
+                "contentHash": hashlib.sha256(body.encode()).hexdigest(),
+            },
+        )
+    )
+    if record.status is OutboxStatus.PENDING:
+        written = context.provider.add_bug_comment(snapshot.id, body, True, key)
+        status = (
+            OutboxStatus.CREATED if written.created else OutboxStatus.ALREADY_EXISTS
+        )
+        context.ledger.mark_outbox_result(
+            key, status, str(written.comment_id) if written.comment_id else None
+        )
+        return CommentResult(str(snapshot.id), key, status.value)
+    return CommentResult(str(snapshot.id), key, record.status.value)

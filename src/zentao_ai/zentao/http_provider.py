@@ -66,17 +66,27 @@ class HttpZentaoProvider:
     def __exit__(self, *args: object) -> None:
         self.close()
 
-    def query_my_bugs(self, *, page: int = 1, page_size: int = 20) -> BugPage:
-        return self._bug_page("query_my_bugs", self._endpoints.my_bugs, page, page_size)
+    def query_my_bugs(
+        self, *, scope_names: tuple[str, ...] = (), page: int = 1, page_size: int = 20
+    ) -> BugPage:
+        return self._bug_page(
+            "query_my_bugs", self._endpoints.my_bugs, page, page_size, scope_names
+        )
 
     def query_user_bugs(
-        self, user: str, *, page: int = 1, page_size: int = 20
+        self,
+        user: str,
+        *,
+        scope_names: tuple[str, ...] = (),
+        page: int = 1,
+        page_size: int = 20,
     ) -> BugPage:
         return self._bug_page(
             "query_user_bugs",
             self._endpoints.user_bugs.format(user=self._segment(user)),
             page,
             page_size,
+            scope_names,
         )
 
     def query_bug_detail(self, bug_id: int | str) -> BugSnapshot:
@@ -332,10 +342,22 @@ class HttpZentaoProvider:
         return value
 
     def _bug_page(
-        self, operation: str, path: str, page: int, page_size: int
+        self,
+        operation: str,
+        path: str,
+        page: int,
+        page_size: int,
+        scope_names: tuple[str, ...] = (),
     ) -> BugPage:
         data = self._request(
-            "GET", path, operation, params={"page": page, "pageSize": page_size}
+            "GET",
+            path,
+            operation,
+            params={
+                "page": page,
+                "pageSize": page_size,
+                "scopeNames": list(scope_names),
+            },
         )
         items = tuple(
             self._snapshot(x, operation) for x in self._items(data, operation)

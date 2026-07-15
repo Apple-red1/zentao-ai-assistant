@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from types import MappingProxyType
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
 
 def deep_freeze(value: Any) -> Any:
@@ -33,10 +33,14 @@ class RoutingData(FrozenModel):
     confidence: float | None = None
 
 
+class CreatorAccount(FrozenModel):
+    account: str
+
+
 class BugSnapshot(FrozenModel):
     id: int | str
     status: str
-    creator: str | None = None
+    creator: CreatorAccount | None = None
     assignee: str | None = None
     version: str
     snapshot_version: str = Field(alias="snapshotVersion")
@@ -44,6 +48,13 @@ class BugSnapshot(FrozenModel):
     steps: str = ""
     routing: RoutingData | None = None
     raw: Mapping[str, Any] = Field(default_factory=dict)
+
+    @field_validator("creator", mode="before")
+    @classmethod
+    def normalize_creator(cls, value: Any) -> Any:
+        if value is None or isinstance(value, Mapping):
+            return value
+        return {"account": str(value)}
 
 
 class BugHistoryEntry(FrozenModel):

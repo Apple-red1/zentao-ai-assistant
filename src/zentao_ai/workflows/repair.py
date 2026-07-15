@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from .analysis import analyze_bug
 from .models import AnalysisPhase, Decision, PatchOutcome, RepairResult, RunContext
+from .models import TestResult
+from .comments import write_resolution_comment
 
 
 def repair_bug(context: RunContext, bug_id: int | str) -> RepairResult:
@@ -87,6 +89,9 @@ def repair_bug(context: RunContext, bug_id: int | str) -> RepairResult:
         if outcome is PatchOutcome.APPLIED
         else False
     )
+    test_results = tuple(
+        TestResult(command, tests_passed) for command in mappings[0].testCommands
+    )
     diff_safe = context.patchExecutor.diff_safe(lease)
     if not tests_passed or not diff_safe:
         return RepairResult(
@@ -94,6 +99,7 @@ def repair_bug(context: RunContext, bug_id: int | str) -> RepairResult:
             Decision.PATCH_RETAINED_FOR_HUMAN_VALIDATION,
             localChangesRetained=True,
             reasons=("TEST_OR_DIFF_VALIDATION_FAILED",),
+            testResults=test_results,
         )
     second = context.provider.query_bug_detail(bug_id)
     if (
@@ -102,11 +108,21 @@ def repair_bug(context: RunContext, bug_id: int | str) -> RepairResult:
         or second.assignee != first.assignee
         or not context.repository.unchanged(lease)
     ):
+        drift = (
+            "SNAPSHOT_VERSION_CHANGED"
+            if second.snapshot_version != first.snapshot_version
+            else "STATUS_CHANGED"
+            if second.status != first.status
+            else "ASSIGNEE_CHANGED"
+            if second.assignee != first.assignee
+            else "REPOSITORY_CHANGED"
+        )
         return RepairResult(
             str(bug_id),
             Decision.NEEDS_ENGINEER_REVIEW,
             localChangesRetained=True,
-            reasons=("SNAPSHOT_CHANGED",),
+            reasons=(drift,),
+            testResults=test_results,
         )
     fresh_history = context.provider.query_bug_history(
         bug_id, page=1, page_size=100
@@ -117,6 +133,7 @@ def repair_bug(context: RunContext, bug_id: int | str) -> RepairResult:
             Decision.NEEDS_ENGINEER_REVIEW,
             localChangesRetained=True,
             reasons=("HISTORY_CHANGED",),
+            testResults=test_results,
         )
     final = analyze_bug(
         second,
@@ -126,9 +143,18 @@ def repair_bug(context: RunContext, bug_id: int | str) -> RepairResult:
         if context.analysis
         else None,
     )
+    comment_result = None
+    if final.decision is Decision.FIX_CANDIDATE:
+        comment_result = write_resolution_comment(
+            context,
+            second,
+            "Local patch and configured tests passed; candidate retained for human validation.",
+        )
     return RepairResult(
         str(bug_id),
         final.decision,
         success=final.decision is Decision.FIX_CANDIDATE,
         localChangesRetained=True,
+        commentResult=comment_result,
+        testResults=test_results,
     )

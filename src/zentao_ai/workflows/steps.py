@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import mimetypes
+import json
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
 
@@ -10,6 +12,22 @@ from zentao_ai.safety.images import CurrentTurnAuthorization, validate_user_imag
 from zentao_ai.zentao.models import StepUpdateResult
 
 from .models import RunContext
+
+
+@dataclass(frozen=True)
+class ReproductionStep:
+    action: str
+    expected: str
+
+
+def _complete_steps(steps: tuple[ReproductionStep, ...]) -> str:
+    if not steps or any(
+        not step.action.strip() or not step.expected.strip() for step in steps
+    ):
+        raise ValueError("ordered action and expected result are required")
+    return json.dumps(
+        [asdict(step) for step in steps], ensure_ascii=False, separators=(",", ":")
+    )
 
 
 def _permit(
@@ -34,22 +52,21 @@ def _permit(
 
 
 def replace_steps(
-    context: RunContext, bug_id: int | str, steps: str
+    context: RunContext, bug_id: int | str, steps: tuple[ReproductionStep, ...]
 ) -> StepUpdateResult:
-    if not steps.strip() or len(steps.strip()) < 10:
-        raise ValueError("complete replacement steps required")
-    params: dict[str, object] = {"steps": steps}
+    rendered = _complete_steps(steps)
+    params: dict[str, object] = {"steps": [asdict(step) for step in steps]}
     _permit(context, "update_steps", bug_id, params)
-    return context.provider.update_bug_steps(bug_id, steps, True)
+    return context.provider.update_bug_steps(bug_id, rendered, True)
 
 
 def replace_steps_with_image(
-    context: RunContext, bug_id: int | str, steps: str, path: Path
+    context: RunContext,
+    bug_id: int | str,
+    steps: tuple[ReproductionStep, ...],
+    path: Path,
 ) -> StepUpdateResult:
-    if not steps.strip() or len(steps.strip()) < 10:
-        raise ValueError("complete replacement steps required")
-    params: dict[str, object] = {"steps": steps, "imagePath": str(path)}
-    _permit(context, "update_steps_with_image", bug_id, params)
+    rendered = _complete_steps(steps)
     validation = validate_user_image(
         path,
         CurrentTurnAuthorization(
@@ -60,21 +77,19 @@ def replace_steps_with_image(
     )
     if not validation.valid:
         raise PermissionError(",".join(validation.reasons))
-    before = path.stat()
-    data = path.read_bytes()
-    after = path.stat()
-    if (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) != (
-        after.st_dev,
-        after.st_ino,
-        after.st_size,
-        after.st_mtime_ns,
-    ):
-        raise PermissionError("IMAGE_CHANGED_DURING_VALIDATION")
+    if validation.content is None or validation.filename is None:
+        raise PermissionError("IMAGE_ARTIFACT_REQUIRED")
+    params: dict[str, object] = {
+        "steps": [asdict(step) for step in steps],
+        "imageSha256": validation.sha256,
+        "filename": validation.filename,
+    }
+    _permit(context, "update_steps_with_image", bug_id, params)
     return context.provider.update_bug_steps_with_image(
         bug_id,
-        steps,
-        data,
-        path.name,
-        mimetypes.guess_type(path.name)[0] or "application/octet-stream",
+        rendered,
+        validation.content,
+        validation.filename,
+        mimetypes.guess_type(validation.filename)[0] or "application/octet-stream",
         True,
     )

@@ -75,45 +75,75 @@ def execute_read_workflow(
     seen: set[str] = set()
     discovered = 0
     try:
-        sources = (
-            [lambda p, s: context.provider.query_my_bugs(page=p, page_size=s)]
-            if kind == "personal"
-            else [
-                lambda p, s, m=m: context.provider.query_user_bugs(
-                    m, page=p, page_size=s
+
+        def personal_source(page: int, page_size: int) -> BugPage:
+            return context.provider.query_my_bugs(
+                scope_names=scope_names, page=page, page_size=page_size
+            )
+
+        def member_source(member: str) -> Callable[[int, int], BugPage]:
+            def fetch(page: int, page_size: int) -> BugPage:
+                return context.provider.query_user_bugs(
+                    member, scope_names=scope_names, page=page, page_size=page_size
                 )
-                for m in members
-            ]
+
+            return fetch
+
+        sources = (
+            [personal_source]
+            if kind == "personal"
+            else [member_source(member) for member in members]
         )
+        total = 0
+        total_known = True
+        limit = context.config.limits.maxBugsPerRun
         for source in sources:
-            for listed in _pages(source, context.config.limits.maxBugsPerRun):
-                key = str(listed.id)
-                if key in seen:
-                    continue
-                seen.add(key)
-                discovered += 1
-                try:
-                    detail = context.provider.query_bug_detail(key)
-                    history = _history(context, key)
-                    signal = (
-                        context.analysis(detail, history, AnalysisPhase.FINAL)
-                        if context.analysis
-                        else None
-                    )
-                    results.append(
-                        BugRunResult(
-                            key,
-                            detail.snapshot_version,
-                            analyze_bug(
-                                detail, history, AnalysisPhase.FINAL, signal=signal
-                            ).decision,
+            first_page = source(1, min(100, max(1, limit - discovered)))
+            if first_page.coverage.total < len(first_page.items):
+                total_known = False
+            else:
+                total += first_page.coverage.total
+            pages = [first_page]
+            page_number = 2
+            while (
+                pages[-1].items
+                and (pages[-1].coverage.pages or 1) >= page_number
+                and discovered < limit
+            ):
+                pages.append(source(page_number, min(100, limit - discovered)))
+                page_number += 1
+            for page in pages:
+                for listed in page.items:
+                    if discovered >= limit:
+                        break
+                    key = str(listed.id)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    discovered += 1
+                    try:
+                        detail = context.provider.query_bug_detail(key)
+                        history = _history(context, key)
+                        signal = (
+                            context.analysis(detail, history, AnalysisPhase.FINAL)
+                            if context.analysis
+                            else None
                         )
-                    )
-                except (KeyboardInterrupt, SystemExit):
-                    raise
-                except Exception as exc:
-                    failures.append(Failure(key, type(exc).__name__, str(exc)))
-        completeness = "COMPLETE" if not failures else "PARTIAL"
+                        results.append(
+                            BugRunResult(
+                                key,
+                                detail.snapshot_version,
+                                analyze_bug(
+                                    detail, history, AnalysisPhase.FINAL, signal=signal
+                                ).decision,
+                            )
+                        )
+                    except (KeyboardInterrupt, SystemExit):
+                        raise
+                    except Exception as exc:
+                        failures.append(Failure(key, type(exc).__name__, str(exc)))
+        truncated = (not total_known) or total > discovered
+        completeness = "COMPLETE" if not failures and not truncated else "PARTIAL"
         result = RunResult(
             str(business),
             cutoff,
@@ -123,6 +153,8 @@ def execute_read_workflow(
             failures=tuple(failures),
             scopeNames=scope_names,
             members=members,
+            coverageTotal=total if total_known else None,
+            truncated=truncated,
         )
         context.ledger.put_checkpoint(business, kind, result.to_v2_payload())
         if context.reportSink:

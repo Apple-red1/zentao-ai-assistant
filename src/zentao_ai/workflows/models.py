@@ -71,9 +71,16 @@ class PatchOutcome(str, Enum):
 
 
 class Provider(Protocol):
-    def query_my_bugs(self, *, page: int = 1, page_size: int = 20) -> BugPage: ...
+    def query_my_bugs(
+        self, *, scope_names: tuple[str, ...], page: int = 1, page_size: int = 20
+    ) -> BugPage: ...
     def query_user_bugs(
-        self, user: str, *, page: int = 1, page_size: int = 20
+        self,
+        user: str,
+        *,
+        scope_names: tuple[str, ...],
+        page: int = 1,
+        page_size: int = 20,
     ) -> BugPage: ...
     def query_bug_detail(self, bug_id: int | str) -> BugSnapshot: ...
     def query_bug_history(
@@ -175,6 +182,8 @@ class RunResult:
     failures: tuple[Failure, ...] = ()
     scopeNames: tuple[str, ...] = ()
     members: tuple[str, ...] = ()
+    coverageTotal: int | None = None
+    truncated: bool = False
 
     def to_v2_payload(self) -> dict[str, object]:
         def item(v: object) -> dict[str, object]:
@@ -188,6 +197,8 @@ class RunResult:
             "businessDate": self.businessDate,
             "snapshotCutoff": self.snapshotCutoff,
             "coverage": self.coverage,
+            "coverageTotal": self.coverageTotal,
+            "truncated": self.truncated,
             "completeness": self.completeness,
             "scopeNames": list(self.scopeNames),
             "members": list(self.members),

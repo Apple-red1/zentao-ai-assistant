@@ -1,8 +1,11 @@
+from dataclasses import replace
+
 from .models import RunContext, TeamRunResult
 from .runtime import execute_read_workflow
 
 
 def run_team_report(context: RunContext) -> TeamRunResult:
+    context = replace(context, readonly=True)
     return execute_read_workflow(
         context,
         kind="team",
