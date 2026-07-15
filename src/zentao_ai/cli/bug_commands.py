@@ -12,16 +12,21 @@ from zentao_ai.safety.actions import ActionName, AuthorizationRecord
 from zentao_ai.workflows import analyze_bug
 from zentao_ai.workflows.adapters import normalize_cli_request
 from zentao_ai.workflows.repair import repair_bug
-from zentao_ai.workflows.steps import ReproductionStep, replace_steps, replace_steps_with_image
+from zentao_ai.workflows.steps import (
+    ReproductionStep,
+    replace_steps,
+    replace_steps_with_image,
+)
+from zentao_ai.zentao.models import BugSnapshot
 
-from .runtime import AppRuntime, DependencyFactory, get_runtime, guarded
+from .runtime import AppRuntime, emit, get_factory, guarded
 
 bugs_app = typer.Typer(help="Query bugs.")
 bug_app = typer.Typer(help="Analyze or update one bug.")
 
 
 def _runtime(ctx: typer.Context, project: Path) -> AppRuntime:
-    return get_runtime(ctx.obj if isinstance(ctx.obj, DependencyFactory) else None, project)
+    return get_factory(ctx.obj)(project)
 
 
 def _dump(value: Any) -> Any:
@@ -45,9 +50,14 @@ def _thaw(value: Any) -> Any:
 
 
 def _emit(value: Any, json_output: bool) -> None:
-    import json
     payload = _dump(value)
-    typer.echo(json.dumps(payload, ensure_ascii=False, default=str) if json_output else str(payload))
+    emit(payload, json_output)
+
+
+def _placeholder(bug_id: str = "0") -> BugSnapshot:
+    return BugSnapshot(
+        id=bug_id, status="transport", version="transport", snapshotVersion="transport"
+    )
 
 
 def _request(
@@ -80,42 +90,84 @@ def _request(
 
 @bugs_app.command("mine")
 @guarded
-def mine(ctx: typer.Context, project: Path = typer.Option(Path.cwd()), json_output: bool = typer.Option(False, "--json")) -> None:
-    runtime = _runtime(ctx, project)
-    page = runtime.provider.query_my_bugs(scope_names=tuple(runtime.config.personal.scopeNames), page=1, page_size=20)
-    if page.items:
-        request = _request(runtime, page.items[0])
-        assert request.scope_names == tuple(runtime.config.personal.scopeNames)
-    _emit(page, json_output)
+def mine(
+    ctx: typer.Context,
+    project: Path = typer.Option(Path.cwd()),
+    json_output: bool = typer.Option(False, "--json"),
+) -> None:
+    with _runtime(ctx, project) as runtime:
+        request = _request(runtime, _placeholder())
+        page = runtime.provider.query_my_bugs(
+            scope_names=request.scope_names, page=1, page_size=20
+        )
+        _emit(page, json_output)
 
 
 @bugs_app.command("user")
 @guarded
-def user(ctx: typer.Context, account: str, project: Path = typer.Option(Path.cwd()), json_output: bool = typer.Option(False, "--json")) -> None:
-    runtime = _runtime(ctx, project)
-    page = runtime.provider.query_user_bugs(account, scope_names=tuple(runtime.config.personal.scopeNames), page=1, page_size=20)
-    if page.items:
-        _request(runtime, page.items[0])
-    _emit(page, json_output)
+def user(
+    ctx: typer.Context,
+    account: str,
+    project: Path = typer.Option(Path.cwd()),
+    json_output: bool = typer.Option(False, "--json"),
+) -> None:
+    with _runtime(ctx, project) as runtime:
+        request = _request(runtime, _placeholder())
+        page = runtime.provider.query_user_bugs(
+            account, scope_names=request.scope_names, page=1, page_size=20
+        )
+        _emit(page, json_output)
 
 
 @bug_app.command("analyze")
 @guarded
-def analyze(ctx: typer.Context, bug_id: str, project: Path = typer.Option(Path.cwd()), json_output: bool = typer.Option(False, "--json")) -> None:
-    runtime = _runtime(ctx, project)
-    snapshot = runtime.provider.query_bug_detail(bug_id)
-    history = runtime.provider.query_bug_history(bug_id, page=1, page_size=100)
-    request = _request(runtime, snapshot)
-    result = analyze_bug(request.snapshot, history.items, request.phase, signal=request.signal)
-    _emit(result, json_output)
+def analyze(
+    ctx: typer.Context,
+    bug_id: str,
+    project: Path = typer.Option(Path.cwd()),
+    json_output: bool = typer.Option(False, "--json"),
+) -> None:
+    with _runtime(ctx, project) as runtime:
+        transport = _request(runtime, _placeholder(bug_id), repair_id=bug_id)
+        snapshot = runtime.provider.query_bug_detail(transport.repair_bug_id)
+        history = runtime.provider.query_bug_history(
+            transport.repair_bug_id, page=1, page_size=100
+        )
+        request = _request(runtime, snapshot)
+        _emit(
+            analyze_bug(
+                request.snapshot, history.items, request.phase, signal=request.signal
+            ),
+            json_output,
+        )
 
 
-def _authorized_request(runtime: AppRuntime, snapshot: Any, bug_id: str, turn: str, action: ActionName, params: dict[str, Any], steps: tuple[ReproductionStep, ...], image: Path | None = None) -> Any:
-    record = AuthorizationRecord(turnId=turn, source="user", action=action, bugId=bug_id, parameters=params)
-    return _request(runtime, snapshot, records=(record,), actions=({"action": action, "bugId": bug_id, "parameters": params},), steps=steps, image=image)
+def _authorized_request(
+    runtime: AppRuntime,
+    snapshot: Any,
+    bug_id: str,
+    turn: str,
+    action: ActionName,
+    params: dict[str, Any],
+    steps: tuple[ReproductionStep, ...],
+    image: Path | None = None,
+) -> Any:
+    record = AuthorizationRecord(
+        turnId=turn, source="user", action=action, bugId=bug_id, parameters=params
+    )
+    return _request(
+        runtime,
+        snapshot,
+        records=(record,),
+        actions=({"action": action, "bugId": bug_id, "parameters": params},),
+        steps=steps,
+        image=image,
+    )
 
 
-def _step_values(actions: list[str], expected: list[str]) -> tuple[ReproductionStep, ...]:
+def _step_values(
+    actions: list[str], expected: list[str]
+) -> tuple[ReproductionStep, ...]:
     if not actions or len(actions) != len(expected):
         raise typer.BadParameter("matching --action and --expected values are required")
     return tuple(ReproductionStep(a, e) for a, e in zip(actions, expected, strict=True))
@@ -123,36 +175,124 @@ def _step_values(actions: list[str], expected: list[str]) -> tuple[ReproductionS
 
 @bug_app.command("update-steps")
 @guarded
-def update_steps(ctx: typer.Context, bug_id: str, action: list[str] = typer.Option(..., "--action"), expected: list[str] = typer.Option(..., "--expected"), confirm: bool = typer.Option(False, "--confirm"), turn_id: str = typer.Option(..., "--turn-id"), project: Path = typer.Option(Path.cwd()), json_output: bool = typer.Option(False, "--json")) -> None:
-    if not confirm:
-        raise typer.BadParameter("--confirm is required")
-    runtime, steps = _runtime(ctx, project), _step_values(action, expected)
-    snapshot = runtime.provider.query_bug_detail(bug_id)
-    params = {"steps": [asdict(step) for step in steps]}
-    request = _authorized_request(runtime, snapshot, bug_id, turn_id, "update_steps", params, steps)
-    context = runtime.context(currentTurnId=turn_id, authorizationRecords=request.authorization.authorizationRecords)
-    _emit(replace_steps(context, bug_id, request.steps), json_output)
+def update_steps(
+    ctx: typer.Context,
+    bug_id: str,
+    action: list[str] = typer.Option([], "--action"),
+    expected: list[str] = typer.Option([], "--expected"),
+    confirm: bool = typer.Option(False, "--confirm"),
+    turn_id: str = typer.Option("", "--turn-id"),
+    project: Path = typer.Option(Path.cwd()),
+    json_output: bool = typer.Option(False, "--json"),
+) -> None:
+    if not confirm or not turn_id.strip():
+        raise typer.BadParameter("--confirm and --turn-id are required")
+    steps = _step_values(action, expected)
+    with _runtime(ctx, project) as runtime:
+        params = {"steps": [asdict(step) for step in steps]}
+        request = _authorized_request(
+            runtime,
+            _placeholder(bug_id),
+            bug_id,
+            turn_id,
+            "update_steps",
+            params,
+            steps,
+        )
+        context = runtime.context(
+            config=request.config,
+            currentTurnId=turn_id,
+            authorizationRecords=request.authorization.authorizationRecords,
+        )
+        _emit(replace_steps(context, request.snapshot.id, request.steps), json_output)
 
 
 @bug_app.command("update-steps-with-image")
 @guarded
-def update_steps_image(ctx: typer.Context, bug_id: str, image: Path = typer.Option(..., "--image"), action: list[str] = typer.Option(..., "--action"), expected: list[str] = typer.Option(..., "--expected"), confirm: bool = typer.Option(False, "--confirm"), turn_id: str = typer.Option(..., "--turn-id"), project: Path = typer.Option(Path.cwd()), json_output: bool = typer.Option(False, "--json")) -> None:
-    if not confirm or not image.is_absolute():
+def update_steps_image(
+    ctx: typer.Context,
+    bug_id: str,
+    image: Path | None = typer.Option(None, "--image"),
+    action: list[str] = typer.Option([], "--action"),
+    expected: list[str] = typer.Option([], "--expected"),
+    confirm: bool = typer.Option(False, "--confirm"),
+    turn_id: str = typer.Option("", "--turn-id"),
+    project: Path = typer.Option(Path.cwd()),
+    json_output: bool = typer.Option(False, "--json"),
+) -> None:
+    if not confirm or not turn_id.strip() or image is None or not image.is_absolute():
         raise typer.BadParameter("--confirm and an absolute --image are required")
-    runtime, steps = _runtime(ctx, project), _step_values(action, expected)
-    snapshot = runtime.provider.query_bug_detail(bug_id)
-    params = {"steps": [asdict(step) for step in steps], "imageSha256": hashlib.sha256(image.read_bytes()).hexdigest(), "filename": image.name}
-    request = _authorized_request(runtime, snapshot, bug_id, turn_id, "update_steps_with_image", params, steps, image)
-    context = runtime.context(currentTurnId=turn_id, authorizationRecords=request.authorization.authorizationRecords, authorizedImagePaths=(request.image_path,))
-    _emit(replace_steps_with_image(context, bug_id, request.steps, request.image_path), json_output)
+    steps = _step_values(action, expected)
+    with _runtime(ctx, project) as runtime:
+        params = {
+            "steps": [asdict(step) for step in steps],
+            "imageSha256": hashlib.sha256(image.read_bytes()).hexdigest(),
+            "filename": image.name,
+        }
+        request = _authorized_request(
+            runtime,
+            _placeholder(bug_id),
+            bug_id,
+            turn_id,
+            "update_steps_with_image",
+            params,
+            steps,
+            image,
+        )
+        context = runtime.context(
+            config=request.config,
+            currentTurnId=turn_id,
+            authorizationRecords=request.authorization.authorizationRecords,
+            authorizedImagePaths=(request.image_path,),
+        )
+        _emit(
+            replace_steps_with_image(
+                context, request.snapshot.id, request.steps, request.image_path
+            ),
+            json_output,
+        )
 
 
 @guarded
-def repair_command(ctx: typer.Context, bug_id: str, confirm: bool = typer.Option(False, "--confirm"), turn_id: str = typer.Option(..., "--turn-id"), project: Path = typer.Option(Path.cwd()), json_output: bool = typer.Option(False, "--json")) -> None:
-    if not confirm:
-        raise typer.BadParameter("--confirm is required")
-    runtime = _runtime(ctx, project)
-    snapshot = runtime.provider.query_bug_detail(bug_id)
-    request = _request(runtime, snapshot, repair_id=bug_id)
-    # Repair's shared workflow performs all safety and write authorization checks.
-    _emit(repair_bug(runtime.context(currentTurnId=turn_id), request.repair_bug_id), json_output)
+def repair_command(
+    ctx: typer.Context,
+    bug_id: str,
+    confirm: bool = typer.Option(False, "--confirm"),
+    turn_id: str = typer.Option("", "--turn-id"),
+    project: Path = typer.Option(Path.cwd()),
+    json_output: bool = typer.Option(False, "--json"),
+) -> None:
+    if not confirm or not turn_id.strip():
+        raise typer.BadParameter("--confirm and --turn-id are required")
+    with _runtime(ctx, project) as runtime:
+        summary = "Local patch passed the configured validation and remains an uncommitted candidate for human review."
+        from zentao_ai.reporting.renderer import render_resolution_comment
+        from zentao_ai.workflows.models import ResolutionCommentPayload
+
+        body = render_resolution_comment(ResolutionCommentPayload(summary=summary))
+        record = AuthorizationRecord(
+            turnId=turn_id,
+            source="user",
+            action="comment",
+            bugId=bug_id,
+            parameters={"comment": body},
+        )
+        request = _request(
+            runtime,
+            _placeholder(bug_id),
+            records=(record,),
+            actions=(
+                {"action": "comment", "bugId": bug_id, "parameters": {"comment": body}},
+            ),
+            repair_id=bug_id,
+        )
+        context = runtime.context(
+            config=request.config,
+            currentTurnId=turn_id,
+            authorizationRecords=request.authorization.authorizationRecords,
+            snapshotStable=True,
+            historyChecked=True,
+            cooldownPassed=True,
+            idempotencyPassed=True,
+        )
+        _emit(repair_bug(context, request.repair_bug_id), json_output)

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
 
 import typer
 
@@ -13,7 +12,7 @@ from .bug_commands import bug_app, bugs_app, repair_command
 from .config_commands import app as config_app
 from .doctor import doctor_command
 from .report_commands import app as report_app
-from .runtime import DependencyFactory, get_runtime, guarded
+from .runtime import emit, get_factory, guarded
 
 app = typer.Typer(help="Safe standalone Zentao AI assistant.", no_args_is_help=True)
 mcp_app = typer.Typer(help="MCP integration.")
@@ -34,26 +33,40 @@ def run(
     project: Path = typer.Option(Path.cwd(), "--project"),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
-    runtime = get_runtime(ctx.obj if isinstance(ctx.obj, DependencyFactory) else None, project)
     if dry_run:
-        payload: dict[str, Any] = {
+        plan = get_factory(ctx.obj).plan(project)
+        payload = {
             "status": "仅计划、未执行",
             "executed": False,
-            "operations": ["query_my_bugs", "query_bug_detail", "query_bug_history"],
-            "fields": ["scopeNames", "page", "pageSize", "bugId"],
+            "operations": list(plan.operations),
+            "fields": list(plan.fields),
+            "scopeNames": list(plan.config.personal.scopeNames),
         }
-        typer.echo(json.dumps(payload, ensure_ascii=False) if json_output else f'{payload["status"]}: ' + " -> ".join(payload["operations"]))
+        emit(payload, json_output, label="Plan (not executed)")
         return
-    result = run_personal(runtime.context())
-    typer.echo(json.dumps(result.to_v2_payload(), ensure_ascii=False, default=str) if json_output else str(result))
-    if result.completeness != "COMPLETE":
-        raise typer.Exit(3)
+    with get_factory(ctx.obj)(project) as runtime:
+        from .bug_commands import _placeholder, _request
+
+        request = _request(runtime, _placeholder())
+        result = run_personal(runtime.context(config=request.config))
+        emit(result.to_v2_payload(), json_output)
+        if result.completeness != "COMPLETE":
+            raise typer.Exit(3)
 
 
 @mcp_app.command("serve")
-def mcp_serve() -> None:
+def mcp_serve(json_output: bool = typer.Option(False, "--json")) -> None:
     """Delegate to the MCP server supplied by the next delivery task."""
-    typer.echo("MCP server delegation is not installed", err=True)
+    if json_output:
+        from .runtime import failure
+
+        typer.echo(
+            json.dumps(
+                failure(2, "unavailable", "MCP server delegation is not installed")
+            )
+        )
+    else:
+        typer.echo("MCP server delegation is not installed", err=True)
     raise typer.Exit(2)
 
 
