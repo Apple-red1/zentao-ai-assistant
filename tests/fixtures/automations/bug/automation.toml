@@ -1,0 +1,10 @@
+name = "脱敏团队 Bug 汇总 fixture"
+rrule = "FREQ=DAILY;BYHOUR=8;BYMINUTE=0"
+cwds = ["${PROJECT_ROOT}"]
+prompt = """
+读取 ${PROJECT_ROOT}/tests/fixtures/config/valid.yaml 的 team.scopeNames，
+使用 scripts/render-report.py --mode team 生成团队报告，全程严格只读。
+"""
+
+[target]
+project_id = "${PROJECT_ROOT}"

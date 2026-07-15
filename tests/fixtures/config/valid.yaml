@@ -1,0 +1,11 @@
+{
+  "baseUrl": "https://zentao.example.invalid",
+  "account": "fixture-user",
+  "password": "fixture-password-not-a-secret",
+  "personal": {
+    "scopeNames": ["example-web", "example-api", "example-ai-web", "example-ai-api"]
+  },
+  "team": {
+    "scopeNames": ["example-web", "example-ai-web", "example-lowcode"]
+  }
+}

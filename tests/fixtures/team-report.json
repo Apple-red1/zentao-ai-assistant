@@ -1,0 +1,23 @@
+{
+  "run": {
+    "businessDate": "2099-01-02",
+    "snapshotCutoff": "2099-01-02T08:00:00+08:00",
+    "executionMode": "只读",
+    "writeOperations": "未执行"
+  },
+  "coverage": {
+    "members": [
+      {"name": "Example Member A", "unclosedCandidates": 1, "p1": 0, "stale7Days": 0},
+      {"name": "Example Member B", "unclosedCandidates": 0, "p1": 0, "stale7Days": 0},
+      {"name": "Example Member C", "unclosedCandidates": 1, "p1": 0, "stale7Days": 0},
+      {"name": "Example Member D", "unclosedCandidates": 1, "p1": 0, "stale7Days": 0}
+    ],
+    "completeness": "部分完成。Synthetic fixture includes intentionally unknown scope fields."
+  },
+  "candidateBugs": [
+    {"id": "BUG-1003", "title": "Synthetic editor field example", "assignee": "Example Member A", "status": "active", "priority": "P3"},
+    {"id": "BUG-1004", "title": "Synthetic click response example", "assignee": "Example Member C", "status": "resolved", "priority": "P3"},
+    {"id": "BUG-1005", "title": "Synthetic image dialog example", "assignee": "Example Member D", "status": "resolved", "priority": "P3"}
+  ],
+  "leaseSummary": "Synthetic team lease released; no comment, Bug, or code write occurred."
+}
