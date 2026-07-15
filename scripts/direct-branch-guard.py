@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 import unicodedata
@@ -44,6 +45,9 @@ def main() -> int:
     try:
         config_path = Path(args.config).resolve(strict=True)
         config = load_config(config_path)
+    except (OSError, ValueError, TypeError):
+        return output(["CONFIG_INVALID"])
+    try:
         raw = json.loads(args.scope_json)
         if not isinstance(raw, dict):
             raise ValueError("scope must be object")
@@ -52,8 +56,8 @@ def main() -> int:
             for value in raw.values()
             if isinstance(value, (str, int)) and norm(value)
         }
-    except (OSError, ValueError, TypeError, json.JSONDecodeError):
-        return output(["CONFIG_INVALID"])
+    except (ValueError, TypeError, json.JSONDecodeError):
+        return output(["SCOPE_JSON_INVALID"])
     matches = [
         (key, item)
         for key, item in config.repositories.items()
@@ -70,6 +74,9 @@ def main() -> int:
     repository_path = Path(item.path)
     if not repository_path.is_absolute():
         repository_path = config_path.parent / repository_path
+    repository_path = repository_path.resolve()
+    normalized_path = unicodedata.normalize("NFC", repository_path.as_posix()).casefold()
+    legacy_repository_key = hashlib.sha256(normalized_path.encode("utf-8")).hexdigest()
     result = preflight_repository(
         RepositoryMapping(
             repository=item.repository,
@@ -84,8 +91,8 @@ def main() -> int:
         result.reasons,
         scopeName=key,
         matchedRepositoryCount=1,
-        repositoryKey=key,
-        repositoryName=item.repository,
+        repositoryKey=legacy_repository_key,
+        repositoryName=repository_path.name,
         repositoryPath=result.path,
         upstream=result.upstream,
         dirtyEntryCount=result.dirtyEntryCount,

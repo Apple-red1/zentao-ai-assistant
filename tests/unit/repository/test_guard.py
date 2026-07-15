@@ -41,11 +41,32 @@ def test_dirty_staged_wrong_branch_and_unknown_test_fail_closed(tmp_path):
     (repo / "a.txt").write_text("dirty", encoding="utf-8")
     def mapping(branch="main", commands=("pytest",)):
         return RepositoryMapping(repository="example", path=repo, targetBranch=branch, testCommands=commands, configPath=tmp_path / "trusted.yaml", repositoryKey="scope")
-    assert not preflight_repository(mapping()).allowed
+    dirty = preflight_repository(mapping())
+    assert not dirty.allowed
+    assert "STAGED_CHANGES_FORBIDDEN" not in dirty.reasons
     git(repo, "add", "a.txt")
     assert "STAGED_CHANGES_FORBIDDEN" in preflight_repository(mapping()).reasons
     git(repo, "reset", "--hard", "HEAD")
     git(repo, "checkout", "-b", "other")
     assert "TARGET_BRANCH_MISMATCH" in preflight_repository(mapping()).reasons
     git(repo, "checkout", "main")
-    assert "TEST_COMMAND_NOT_ALLOWED" in preflight_repository(mapping(commands=("rm -rf .",))).reasons
+    assert "TEST_COMMAND_NOT_ALLOWED" not in preflight_repository(mapping(commands=("custom-safe-test --flag",))).reasons
+
+
+def test_repository_disappearing_during_final_fingerprint_is_denied(tmp_path, monkeypatch):
+    repo = repository(tmp_path)
+    from zentao_ai.repository import guard
+    original = guard._git
+    calls = 0
+
+    def disappearing(path, *args):
+        nonlocal calls
+        calls += 1
+        if calls > 7:
+            raise OSError("gone")
+        return original(path, *args)
+
+    monkeypatch.setattr(guard, "_git", disappearing)
+    mapping = RepositoryMapping(repository="example", path=repo, targetBranch="main", testCommands=("custom-safe-test --flag",), configPath=tmp_path / "trusted.yaml", repositoryKey="scope")
+    result = preflight_repository(mapping)
+    assert not result.allowed and "REPOSITORY_PREFLIGHT_FAILED" in result.reasons

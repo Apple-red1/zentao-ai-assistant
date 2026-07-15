@@ -1,3 +1,4 @@
+import hashlib
 import json
 import subprocess
 import sys
@@ -43,6 +44,9 @@ def test_golden_success_reads_config_and_selects_unique_repository(tmp_path: Pat
     assert payload["ok"] and payload["matchedRepositoryCount"] == 1
     assert payload["upstream"] == "origin/main"
     assert payload["dirtyEntryCount"] == 0
+    normalized = str(repo.resolve()).replace("\\", "/").casefold()
+    assert payload["repositoryKey"] == hashlib.sha256(normalized.encode()).hexdigest()
+    assert payload["repositoryName"] == repo.name
 
 
 def test_golden_no_match_and_invalid_config(tmp_path: Path):
@@ -62,3 +66,11 @@ def test_golden_ambiguous_scope_is_rejected(tmp_path: Path):
     config.write_text(yaml.safe_dump(data), encoding="utf-8")
     result = run(config, {"product": "Example Site Admin", "project": "Other"})
     assert result.returncode == 2 and json.loads(result.stdout)["reasonCodes"] == ["REPOSITORY_SCOPE_AMBIGUOUS"]
+
+
+def test_golden_malformed_scope_has_distinct_legacy_reason(tmp_path: Path):
+    _, config = setup(tmp_path)
+    for raw in ("{", "[]"):
+        result = subprocess.run([sys.executable, str(SCRIPT), "preflight", "--config", str(config), "--scope-json", raw], text=True, capture_output=True)
+        assert result.returncode == 2
+        assert json.loads(result.stdout)["reasonCodes"] == ["SCOPE_JSON_INVALID"]

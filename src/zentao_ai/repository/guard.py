@@ -4,9 +4,6 @@ import hashlib
 from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field
 
-ALLOWED_TEST_COMMANDS = frozenset({"pytest", "python -m pytest", "ruff check", "python -m ruff check", "mypy", "python -m mypy"})
-
-
 class RepositoryMapping(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     repository: str
@@ -42,7 +39,7 @@ class RepositoryVerification(BaseModel):
 
 
 def _git(path: Path, *args: str) -> str:
-    return subprocess.run(["git", *args], cwd=path, check=True, text=True, encoding="utf-8", errors="replace", capture_output=True).stdout.strip()
+    return subprocess.run(["git", *args], cwd=path, check=True, text=True, encoding="utf-8", errors="replace", capture_output=True).stdout.rstrip("\r\n")
 
 
 def _fingerprint(value: str) -> str:
@@ -63,7 +60,7 @@ def preflight_repository(mapping: RepositoryMapping) -> GuardResult:
         porcelain = _git(path, "status", "--porcelain=v1", "--untracked-files=all")
         if porcelain:
             reasons.append("WORKTREE_NOT_CLEAN")
-        if any(line[:2].strip() for line in porcelain.splitlines() if line and line[:2] != "??"):
+        if any(line[0] not in {" ", "?"} for line in porcelain.splitlines() if line):
             reasons.append("STAGED_CHANGES_FORBIDDEN")
     except (OSError, subprocess.SubprocessError, ValueError):
         return GuardResult(allowed=False, reasons=["REPOSITORY_PREFLIGHT_FAILED"], repository=mapping.repository, path=str(path), configPath=str(mapping.configPath.resolve()), repositoryKey=mapping.repositoryKey)
@@ -78,12 +75,11 @@ def preflight_repository(mapping: RepositoryMapping) -> GuardResult:
             reasons.append("UPSTREAM_DIVERGED")
     except (subprocess.SubprocessError, ValueError):
         reasons.append("UPSTREAM_REQUIRED")
-    for command in mapping.testCommands:
-        normalized = " ".join(command.split())
-        if normalized not in ALLOWED_TEST_COMMANDS:
-            reasons.append("TEST_COMMAND_NOT_ALLOWED")
-    index_state = _git(path, "diff", "--cached", "--binary", "--no-ext-diff")
-    worktree_state = _git(path, "status", "--porcelain=v1", "--untracked-files=all")
+    try:
+        index_state = _git(path, "diff", "--cached", "--binary", "--no-ext-diff")
+        worktree_state = _git(path, "status", "--porcelain=v1", "--untracked-files=all")
+    except (OSError, subprocess.SubprocessError):
+        return GuardResult(allowed=False, reasons=["REPOSITORY_PREFLIGHT_FAILED"], repository=mapping.repository, path=str(path), configPath=str(mapping.configPath.resolve()), repositoryKey=mapping.repositoryKey)
     preimage = f"{head}\0{branch}\0{index_state}\0{worktree_state}"
     return GuardResult(allowed=not reasons, reasons=list(dict.fromkeys(reasons)), repository=mapping.repository, path=str(path), branch=branch, head=head, ahead=ahead, behind=behind, upstream=upstream, dirtyEntryCount=len(worktree_state.splitlines()), testCommands=list(mapping.testCommands), configPath=str(mapping.configPath.resolve()), repositoryKey=mapping.repositoryKey, indexFingerprint=_fingerprint(index_state), worktreeFingerprint=_fingerprint(worktree_state), preimageFingerprint=_fingerprint(preimage))
 

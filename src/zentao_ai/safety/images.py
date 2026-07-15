@@ -12,6 +12,8 @@ class CurrentTurnAuthorization(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     paths: tuple[Path, ...] = ()
     source: str = "user"
+    authorizationTurnId: str | None = None
+    currentTurnId: str | None = None
 
 
 class ImageValidationResult(BaseModel):
@@ -24,6 +26,8 @@ def validate_user_image(path: Path, authorization: CurrentTurnAuthorization) -> 
     reasons: list[str] = []
     if not path.is_absolute():
         return ImageValidationResult(valid=False, reasons=["ABSOLUTE_PATH_REQUIRED"], path=str(path))
+    if not authorization.authorizationTurnId or authorization.authorizationTurnId != authorization.currentTurnId:
+        reasons.append("CURRENT_TURN_AUTHORIZATION_REQUIRED")
     normalized = Path(os.path.normcase(str(path.resolve(strict=False))))
     normalized_values = [Path(os.path.normcase(str(item.resolve(strict=False)))) for item in authorization.paths if item.is_absolute()]
     approved = set(normalized_values)

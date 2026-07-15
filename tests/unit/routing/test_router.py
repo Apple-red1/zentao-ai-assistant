@@ -38,7 +38,8 @@ def test_backend_keywords_are_case_insensitive(tmp_path):
 
 def test_exact_scope_is_unicode_casefolded_and_requires_layer(tmp_path):
     assert route_bug(BugSnapshot(identifier="x", title="UI", scope="SITE"), config(tmp_path)).selectedRepository == "example-web"
-    assert route_bug(BugSnapshot(identifier="x", title="unknown", scope="SITE"), config(tmp_path)).selectedRepository is None
+    exact = route_bug(BugSnapshot(identifier="x", title="unknown", scope="SITE"), config(tmp_path))
+    assert exact.selectedRepository == "example-web" and exact.confidence == 1.0
 
 
 def test_marker_uses_token_boundaries_and_does_not_match_email(tmp_path):

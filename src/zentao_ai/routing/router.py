@@ -24,6 +24,6 @@ def route_bug(snapshot: BugSnapshot, config: AppConfig) -> RoutingDecision:
         if any(marker and present(marker) for marker in markers):
             candidates.append(mapping.repository)
     candidates = list(dict.fromkeys(candidates))
-    selected = candidates[0] if len(candidates) == 1 and layer is not None else None
+    selected = candidates[0] if len(candidates) == 1 and (bool(exact_keys) or layer is not None) else None
     exact_selected = selected is not None and bool(exact_keys)
     return RoutingDecision(candidates=candidates, layer=layer, selectedRepository=selected, matchedKeywords=matches, confidence=1.0 if exact_selected else 0.8 if selected else 0.0, reasons=["EXACT_CONFIGURED_SCOPE"] if exact_selected else ["UNIQUE_MARKER_AND_LAYER"] if selected else ["ROUTING_NOT_UNIQUE"])
