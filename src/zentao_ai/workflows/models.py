@@ -249,6 +249,7 @@ class RunContext:
     dryRun: bool = False
     readonly: bool = False
     scheduled: bool = False
+    team: bool = False
     currentTurnId: str | None = None
     authorizationRecords: tuple[AuthorizationRecord, ...] = ()
     authorizedImagePaths: tuple[Path, ...] = ()

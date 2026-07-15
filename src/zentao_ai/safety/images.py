@@ -29,6 +29,7 @@ class ImageValidationResult(BaseModel):
     content: bytes | None = None
     sha256: str | None = None
     filename: str | None = None
+    fileIdentity: tuple[int, int, int, int] | None = None
 
 
 def validate_user_image(
@@ -97,6 +98,11 @@ def validate_user_image(
     except OSError:
         reasons.append("IMAGE_READ_FAILED")
     artifact = content if not reasons and "content" in locals() else None
+    identity = (
+        (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
+        if artifact is not None and "after" in locals()
+        else None
+    )
     return ImageValidationResult(
         valid=not reasons,
         reasons=list(dict.fromkeys(reasons)),
@@ -104,4 +110,15 @@ def validate_user_image(
         content=artifact,
         sha256=hashlib.sha256(artifact).hexdigest() if artifact is not None else None,
         filename=path.name if artifact is not None else None,
+        fileIdentity=identity,
     )
+
+
+def image_artifact_is_current(path: Path, result: ImageValidationResult) -> bool:
+    if result.fileIdentity is None:
+        return False
+    try:
+        stat = path.stat()
+    except OSError:
+        return False
+    return (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns) == result.fileIdentity

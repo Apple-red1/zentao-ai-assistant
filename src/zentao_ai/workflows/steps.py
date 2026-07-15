@@ -8,7 +8,11 @@ from typing import Literal
 
 from zentao_ai.safety.actions import ActionRequest, AuthorizationContext
 from zentao_ai.safety.authorization import authorize
-from zentao_ai.safety.images import CurrentTurnAuthorization, validate_user_image
+from zentao_ai.safety.images import (
+    CurrentTurnAuthorization,
+    image_artifact_is_current,
+    validate_user_image,
+)
 from zentao_ai.zentao.models import StepUpdateResult
 
 from .models import RunContext
@@ -21,8 +25,15 @@ class ReproductionStep:
 
 
 def _complete_steps(steps: tuple[ReproductionStep, ...]) -> str:
-    if not steps or any(
-        not step.action.strip() or not step.expected.strip() for step in steps
+    if not isinstance(steps, tuple) or not steps:
+        raise ValueError("ordered action and expected result are required")
+    if any(
+        not isinstance(step, ReproductionStep)
+        or not isinstance(step.action, str)
+        or not isinstance(step.expected, str)
+        or len(step.action.strip()) < 3
+        or len(step.expected.strip()) < 3
+        for step in steps
     ):
         raise ValueError("ordered action and expected result are required")
     return json.dumps(
@@ -36,7 +47,7 @@ def _permit(
     bug_id: int | str,
     parameters: dict[str, object],
 ) -> None:
-    if context.dryRun or context.readonly:
+    if context.dryRun or context.readonly or context.team:
         raise PermissionError("write disabled")
     auth = AuthorizationContext(
         scheduled=context.scheduled,
@@ -79,6 +90,8 @@ def replace_steps_with_image(
         raise PermissionError(",".join(validation.reasons))
     if validation.content is None or validation.filename is None:
         raise PermissionError("IMAGE_ARTIFACT_REQUIRED")
+    if not image_artifact_is_current(path, validation):
+        raise PermissionError("IMAGE_CHANGED_AFTER_VALIDATION")
     params: dict[str, object] = {
         "steps": [asdict(step) for step in steps],
         "imageSha256": validation.sha256,
