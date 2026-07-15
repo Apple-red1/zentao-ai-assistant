@@ -1,7 +1,7 @@
 {
-  "name": "personal",
+  "name": "zentao-team",
   "interface": {
-    "displayName": "Personal"
+    "displayName": "Zentao Team"
   },
   "plugins": [
     {

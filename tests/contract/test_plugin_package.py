@@ -74,7 +74,8 @@ def test_cli_and_configured_mcp_backend_are_importable_smoke() -> None:
 
 def test_marketplace_entry_is_team_installable() -> None:
     market = load_json(ROOT / ".agents" / "plugins" / "marketplace.json")
-    assert market["name"] == "personal"
+    assert market["name"] == "zentao-team"
+    assert market["interface"] == {"displayName": "Zentao Team"}
     entry = next(item for item in market["plugins"] if item["name"] == "zentao-ai-bug")
     assert entry["source"] == {"source": "local", "path": "./plugins/zentao-ai-bug"}
     assert entry["policy"] == {"installation": "AVAILABLE", "authentication": "ON_INSTALL"}
@@ -95,6 +96,16 @@ def test_plugin_wrappers_are_thin_import_only_entrypoints() -> None:
         assert module in imports
         assert "sys.path" not in path.read_text(encoding="utf-8")
         assert len(path.read_text(encoding="utf-8").splitlines()) <= 15
+
+    index = subprocess.run(
+        ["git", "ls-files", "--stage", "plugins/zentao-ai-bug/scripts"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=True,
+    ).stdout.splitlines()
+    assert len(index) == len(expected)
+    assert all(line.startswith("100755 ") for line in index)
 
 
 def test_repository_guard_has_an_installed_cli_entrypoint() -> None:
@@ -124,16 +135,21 @@ def test_wrappers_report_clear_install_error_when_package_is_unavailable() -> No
 def test_installation_document_covers_supported_plugin_flow() -> None:
     text = (ROOT / "docs" / "plugin-installation.md").read_text(encoding="utf-8")
     for required in (
-        "pipx install zentao-ai-assistant",
+        "pipx install .",
         "pipx install git+https://github.com/wwtweiwenting/zentao-ai-assistant.git@",
         "codex plugin marketplace add",
-        "codex plugin add zentao-ai-bug@personal",
+        "zentao-team",
+        "Codex app",
         "Windows",
         "macOS",
         "Linux",
         "new task",
     ):
         assert required in text
+    assert "codex plugin add" not in text
+    assert "pipx install zentao-ai-assistant" not in text
+    assert "尚未发布到 PyPI" in text
+    assert "仓库公开发布后" in text
     assert not re.search(r"(?i)(password|token|cookie|secret)\s*[:=]\s*\S+", text)
 
 
