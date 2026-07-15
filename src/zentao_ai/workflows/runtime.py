@@ -103,16 +103,23 @@ def execute_read_workflow(
                 total_known = False
             else:
                 total += first_page.coverage.total
-            pages = [first_page]
-            page_number = 2
-            while (
-                pages[-1].items
-                and (pages[-1].coverage.pages or 1) >= page_number
-                and discovered < limit
-            ):
-                pages.append(source(page_number, min(100, limit - discovered)))
-                page_number += 1
-            for page in pages:
+            expected = first_page.coverage
+            page_count = expected.pages or (
+                (expected.total + expected.page_size - 1) // expected.page_size
+                if expected.page_size
+                else 1
+            )
+            page = first_page
+            page_number = 1
+            while True:
+                coverage = page.coverage
+                if (
+                    coverage.total != expected.total
+                    or coverage.page_size != expected.page_size
+                    or coverage.pages != expected.pages
+                    or coverage.total < len(page.items)
+                ):
+                    total_known = False
                 for listed in page.items:
                     if discovered >= limit:
                         break
@@ -142,6 +149,10 @@ def execute_read_workflow(
                         raise
                     except Exception as exc:
                         failures.append(Failure(key, type(exc).__name__, str(exc)))
+                page_number += 1
+                if not page.items or page_number > page_count or discovered >= limit:
+                    break
+                page = source(page_number, min(100, limit - discovered))
         truncated = (not total_known) or total > discovered
         completeness = "COMPLETE" if not failures and not truncated else "PARTIAL"
         result = RunResult(
