@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import typer
@@ -55,19 +54,14 @@ def run(
 
 
 @mcp_app.command("serve")
-def mcp_serve(json_output: bool = typer.Option(False, "--json")) -> None:
-    """Delegate to the MCP server supplied by the next delivery task."""
-    if json_output:
-        from .runtime import failure
+def mcp_serve(
+    ctx: typer.Context,
+    project: Path = typer.Option(Path.cwd(), "--project"),
+) -> None:
+    """Run the built-in stdio MCP server; stdout is reserved for protocol frames."""
+    from zentao_ai.mcp_server.server import serve
 
-        typer.echo(
-            json.dumps(
-                failure(2, "unavailable", "MCP server delegation is not installed")
-            )
-        )
-    else:
-        typer.echo("MCP server delegation is not installed", err=True)
-    raise typer.Exit(2)
+    serve(project, get_factory(ctx.obj))
 
 
 app.add_typer(mcp_app, name="mcp")
@@ -78,3 +72,7 @@ def main() -> None:
         app()
     except KeyboardInterrupt:
         raise SystemExit(130) from None
+
+
+if __name__ == "__main__":
+    main()

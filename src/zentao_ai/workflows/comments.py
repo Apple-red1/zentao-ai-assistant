@@ -22,9 +22,13 @@ def canonical_resolution_comment(text: str) -> str:
 
 
 def _write_comment(
-    context: RunContext, snapshot: BugSnapshot, body: str
+    context: RunContext,
+    snapshot: BugSnapshot,
+    body: str,
+    *,
+    idempotency_key: str | None = None,
 ) -> CommentResult:
-    key = hashlib.sha256(
+    key = idempotency_key or hashlib.sha256(
         f"{snapshot.id}\0{snapshot.snapshot_version}\0{body}".encode()
     ).hexdigest()
     auth = AuthorizationContext(
