@@ -129,7 +129,19 @@ def test_wrappers_report_clear_install_error_when_package_is_unavailable() -> No
         check=False,
     )
     assert isolated.returncode != 0
-    assert "pipx install zentao-ai-assistant" in isolated.stderr
+    assert (
+        "Clone the repository, then run: pipx install . from the repository root. "
+        "See docs/plugin-installation.md."
+    ) in isolated.stderr
+
+
+def test_plugin_and_install_docs_never_claim_an_unpublished_pypi_install() -> None:
+    files = [
+        *sorted((PLUGIN / "scripts").glob("*.py")),
+        ROOT / "docs" / "plugin-installation.md",
+    ]
+    for path in files:
+        assert "pipx install zentao-ai-assistant" not in path.read_text(encoding="utf-8")
 
 
 def test_installation_document_covers_supported_plugin_flow() -> None:
