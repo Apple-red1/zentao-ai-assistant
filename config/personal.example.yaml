@@ -1,0 +1,13 @@
+configVersion: 1
+zentao:
+  baseUrl: https://zentao.example.invalid
+  account: example-user
+  token: ${ZENTAO_TOKEN}
+personal:
+  scopeNames: [example-personal]
+repositories:
+  example-personal:
+    repository: example-repository
+    path: repos/example-personal
+    targetBranch: main
+    testCommands: [pytest]
