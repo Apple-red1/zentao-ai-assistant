@@ -22,7 +22,8 @@ from zentao_ai.zentao.models import (
 
 class AnalysisPhase(str, Enum):
     PRECHECK = "PRECHECK"
-    FINAL = "FINAL"
+    FINAL_DECISION = "FINAL_DECISION"
+    FINAL = "FINAL_DECISION"
 
 
 class Decision(str, Enum):
