@@ -1,151 +1,246 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import TypeVar
+
 from .analysis import analyze_bug
-from .models import AnalysisPhase, Decision, PatchOutcome, RepairResult, RunContext
-from .models import ResolutionCommentPayload, TestResult
 from .comments import write_resolution_comment
+from .models import (
+    AnalysisPhase,
+    Decision,
+    PatchOutcome,
+    RepairResult,
+    ResolutionCommentPayload,
+    RunContext,
+    TestResult,
+)
+
+
+def _failure(
+    bug_id: int | str,
+    decision: Decision,
+    reason: str,
+    *,
+    retained: bool = False,
+    tests: tuple[TestResult, ...] = (),
+) -> RepairResult:
+    return RepairResult(
+        str(bug_id),
+        decision,
+        localChangesRetained=retained,
+        reasons=(reason,),
+        testResults=tests,
+    )
+
+
+T = TypeVar("T")
+
+
+def _attempt(operation: Callable[[], T]) -> tuple[bool, T | None]:
+    """Run an external port operation without swallowing process control signals."""
+    try:
+        return True, operation()
+    except Exception:
+        return False, None
 
 
 def repair_bug(context: RunContext, bug_id: int | str) -> RepairResult:
-    if (
-        context.dryRun
-        or context.readonly
-        or not context.config.permissions.codeWriteEnabled
-    ):
-        return RepairResult(
-            str(bug_id),
-            Decision.TOOL_OR_PERMISSION_GAP,
-            reasons=("CODE_WRITE_DISABLED",),
+    """Produce a local, uncommitted repair candidate through safety-gated ports."""
+    if context.dryRun or context.readonly or not context.config.permissions.codeWriteEnabled:
+        return _failure(
+            bug_id, Decision.TOOL_OR_PERMISSION_GAP, "CODE_WRITE_DISABLED"
         )
-    first = context.provider.query_bug_detail(bug_id)
-    history = context.provider.query_bug_history(bug_id, page=1, page_size=100).items
-    pre = analyze_bug(
-        first,
-        history,
-        AnalysisPhase.PRECHECK,
-        signal=context.analysis(first, history, AnalysisPhase.PRECHECK)
-        if context.analysis
-        else None,
+
+    ok, first = _attempt(lambda: context.provider.query_bug_detail(bug_id))
+    if not ok:
+        return _failure(bug_id, Decision.TOOL_OR_PERMISSION_GAP, "SNAPSHOT_QUERY_FAILED")
+    ok, history_page = _attempt(
+        lambda: context.provider.query_bug_history(bug_id, page=1, page_size=100)
     )
-    if (
-        pre.decision is not Decision.PROCEED_TO_EVIDENCE
-        or first.routing is None
-        or first.routing.selected_repository is None
-        or first.routing.confidence != 1.0
-        or len(first.routing.repositories) != 1
-    ):
+    if not ok:
+        return _failure(bug_id, Decision.TOOL_OR_PERMISSION_GAP, "HISTORY_QUERY_FAILED")
+    assert history_page is not None
+    history = history_page.items
+
+    ok, pre = _attempt(
+        lambda: analyze_bug(
+            first,
+            history,
+            AnalysisPhase.PRECHECK,
+            signal=context.analysis(first, history, AnalysisPhase.PRECHECK)
+            if context.analysis
+            else None,
+        )
+    )
+    if not ok:
+        return _failure(
+            bug_id, Decision.NEEDS_ENGINEER_REVIEW, "PRECHECK_ANALYSIS_FAILED"
+        )
+    assert pre is not None
+    if pre.decision is not Decision.PROCEED_TO_EVIDENCE:
         return RepairResult(
             str(bug_id),
-            Decision.TOOL_OR_PERMISSION_GAP,
-            reasons=("ROUTING_NOT_TRUSTED",),
+            pre.decision,
+            reasons=pre.reasons,
+        )
+
+    assert first is not None
+    routing = first.routing
+    if (
+        routing is None
+        or routing.selected_repository is None
+        or routing.confidence != 1.0
+        or len(routing.repositories) != 1
+        or routing.repositories[0] != routing.selected_repository
+    ):
+        return _failure(
+            bug_id, Decision.TOOL_OR_PERMISSION_GAP, "ROUTING_NOT_TRUSTED"
         )
     if context.repository is None or context.patchExecutor is None:
-        return RepairResult(
-            str(bug_id),
-            Decision.TOOL_OR_PERMISSION_GAP,
-            reasons=("PORT_NOT_CONFIGURED",),
-        )
-    try:
-        lease = context.repository.preflight(context.config, first.routing)
-    except Exception:
-        return RepairResult(
-            str(bug_id),
-            Decision.TOOL_OR_PERMISSION_GAP,
-            reasons=("REPOSITORY_PREFLIGHT_FAILED",),
-        )
-    if getattr(lease, "allowed", True) is False:
-        return RepairResult(
-            str(bug_id),
-            Decision.TOOL_OR_PERMISSION_GAP,
-            reasons=("REPOSITORY_PREFLIGHT_FAILED",),
-        )
-    selected = first.routing.selected_repository
+        return _failure(bug_id, Decision.TOOL_OR_PERMISSION_GAP, "PORT_NOT_CONFIGURED")
+    repository = context.repository
+    patch_executor = context.patchExecutor
+
+    selected = routing.selected_repository
     mappings = [
         value
         for value in context.config.repositories.values()
         if value.repository == selected
     ]
     if len(mappings) != 1 or not mappings[0].testCommands:
-        return RepairResult(
-            str(bug_id),
-            Decision.TOOL_OR_PERMISSION_GAP,
-            reasons=("TEST_WHITELIST_REQUIRED",),
+        return _failure(
+            bug_id, Decision.TOOL_OR_PERMISSION_GAP, "TEST_WHITELIST_REQUIRED"
         )
-    if context.patchExecutor.reproduce(lease, first):
-        return RepairResult(
-            str(bug_id),
-            Decision.NEEDS_ENGINEER_REVIEW,
-            reasons=("REPRODUCTION_DID_NOT_FAIL",),
+
+    ok, lease = _attempt(lambda: repository.preflight(context.config, routing))
+    if not ok or lease is None:
+        return _failure(
+            bug_id, Decision.TOOL_OR_PERMISSION_GAP, "REPOSITORY_PREFLIGHT_FAILED"
         )
-    outcome = context.patchExecutor.apply(lease, first)
-    if outcome is PatchOutcome.FAILED:
-        return RepairResult(
-            str(bug_id),
-            Decision.NEEDS_ENGINEER_REVIEW,
-            reasons=("PATCH_APPLICATION_FAILED",),
+    if getattr(lease, "allowed", False) is not True:
+        return _failure(bug_id, Decision.TOOL_OR_PERMISSION_GAP, "REPOSITORY_LEASE_DENIED")
+    if getattr(lease, "confined", True) is not True:
+        return _failure(
+            bug_id, Decision.TOOL_OR_PERMISSION_GAP, "REPOSITORY_CONFINEMENT_FAILED"
         )
-    tests_passed = (
-        context.patchExecutor.test(lease, tuple(mappings[0].testCommands))
-        if outcome is PatchOutcome.APPLIED
-        else False
+
+    ok, reproduction_passed = _attempt(
+        lambda: patch_executor.reproduce(lease, first)
     )
-    test_results = tuple(
-        TestResult(command, tests_passed) for command in mappings[0].testCommands
-    )
-    diff_safe = context.patchExecutor.diff_safe(lease)
-    if not tests_passed or not diff_safe:
-        return RepairResult(
-            str(bug_id),
+    if not ok:
+        return _failure(
+            bug_id, Decision.NEEDS_ENGINEER_REVIEW, "REPRODUCTION_FAILED"
+        )
+    if reproduction_passed:
+        return _failure(
+            bug_id, Decision.NEEDS_ENGINEER_REVIEW, "REPRODUCTION_DID_NOT_FAIL"
+        )
+
+    ok, outcome = _attempt(lambda: patch_executor.apply(lease, first))
+    if not ok or outcome is PatchOutcome.FAILED:
+        return _failure(
+            bug_id,
+            Decision.NEEDS_ENGINEER_REVIEW,
+            "PATCH_APPLICATION_FAILED",
+            retained=True,
+        )
+
+    commands = tuple(mappings[0].testCommands)
+    ok, tests_passed = _attempt(lambda: patch_executor.test(lease, commands))
+    if not ok:
+        tests = tuple(TestResult(command, False) for command in commands)
+        return _failure(
+            bug_id,
             Decision.PATCH_RETAINED_FOR_HUMAN_VALIDATION,
-            localChangesRetained=True,
-            reasons=("TEST_OR_DIFF_VALIDATION_FAILED",),
-            testResults=test_results,
+            "TEST_EXECUTION_FAILED",
+            retained=True,
+            tests=tests,
         )
-    second = context.provider.query_bug_detail(bug_id)
-    if (
-        second.snapshot_version != first.snapshot_version
-        or second.status != first.status
-        or second.assignee != first.assignee
-        or not context.repository.unchanged(lease)
-    ):
-        drift = (
-            "SNAPSHOT_VERSION_CHANGED"
-            if second.snapshot_version != first.snapshot_version
-            else "STATUS_CHANGED"
-            if second.status != first.status
-            else "ASSIGNEE_CHANGED"
-            if second.assignee != first.assignee
-            else "REPOSITORY_CHANGED"
+    tests = tuple(TestResult(command, bool(tests_passed)) for command in commands)
+    if not tests_passed or outcome is PatchOutcome.TESTS_FAILED:
+        return _failure(
+            bug_id,
+            Decision.PATCH_RETAINED_FOR_HUMAN_VALIDATION,
+            "WHITELIST_TESTS_FAILED",
+            retained=True,
+            tests=tests,
         )
-        return RepairResult(
-            str(bug_id),
+
+    ok, diff_safe = _attempt(lambda: patch_executor.diff_safe(lease))
+    if not ok:
+        return _failure(
+            bug_id,
+            Decision.PATCH_RETAINED_FOR_HUMAN_VALIDATION,
+            "DIFF_VALIDATION_FAILED",
+            retained=True,
+            tests=tests,
+        )
+    if not diff_safe:
+        return _failure(
+            bug_id,
+            Decision.PATCH_RETAINED_FOR_HUMAN_VALIDATION,
+            "UNSAFE_DIFF",
+            retained=True,
+            tests=tests,
+        )
+
+    ok, second = _attempt(lambda: context.provider.query_bug_detail(bug_id))
+    if not ok:
+        return _failure(
+            bug_id,
             Decision.NEEDS_ENGINEER_REVIEW,
-            localChangesRetained=True,
-            reasons=(drift,),
-            testResults=test_results,
+            "FRESH_SNAPSHOT_QUERY_FAILED",
+            retained=True,
+            tests=tests,
         )
-    fresh_history = context.provider.query_bug_history(
-        bug_id, page=1, page_size=100
-    ).items
-    if fresh_history != history:
-        return RepairResult(
-            str(bug_id),
-            Decision.NEEDS_ENGINEER_REVIEW,
-            localChangesRetained=True,
-            reasons=("HISTORY_CHANGED",),
-            testResults=test_results,
-        )
-    final = analyze_bug(
-        second,
-        fresh_history,
-        AnalysisPhase.FINAL,
-        signal=context.analysis(second, fresh_history, AnalysisPhase.FINAL)
-        if context.analysis
-        else None,
+    assert second is not None
+    if second.snapshot_version != first.snapshot_version:
+        return _failure(bug_id, Decision.NEEDS_ENGINEER_REVIEW, "SNAPSHOT_VERSION_CHANGED", retained=True, tests=tests)
+    if second.status != first.status:
+        return _failure(bug_id, Decision.NEEDS_ENGINEER_REVIEW, "STATUS_CHANGED", retained=True, tests=tests)
+    if second.assignee != first.assignee:
+        return _failure(bug_id, Decision.NEEDS_ENGINEER_REVIEW, "ASSIGNEE_CHANGED", retained=True, tests=tests)
+
+    ok, fresh_history_page = _attempt(
+        lambda: context.provider.query_bug_history(bug_id, page=1, page_size=100)
     )
-    comment_result = None
-    if final.decision is Decision.FIX_CANDIDATE:
-        comment_result = write_resolution_comment(
+    if not ok:
+        return _failure(bug_id, Decision.NEEDS_ENGINEER_REVIEW, "FRESH_HISTORY_QUERY_FAILED", retained=True, tests=tests)
+    assert fresh_history_page is not None
+    fresh_history = fresh_history_page.items
+    if fresh_history != history:
+        return _failure(bug_id, Decision.NEEDS_ENGINEER_REVIEW, "HISTORY_CHANGED", retained=True, tests=tests)
+
+    ok, repository_unchanged = _attempt(lambda: repository.unchanged(lease))
+    if not ok:
+        return _failure(bug_id, Decision.NEEDS_ENGINEER_REVIEW, "REPOSITORY_VALIDATION_FAILED", retained=True, tests=tests)
+    if not repository_unchanged:
+        return _failure(bug_id, Decision.NEEDS_ENGINEER_REVIEW, "REPOSITORY_CHANGED", retained=True, tests=tests)
+
+    ok, final = _attempt(
+        lambda: analyze_bug(
+            second,
+            fresh_history,
+            AnalysisPhase.FINAL,
+            signal=context.analysis(second, fresh_history, AnalysisPhase.FINAL)
+            if context.analysis
+            else None,
+        )
+    )
+    if not ok:
+        return _failure(bug_id, Decision.NEEDS_ENGINEER_REVIEW, "FINAL_ANALYSIS_FAILED", retained=True, tests=tests)
+    assert final is not None
+    if final.decision is not Decision.FIX_CANDIDATE:
+        return RepairResult(
+            str(bug_id),
+            final.decision,
+            localChangesRetained=True,
+            reasons=final.reasons,
+            testResults=tests,
+        )
+
+    ok, comment = _attempt(
+        lambda: write_resolution_comment(
             context,
             second,
             ResolutionCommentPayload(
@@ -153,21 +248,28 @@ def repair_bug(context: RunContext, bug_id: int | str) -> RepairResult:
                     "Local patch passed the configured validation and remains an "
                     "uncommitted candidate for human review."
                 ),
-                testResults=test_results,
+                testResults=tests,
             ),
         )
-    local_candidate = final.decision is Decision.FIX_CANDIDATE
-    comment_delivered = comment_result is not None and comment_result.status in {
-        "CREATED",
-        "ALREADY_EXISTS",
-    }
+    )
+    if not ok:
+        return RepairResult(
+            str(bug_id),
+            Decision.FIX_CANDIDATE,
+            localCandidateSuccess=True,
+            localChangesRetained=True,
+            reasons=("COMMENT_DELIVERY_FAILED",),
+            testResults=tests,
+        )
+    assert comment is not None
+    delivered = comment.status in {"CREATED", "ALREADY_EXISTS"}
     return RepairResult(
         str(bug_id),
-        final.decision,
-        success=local_candidate and comment_delivered,
-        localCandidateSuccess=local_candidate,
-        commentDelivered=comment_delivered,
+        Decision.FIX_CANDIDATE,
+        success=delivered,
+        localCandidateSuccess=True,
+        commentDelivered=delivered,
         localChangesRetained=True,
-        commentResult=comment_result,
-        testResults=test_results,
+        commentResult=comment,
+        testResults=tests,
     )
