@@ -57,6 +57,12 @@ def test_golden_no_match_and_invalid_config(tmp_path: Path):
     assert result.returncode == 2 and json.loads(result.stdout)["reasonCodes"] == ["REPOSITORY_SCOPE_NO_MATCH"]
     invalid = run(tmp_path / "missing.yaml", {"product": "x"})
     assert invalid.returncode == 2 and json.loads(invalid.stdout)["reasonCodes"] == ["CONFIG_INVALID"]
+    malformed = tmp_path / "malformed.yaml"
+    malformed.write_text("repositories: [unterminated", encoding="utf-8")
+    broken = run(malformed, {"product": "x"})
+    assert broken.returncode == 2
+    assert broken.stderr == ""
+    assert json.loads(broken.stdout)["reasonCodes"] == ["CONFIG_INVALID"]
 
 
 def test_golden_ambiguous_scope_is_rejected(tmp_path: Path):
@@ -76,3 +82,18 @@ def test_golden_malformed_scope_has_distinct_legacy_reason(tmp_path: Path):
         result = subprocess.run([sys.executable, str(SCRIPT), "preflight", "--config", str(config), "--scope-json", raw], text=True, capture_output=True)
         assert result.returncode == 2
         assert json.loads(result.stdout)["reasonCodes"] == ["SCOPE_JSON_INVALID"]
+
+
+def test_non_ascii_uppercase_scope_uses_legacy_lower_matching(tmp_path: Path):
+    repo, config = setup(tmp_path)
+    data = yaml.safe_load(config.read_text(encoding="utf-8"))
+    mapping = data["repositories"].pop("Example Site Admin")
+    data["repositories"]["ÉΛΛΑ"] = mapping
+    data["personal"]["scopeNames"] = ["ÉΛΛΑ"]
+    data["team"]["scopeNames"] = ["ÉΛΛΑ"]
+    config.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+    result = run(config, {"product": "éλλα"})
+    payload = json.loads(result.stdout)
+    assert result.returncode == 0
+    assert payload["scopeName"] == "éλλα"
+    assert payload["repositoryPath"] == str(repo.resolve())

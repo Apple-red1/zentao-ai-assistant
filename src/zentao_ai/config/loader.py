@@ -17,7 +17,10 @@ ENV_REFERENCE = re.compile(r"^\$\{[A-Z][A-Z0-9_]*\}$")
 
 
 def _read(path: Path) -> dict[str, Any]:
-    loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
+    try:
+        loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        raise ValueError("configuration YAML is malformed") from exc
     if not isinstance(loaded, Mapping):
         raise ValueError("configuration must be a mapping")
     return migrate_config(loaded)

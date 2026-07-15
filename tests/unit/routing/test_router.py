@@ -48,6 +48,14 @@ def test_exact_scope_suppresses_conflicting_marker_inference(tmp_path):
     assert result.candidates == ["example-web"]
 
 
+def test_exact_scope_lowercases_non_ascii_letters(tmp_path):
+    cfg = config(tmp_path)
+    repository = cfg.repositories.pop("site")
+    cfg.repositories["ÉΛΛΑ"] = repository
+    result = route_bug(BugSnapshot(identifier="x", scope="éλλα", title="unknown"), cfg)
+    assert result.selectedRepository == "example-web"
+
+
 def test_marker_uses_token_boundaries_and_does_not_match_email(tmp_path):
     result = route_bug(BugSnapshot(identifier="x", title="UI user@site.example"), config(tmp_path))
     assert result.selectedRepository is None

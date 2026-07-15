@@ -8,8 +8,7 @@ BACKEND = ("api", "service", "database", "permission", "接口", "服务", "数�
 
 
 def normalize_scope_name(value: str) -> str:
-    normalized = unicodedata.normalize("NFC", value).strip()
-    return "".join(chr(ord(char) + 32) if "A" <= char <= "Z" else char for char in normalized)
+    return unicodedata.normalize("NFC", value).strip().lower()
 
 
 def route_bug(snapshot: BugSnapshot, config: AppConfig) -> RoutingDecision:

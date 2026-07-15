@@ -68,6 +68,15 @@ def test_forged_mapping_is_rejected_against_trusted_config(tmp_path):
     assert not result.allowed and result.reasons == ["REPOSITORY_PROVENANCE_INVALID"]
 
 
+def test_malformed_trusted_yaml_is_provenance_denial_without_exception(tmp_path):
+    repo = repository(tmp_path)
+    config = tmp_path / "trusted.yaml"
+    config.write_text("repositories: [unterminated", encoding="utf-8")
+    mapping = RepositoryMapping(repository="example", path=repo, targetBranch="main", testCommands=("pytest",), configPath=config, repositoryKey="scope")
+    result = preflight_repository(mapping)
+    assert not result.allowed and result.reasons == ["REPOSITORY_PROVENANCE_INVALID"]
+
+
 def test_repository_disappearing_during_final_fingerprint_is_denied(tmp_path, monkeypatch):
     repo = repository(tmp_path)
     from zentao_ai.repository import guard
