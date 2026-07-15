@@ -82,10 +82,10 @@ Codex 插件 ──> 内置 MCP Server ──> 共享 Python 核心
 
 ## CLI 设计
 
-安装和初始化流程：
+安装和初始化流程（先 clone 仓库并进入仓库根目录；项目公开发布后才可改用公开 VCS 安装）：
 
 ```powershell
-pipx install zentao-ai-assistant
+pipx install .
 zentao-ai config init
 zentao-ai auth login
 zentao-ai doctor

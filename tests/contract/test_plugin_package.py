@@ -10,6 +10,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PLUGIN = ROOT / "plugins" / "zentao-ai-bug"
+UNPUBLISHED_PYPI_INSTALL = "pipx install " + "zentao-ai-assistant"
+TEXT_SUFFIXES = {".json", ".md", ".py", ".rst", ".toml", ".txt", ".yaml", ".yml"}
 
 
 def load_json(path: Path) -> dict[str, object]:
@@ -135,13 +137,15 @@ def test_wrappers_report_clear_install_error_when_package_is_unavailable() -> No
     ) in isolated.stderr
 
 
-def test_plugin_and_install_docs_never_claim_an_unpublished_pypi_install() -> None:
+def test_plugin_and_all_docs_never_claim_an_unpublished_pypi_install() -> None:
     files = [
-        *sorted((PLUGIN / "scripts").glob("*.py")),
-        ROOT / "docs" / "plugin-installation.md",
+        path
+        for root in (PLUGIN, ROOT / "docs")
+        for path in root.rglob("*")
+        if path.is_file() and path.suffix.lower() in TEXT_SUFFIXES
     ]
     for path in files:
-        assert "pipx install zentao-ai-assistant" not in path.read_text(encoding="utf-8")
+        assert UNPUBLISHED_PYPI_INSTALL not in path.read_text(encoding="utf-8")
 
 
 def test_installation_document_covers_supported_plugin_flow() -> None:
@@ -159,7 +163,7 @@ def test_installation_document_covers_supported_plugin_flow() -> None:
     ):
         assert required in text
     assert "codex plugin add" not in text
-    assert "pipx install zentao-ai-assistant" not in text
+    assert UNPUBLISHED_PYPI_INSTALL not in text
     assert "尚未发布到 PyPI" in text
     assert "仓库公开发布后" in text
     assert not re.search(r"(?i)(password|token|cookie|secret)\s*[:=]\s*\S+", text)
