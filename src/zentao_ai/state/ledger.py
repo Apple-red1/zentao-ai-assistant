@@ -14,6 +14,7 @@ from platformdirs import user_data_path
 
 from .migrations import migrate
 from .models import (
+    CliError,
     CommentRecord,
     IdempotencyConflict,
     LeaseResult,
@@ -118,7 +119,7 @@ class Ledger:
         connection = self._write()
         try:
             row = connection.execute(
-                "SELECT * FROM leases WHERE business_date=? AND run_kind=?",
+                "SELECT * FROM leases WHERE business_date=? AND run_kind=? AND active=1",
                 (business_date.isoformat(), run_kind),
             ).fetchone()
             if (
@@ -131,12 +132,13 @@ class Ledger:
                     False, row["lease_id"], owner, row["expires_at"], row["owner"]
                 )
             previous = row["owner"] if row else None
+            if row is not None:
+                connection.execute(
+                    "UPDATE leases SET active=0,status='EXPIRED' WHERE lease_id=?",
+                    (row["lease_id"],),
+                )
             connection.execute(
-                "DELETE FROM leases WHERE business_date=? AND run_kind=?",
-                (business_date.isoformat(), run_kind),
-            )
-            connection.execute(
-                "INSERT INTO leases VALUES(?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO leases VALUES(?,?,?,?,?,?,?,?,?,?)",
                 (
                     lease_id,
                     business_date.isoformat(),
@@ -147,6 +149,7 @@ class Ledger:
                     expires,
                     None,
                     previous,
+                    1,
                 ),
             )
             connection.commit()
@@ -161,7 +164,7 @@ class Ledger:
         connection = self._write()
         try:
             cursor = connection.execute(
-                "UPDATE leases SET status=?, released_at=? WHERE lease_id=?",
+                "UPDATE leases SET status=?, released_at=?, active=0 WHERE lease_id=? AND active=1",
                 (status.value, _text(_now()), lease_id),
             )
             if cursor.rowcount != 1:
@@ -219,7 +222,7 @@ class Ledger:
         connection = self._write()
         try:
             row = connection.execute(
-                "SELECT * FROM outbox WHERE idempotency_key=?", (key,)
+                "SELECT * FROM core_outbox WHERE idempotency_key=?", (key,)
             ).fetchone()
             if row:
                 if row["payload_hash"] != digest:
@@ -227,7 +230,7 @@ class Ledger:
                 connection.commit()
                 return self._outbox(row)
             connection.execute(
-                "INSERT INTO outbox VALUES(?,?,?,?,?,?,?)",
+                "INSERT INTO core_outbox VALUES(?,?,?,?,?,?,?)",
                 (
                     key,
                     record.run_kind,
@@ -273,20 +276,38 @@ class Ledger:
         connection = self._write()
         try:
             row = connection.execute(
-                "SELECT * FROM outbox WHERE idempotency_key=?", (_key(key),)
+                "SELECT * FROM core_outbox WHERE idempotency_key=?", (_key(key),)
             ).fetchone()
             if not row:
                 raise KeyError(key)
-            if row["status"] == OutboxStatus.UNKNOWN.value and not reconcile:
-                raise ValueError("UNKNOWN requires explicit reconciliation")
+            current = OutboxStatus(row["status"])
+            terminal = {
+                OutboxStatus.CREATED,
+                OutboxStatus.ALREADY_EXISTS,
+                OutboxStatus.FAILED,
+            }
+            if current in terminal:
+                if status is current and not reconcile:
+                    connection.commit()
+                    return self._outbox(row)
+                raise ValueError("terminal outbox state cannot transition")
+            if current is OutboxStatus.UNKNOWN:
+                if not reconcile:
+                    raise ValueError("UNKNOWN requires explicit reconciliation")
+                if status not in terminal:
+                    raise ValueError(
+                        "UNKNOWN reconciliation requires a terminal result"
+                    )
+            elif reconcile:
+                raise ValueError("only UNKNOWN records can be reconciled")
             connection.execute(
-                "UPDATE outbox SET status=?, external_id=? WHERE idempotency_key=?",
+                "UPDATE core_outbox SET status=?, external_id=? WHERE idempotency_key=?",
                 (status.value, external_id, key),
             )
             connection.commit()
             return self._outbox(
                 connection.execute(
-                    "SELECT * FROM outbox WHERE idempotency_key=?", (key,)
+                    "SELECT * FROM core_outbox WHERE idempotency_key=?", (key,)
                 ).fetchone()
             )
         except Exception:
@@ -299,7 +320,7 @@ class Ledger:
         connection = self._write()
         try:
             connection.execute(
-                "INSERT INTO checkpoints VALUES(?,?,?,?) ON CONFLICT(business_date,run_kind) DO UPDATE SET payload_json=excluded.payload_json,updated_at=excluded.updated_at",
+                "INSERT INTO core_checkpoints VALUES(?,?,?,?) ON CONFLICT(business_date,run_kind) DO UPDATE SET payload_json=excluded.payload_json,updated_at=excluded.updated_at",
                 (business_date.isoformat(), run_kind, rendered, now),
             )
             connection.commit()
@@ -309,7 +330,391 @@ class Ledger:
 
     def get_checkpoint(self, business_date: date, run_kind: str) -> Any | None:
         row = self._connection.execute(
-            "SELECT payload_json FROM checkpoints WHERE business_date=? AND run_kind=?",
+            "SELECT payload_json FROM core_checkpoints WHERE business_date=? AND run_kind=?",
             (business_date.isoformat(), run_kind),
         ).fetchone()
         return json.loads(row[0]) if row else None
+
+    def _legacy_lease(
+        self,
+        table: str,
+        keys: dict[str, str],
+        owner: str,
+        ttl: int,
+        business_date: str | None = None,
+    ) -> dict[str, Any]:
+        if ttl < 1 or ttl > 86400:
+            raise CliError(
+                "invalid_argument",
+                "Lease duration must be between 1 and 86400 seconds.",
+                "lease-seconds",
+            )
+        now = _now()
+        now_text = _text(now)
+        expires = _text(now + timedelta(seconds=ttl))
+        where = " AND ".join(f"{name}=?" for name in keys)
+        values = tuple(keys.values())
+        connection = self._write()
+        try:
+            row = connection.execute(
+                f"SELECT * FROM {table} WHERE {where}", values
+            ).fetchone()
+            renewed = row is not None and row["owner"] == owner
+            acquired = row is None or renewed or row["expires_at"] <= now_text
+            if acquired:
+                if row is None:
+                    columns = [*keys, "owner", "expires_at"]
+                    vals: list[str] = [*keys.values(), owner, expires]
+                    if table == "job_leases":
+                        columns += [
+                            "business_date",
+                            "status",
+                            "acquired_at",
+                            "updated_at",
+                        ]
+                        vals += [business_date or "", "active", now_text, now_text]
+                    elif table == "repo_leases":
+                        columns += ["updated_at"]
+                        vals += [now_text]
+                    marks = ",".join("?" for _ in vals)
+                    connection.execute(
+                        f"INSERT INTO {table}({','.join(columns)}) VALUES({marks})",
+                        vals,
+                    )
+                else:
+                    extras = (
+                        ",business_date=?,status='active',updated_at=?"
+                        if table == "job_leases"
+                        else (",updated_at=?" if table == "repo_leases" else "")
+                    )
+                    extra_values: list[str] = (
+                        [business_date or "", now_text]
+                        if table == "job_leases"
+                        else ([now_text] if table == "repo_leases" else [])
+                    )
+                    connection.execute(
+                        f"UPDATE {table} SET owner=?,expires_at=?{extras} WHERE {where}",
+                        (owner, expires, *extra_values, *values),
+                    )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        labels = {"job_key": "jobKey", "bug_id": "bugId", "repo_key": "repoKey"}
+        result: dict[str, Any] = {
+            "acquired": acquired,
+            "renewed": renewed if acquired else False,
+            **{labels[k]: v for k, v in keys.items()},
+            "owner": owner,
+            "expiresAt": expires if acquired else row["expires_at"],
+        }
+        if not acquired:
+            result["heldBy"] = row["owner"]
+        return result
+
+    def _legacy_release(
+        self, table: str, keys: dict[str, str], owner: str
+    ) -> dict[str, Any]:
+        where = " AND ".join(f"{name}=?" for name in keys)
+        values = tuple(keys.values())
+        connection = self._write()
+        try:
+            row = connection.execute(
+                f"SELECT owner FROM {table} WHERE {where}", values
+            ).fetchone()
+            field = (
+                "bug-id"
+                if "bug_id" in keys
+                else ("repo-key" if "repo_key" in keys else "job-key")
+            )
+            if row is None:
+                raise CliError("lease_not_found", "Lease does not exist.", field)
+            if row["owner"] != owner:
+                raise CliError(
+                    "lease_owner_mismatch",
+                    "Only the lease owner may release it.",
+                    "owner",
+                )
+            if table == "job_leases":
+                connection.execute(
+                    f"UPDATE {table} SET status='released',expires_at=?,updated_at=? WHERE {where}",
+                    (_text(_now()), _text(_now()), *values),
+                )
+            else:
+                connection.execute(f"DELETE FROM {table} WHERE {where}", values)
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        labels = {"job_key": "jobKey", "bug_id": "bugId", "repo_key": "repoKey"}
+        return {
+            "released": True,
+            **{labels[k]: v for k, v in keys.items()},
+            "owner": owner,
+        }
+
+    def acquire_job(
+        self, job_key: str, owner: str, business_date: str, lease_seconds: int
+    ) -> dict[str, Any]:
+        date.fromisoformat(business_date)
+        return self._legacy_lease(
+            "job_leases", {"job_key": job_key}, owner, lease_seconds, business_date
+        )
+
+    def release_job(self, job_key: str, owner: str) -> dict[str, Any]:
+        return self._legacy_release("job_leases", {"job_key": job_key}, owner)
+
+    def acquire_bug(
+        self, job_key: str, bug_id: str, owner: str, lease_seconds: int
+    ) -> dict[str, Any]:
+        return self._legacy_lease(
+            "bug_leases", {"job_key": job_key, "bug_id": bug_id}, owner, lease_seconds
+        )
+
+    def release_bug(self, job_key: str, bug_id: str, owner: str) -> dict[str, Any]:
+        return self._legacy_release(
+            "bug_leases", {"job_key": job_key, "bug_id": bug_id}, owner
+        )
+
+    def acquire_repo(
+        self, repo_key: str, owner: str, lease_seconds: int
+    ) -> dict[str, Any]:
+        return self._legacy_lease(
+            "repo_leases", {"repo_key": repo_key}, owner, lease_seconds
+        )
+
+    def release_repo(self, repo_key: str, owner: str) -> dict[str, Any]:
+        return self._legacy_release("repo_leases", {"repo_key": repo_key}, owner)
+
+    def compat_checkpoint_put(
+        self,
+        job_key: str,
+        bug_id: str,
+        snapshot_version: str,
+        stage: str,
+        payload_raw: str,
+    ) -> dict[str, Any]:
+        payload = json.loads(payload_raw)
+        rendered, _ = _payload(payload)
+        updated = _text(_now())
+        connection = self._write()
+        try:
+            connection.execute(
+                "INSERT INTO legacy_checkpoints VALUES(?,?,?,?,?,?) ON CONFLICT(job_key,bug_id) DO UPDATE SET snapshot_version=excluded.snapshot_version,stage=excluded.stage,payload_json=excluded.payload_json,updated_at=excluded.updated_at",
+                (job_key, bug_id, snapshot_version, stage, rendered, updated),
+            )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        return {
+            "stored": True,
+            "checkpoint": {
+                "jobKey": job_key,
+                "bugId": bug_id,
+                "snapshotVersion": snapshot_version,
+                "stage": stage,
+                "payload": payload,
+                "updatedAt": updated,
+            },
+        }
+
+    def compat_checkpoint_get(self, job_key: str, bug_id: str) -> dict[str, Any]:
+        row = self._connection.execute(
+            "SELECT * FROM legacy_checkpoints WHERE job_key=? AND bug_id=?",
+            (job_key, bug_id),
+        ).fetchone()
+        if row is None:
+            return {"found": False, "checkpoint": None}
+        return {
+            "found": True,
+            "checkpoint": {
+                "jobKey": row["job_key"],
+                "bugId": row["bug_id"],
+                "snapshotVersion": row["snapshot_version"],
+                "stage": row["stage"],
+                "payload": json.loads(row["payload_json"]),
+                "updatedAt": row["updated_at"],
+            },
+        }
+
+    def comment_put(
+        self,
+        idempotency_key: str,
+        bug_id: str,
+        snapshot_version: str,
+        decision: str,
+        comment_id: str | None,
+        status: str,
+    ) -> dict[str, Any]:
+        updated = _text(_now())
+        connection = self._write()
+        try:
+            row = connection.execute(
+                "SELECT * FROM comment_records WHERE idempotency_key=?",
+                (idempotency_key,),
+            ).fetchone()
+            created = row is None
+            if row is None:
+                connection.execute(
+                    "INSERT INTO comment_records VALUES(?,?,?,?,?,?,?)",
+                    (
+                        idempotency_key,
+                        bug_id,
+                        snapshot_version,
+                        decision,
+                        comment_id,
+                        status,
+                        updated,
+                    ),
+                )
+            else:
+                if (row["bug_id"], row["snapshot_version"], row["decision"]) != (
+                    bug_id,
+                    snapshot_version,
+                    decision,
+                ):
+                    raise CliError(
+                        "idempotency_conflict",
+                        "Idempotency key is already bound to a different comment identity.",
+                        "idempotency-key",
+                    )
+                comment_id = comment_id if comment_id is not None else row["comment_id"]
+                connection.execute(
+                    "UPDATE comment_records SET comment_id=?,status=?,updated_at=? WHERE idempotency_key=?",
+                    (comment_id, status, updated, idempotency_key),
+                )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        return {
+            "created": created,
+            "idempotent": not created,
+            "comment": {
+                "idempotencyKey": idempotency_key,
+                "bugId": bug_id,
+                "snapshotVersion": snapshot_version,
+                "decision": decision,
+                "commentId": comment_id,
+                "status": status,
+                "updatedAt": updated,
+            },
+        }
+
+    def comment_get(self, idempotency_key: str) -> dict[str, Any]:
+        row = self._connection.execute(
+            "SELECT * FROM comment_records WHERE idempotency_key=?", (idempotency_key,)
+        ).fetchone()
+        if row is None:
+            return {"found": False, "comment": None}
+        return {
+            "found": True,
+            "comment": {
+                "idempotencyKey": row["idempotency_key"],
+                "bugId": row["bug_id"],
+                "snapshotVersion": row["snapshot_version"],
+                "decision": row["decision"],
+                "commentId": row["comment_id"],
+                "status": row["status"],
+                "updatedAt": row["updated_at"],
+            },
+        }
+
+    def outbox_put(
+        self, outbox_key: str, job_key: str, payload_raw: str
+    ) -> dict[str, Any]:
+        payload = json.loads(payload_raw)
+        rendered, _ = _payload(payload)
+        created_at = _text(_now())
+        connection = self._write()
+        try:
+            row = connection.execute(
+                "SELECT * FROM legacy_outbox WHERE outbox_key=?", (outbox_key,)
+            ).fetchone()
+            if row:
+                if row["job_key"] != job_key or row["payload_json"] != rendered:
+                    raise CliError(
+                        "outbox_conflict",
+                        "Outbox key is already bound to a different rendered payload.",
+                        "outbox-key",
+                    )
+                connection.commit()
+                return {
+                    "created": False,
+                    "idempotent": True,
+                    "item": self._legacy_outbox_row(row),
+                }
+            connection.execute(
+                "INSERT INTO legacy_outbox VALUES(?,?,?,'pending',0,NULL,?,NULL)",
+                (outbox_key, job_key, rendered, created_at),
+            )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        return {
+            "created": True,
+            "idempotent": False,
+            "item": {
+                "outboxKey": outbox_key,
+                "jobKey": job_key,
+                "payload": payload,
+                "status": "pending",
+                "attempts": 0,
+                "lastError": None,
+                "createdAt": created_at,
+                "sentAt": None,
+            },
+        }
+
+    def _legacy_outbox_row(self, row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "outboxKey": row["outbox_key"],
+            "jobKey": row["job_key"],
+            "payload": json.loads(row["payload_json"]),
+            "status": row["status"],
+            "attempts": row["attempts"],
+            "lastError": row["last_error"],
+            "createdAt": row["created_at"],
+            "sentAt": row["sent_at"],
+        }
+
+    def outbox_list(self, job_key: str | None, status: str | None) -> dict[str, Any]:
+        sql = "SELECT * FROM legacy_outbox"
+        clauses: list[str] = []
+        values: list[str] = []
+        if job_key is not None:
+            clauses.append("job_key=?")
+            values.append(job_key)
+        if status is not None:
+            clauses.append("status=?")
+            values.append(status)
+        if clauses:
+            sql += " WHERE " + " AND ".join(clauses)
+        rows = self._connection.execute(
+            sql + " ORDER BY created_at,outbox_key", values
+        ).fetchall()
+        return {"items": [self._legacy_outbox_row(row) for row in rows]}
+
+    def outbox_sent(self, outbox_key: str) -> dict[str, Any]:
+        connection = self._write()
+        try:
+            row = connection.execute(
+                "SELECT * FROM legacy_outbox WHERE outbox_key=?", (outbox_key,)
+            ).fetchone()
+            if row is None:
+                raise CliError(
+                    "outbox_not_found", "Outbox record does not exist.", "outbox-key"
+                )
+            idempotent = row["status"] == "sent"
+            if not idempotent:
+                connection.execute(
+                    "UPDATE legacy_outbox SET status='sent',attempts=attempts+1,last_error=NULL,sent_at=? WHERE outbox_key=?",
+                    (_text(_now()), outbox_key),
+                )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        return {"sent": True, "idempotent": idempotent, "outboxKey": outbox_key}

@@ -27,6 +27,18 @@ def test_schema_lease_and_expired_takeover(tmp_path):
         )
         takeover = ledger.acquire_lease(date(2026, 7, 15), "daily", "two", 60)
         assert takeover.acquired and takeover.previous_owner == "one"
+        history = ledger._connection.execute(
+            "SELECT lease_id,owner,status,active FROM leases ORDER BY acquired_at,lease_id"
+        ).fetchall()
+        assert len(history) == 2
+        assert {row["lease_id"] for row in history} == {
+            first.lease_id,
+            takeover.lease_id,
+        }
+        assert any(
+            row["owner"] == "one" and row["status"] == "EXPIRED" and row["active"] == 0
+            for row in history
+        )
         ledger.release_lease(takeover.lease_id, RunStatus.SUCCEEDED)
     with sqlite3.connect(path) as connection:
         assert connection.execute("PRAGMA user_version").fetchone()[0] == 1
@@ -36,7 +48,9 @@ def test_comment_idempotency_uses_canonical_hash(tmp_path):
     with Ledger(tmp_path / "db") as ledger:
         with pytest.raises(ValueError):
             ledger.record_comment(CommentRecord(" key ", "42", {"b": 2}))
-        original = ledger.record_comment(CommentRecord("key", "42", {"b": 2, "a": "text"}))
+        original = ledger.record_comment(
+            CommentRecord("key", "42", {"b": 2, "a": "text"})
+        )
         same = ledger.record_comment(CommentRecord("key", "42", {"a": "text", "b": 2}))
         assert same.payload_hash == original.payload_hash
         with pytest.raises(IdempotencyConflict):
@@ -52,6 +66,26 @@ def test_outbox_unknown_requires_explicit_reconcile(tmp_path):
             ledger.mark_outbox_result("send-1", OutboxStatus.CREATED, "1")
         reconciled = ledger.reconcile_outbox("send-1", OutboxStatus.CREATED, "1")
         assert reconciled.status is OutboxStatus.CREATED
+
+
+@pytest.mark.parametrize(
+    "terminal", [OutboxStatus.CREATED, OutboxStatus.ALREADY_EXISTS, OutboxStatus.FAILED]
+)
+def test_outbox_terminal_states_cannot_transition(tmp_path, terminal):
+    with Ledger(tmp_path / "db") as ledger:
+        ledger.put_outbox(OutboxRecord("send-1", "daily", {"message": "ok"}))
+        ledger.mark_outbox_result("send-1", terminal, None)
+        with pytest.raises(ValueError):
+            ledger.mark_outbox_result("send-1", OutboxStatus.UNKNOWN, None)
+
+
+@pytest.mark.parametrize("target", [OutboxStatus.PENDING, OutboxStatus.UNKNOWN])
+def test_unknown_reconcile_only_accepts_terminal_target(tmp_path, target):
+    with Ledger(tmp_path / "db") as ledger:
+        ledger.put_outbox(OutboxRecord("send-1", "daily", {"message": "ok"}))
+        ledger.mark_outbox_result("send-1", OutboxStatus.UNKNOWN, None)
+        with pytest.raises(ValueError):
+            ledger.reconcile_outbox("send-1", target, None)
 
 
 def test_checkpoint_and_payload_protection(tmp_path):

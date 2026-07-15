@@ -4,53 +4,56 @@ import argparse
 import json
 import sqlite3
 import sys
-from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Never
 
 from zentao_ai.config import validate_config
 
 from .ledger import Ledger, default_ledger_path
-from .models import CommentRecord, OutboxRecord, OutboxStatus, RunStatus, StateError
+from .models import CliError, StateError
+
+
+class JsonArgumentParser(argparse.ArgumentParser):
+    def error(self, message: str) -> Never:
+        raise CliError("invalid_arguments", "Invalid command arguments.")
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(add_help=False)
+    parser = JsonArgumentParser(add_help=False)
     parser.add_argument("--db", default=str(default_ledger_path()))
-    commands = parser.add_subparsers(dest="command", required=True)
+    commands = parser.add_subparsers(
+        dest="command", required=True, parser_class=JsonArgumentParser
+    )
     commands.add_parser("init")
     validate = commands.add_parser("validate-config")
     validate.add_argument("--config", required=True)
-    acquire = commands.add_parser("acquire-job")
+    job = commands.add_parser("acquire-job")
     for name in ("job-key", "owner", "business-date"):
-        acquire.add_argument(f"--{name}", required=True)
-    acquire.add_argument("--lease-seconds", required=True, type=int)
+        job.add_argument(f"--{name}", required=True)
+    job.add_argument("--lease-seconds", required=True, type=int)
     release = commands.add_parser("release-job")
     release.add_argument("--job-key", required=True)
     release.add_argument("--owner", required=True)
-    for command in ("acquire-bug", "acquire-repo"):
-        item = commands.add_parser(command)
-        item.add_argument(
-            "--job-key" if command.endswith("bug") else "--repo-key", required=True
-        )
-        if command.endswith("bug"):
-            item.add_argument("--bug-id", required=True)
-        item.add_argument("--owner", required=True)
-        item.add_argument("--lease-seconds", required=True, type=int)
-    for command in ("release-bug", "release-repo"):
-        item = commands.add_parser(command)
-        item.add_argument(
-            "--job-key" if command.endswith("bug") else "--repo-key", required=True
-        )
-        if command.endswith("bug"):
-            item.add_argument("--bug-id", required=True)
-        item.add_argument("--owner", required=True)
-    put = commands.add_parser("checkpoint-put")
+    bug = commands.add_parser("acquire-bug")
+    for name in ("job-key", "bug-id", "owner"):
+        bug.add_argument(f"--{name}", required=True)
+    bug.add_argument("--lease-seconds", required=True, type=int)
+    release_bug = commands.add_parser("release-bug")
+    for name in ("job-key", "bug-id", "owner"):
+        release_bug.add_argument(f"--{name}", required=True)
+    repo = commands.add_parser("acquire-repo")
+    repo.add_argument("--repo-key", required=True)
+    repo.add_argument("--owner", required=True)
+    repo.add_argument("--lease-seconds", required=True, type=int)
+    release_repo = commands.add_parser("release-repo")
+    release_repo.add_argument("--repo-key", required=True)
+    release_repo.add_argument("--owner", required=True)
+    checkpoint = commands.add_parser("checkpoint-put")
     for name in ("job-key", "bug-id", "snapshot-version", "stage", "payload-json"):
-        put.add_argument(f"--{name}", required=True)
-    get = commands.add_parser("checkpoint-get")
-    get.add_argument("--job-key", required=True)
-    get.add_argument("--bug-id", required=True)
+        checkpoint.add_argument(f"--{name}", required=True)
+    checkpoint_get = commands.add_parser("checkpoint-get")
+    checkpoint_get.add_argument("--job-key", required=True)
+    checkpoint_get.add_argument("--bug-id", required=True)
     comment = commands.add_parser("comment-put")
     for name in ("idempotency-key", "bug-id", "snapshot-version", "decision", "status"):
         comment.add_argument(f"--{name}", required=True)
@@ -61,194 +64,75 @@ def _parser() -> argparse.ArgumentParser:
     outbox.add_argument("--outbox-key", required=True)
     outbox.add_argument("--job-key", required=True)
     outbox.add_argument("--payload-json", required=True)
-    listed = commands.add_parser("outbox-list")
-    listed.add_argument("--job-key")
-    listed.add_argument("--status")
-    sent = commands.add_parser("outbox-sent")
-    sent.add_argument("--outbox-key", required=True)
+    outbox_list = commands.add_parser("outbox-list")
+    outbox_list.add_argument("--job-key")
+    outbox_list.add_argument("--status")
+    outbox_sent = commands.add_parser("outbox-sent")
+    outbox_sent.add_argument("--outbox-key", required=True)
     return parser
-
-
-def _legacy_date(job_key: str) -> date:
-    try:
-        return date.fromisoformat(job_key.rsplit(":", 1)[-1])
-    except ValueError:
-        return date.today()
-
-
-def _jsonable(value: Any) -> Any:
-    if hasattr(value, "model_dump"):
-        return value.model_dump(mode="json")
-    return value
 
 
 def dispatch(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
     if args.command == "validate-config":
-        validation = validate_config(Path(args.config))
-        return (0 if validation.valid else 2), _jsonable(validation)
+        result = validate_config(Path(args.config))
+        return (0 if result.valid else 2), result.model_dump(mode="json")
     with Ledger(Path(args.db)) as ledger:
-        if args.command == "init":
+        command = args.command
+        if command == "init":
             return 0, {"initialized": True, "db": str(ledger.path)}
-        if args.command == "acquire-job":
-            lease = ledger.acquire_lease(
-                date.fromisoformat(args.business_date),
+        if command == "acquire-job":
+            return 0, ledger.acquire_job(
+                args.job_key, args.owner, args.business_date, args.lease_seconds
+            )
+        if command == "release-job":
+            return 0, ledger.release_job(args.job_key, args.owner)
+        if command == "acquire-bug":
+            return 0, ledger.acquire_bug(
+                args.job_key, args.bug_id, args.owner, args.lease_seconds
+            )
+        if command == "release-bug":
+            return 0, ledger.release_bug(args.job_key, args.bug_id, args.owner)
+        if command == "acquire-repo":
+            return 0, ledger.acquire_repo(args.repo_key, args.owner, args.lease_seconds)
+        if command == "release-repo":
+            return 0, ledger.release_repo(args.repo_key, args.owner)
+        if command == "checkpoint-put":
+            return 0, ledger.compat_checkpoint_put(
                 args.job_key,
-                args.owner,
-                args.lease_seconds,
+                args.bug_id,
+                args.snapshot_version,
+                args.stage,
+                args.payload_json,
             )
-            return 0, {
-                "acquired": lease.acquired,
-                "renewed": False,
-                "jobKey": args.job_key,
-                "owner": args.owner,
-                "heldBy": lease.previous_owner,
-                "expiresAt": lease.expires_at,
-            }
-        if args.command == "release-job":
-            row = ledger._connection.execute(
-                "SELECT lease_id FROM leases WHERE run_kind=? AND owner=?",
-                (args.job_key, args.owner),
-            ).fetchone()
-            if not row:
-                raise ValueError("lease not found")
-            ledger.release_lease(row[0], RunStatus.SUCCEEDED)
-            return 0, {"released": True, "jobKey": args.job_key, "owner": args.owner}
-        if args.command in {"acquire-bug", "acquire-repo"}:
-            key = (
-                f"bug:{args.job_key}:{args.bug_id}"
-                if args.command.endswith("bug")
-                else f"repo:{args.repo_key}"
+        if command == "checkpoint-get":
+            return 0, ledger.compat_checkpoint_get(args.job_key, args.bug_id)
+        if command == "comment-put":
+            return 0, ledger.comment_put(
+                args.idempotency_key,
+                args.bug_id,
+                args.snapshot_version,
+                args.decision,
+                args.comment_id,
+                args.status,
             )
-            lease = ledger.acquire_lease(
-                date.today(), key, args.owner, args.lease_seconds
+        if command == "comment-get":
+            return 0, ledger.comment_get(args.idempotency_key)
+        if command == "outbox-put":
+            return 0, ledger.outbox_put(
+                args.outbox_key, args.job_key, args.payload_json
             )
-            return 0, {
-                "acquired": lease.acquired,
-                "renewed": False,
-                "owner": args.owner,
-                "expiresAt": lease.expires_at,
-            }
-        if args.command in {"release-bug", "release-repo"}:
-            key = (
-                f"bug:{args.job_key}:{args.bug_id}"
-                if args.command.endswith("bug")
-                else f"repo:{args.repo_key}"
-            )
-            row = ledger._connection.execute(
-                "SELECT lease_id FROM leases WHERE run_kind=? AND owner=?",
-                (key, args.owner),
-            ).fetchone()
-            if not row:
-                raise ValueError("lease not found")
-            ledger.release_lease(row[0], RunStatus.SUCCEEDED)
-            return 0, {"released": True, "owner": args.owner}
-        if args.command == "checkpoint-put":
-            payload = json.loads(args.payload_json)
-            kind = f"legacy:{args.job_key}:{args.bug_id}"
-            ledger.put_checkpoint(
-                _legacy_date(args.job_key),
-                kind,
-                {
-                    "snapshotVersion": args.snapshot_version,
-                    "stage": args.stage,
-                    "payload": payload,
-                },
-            )
-            return 0, {
-                "stored": True,
-                "checkpoint": {
-                    "jobKey": args.job_key,
-                    "bugId": args.bug_id,
-                    "snapshotVersion": args.snapshot_version,
-                    "stage": args.stage,
-                    "payload": payload,
-                },
-            }
-        if args.command == "checkpoint-get":
-            value = ledger.get_checkpoint(
-                _legacy_date(args.job_key), f"legacy:{args.job_key}:{args.bug_id}"
-            )
-            return 0, {
-                "found": value is not None,
-                "checkpoint": (
-                    {"jobKey": args.job_key, "bugId": args.bug_id, **value}
-                    if value
-                    else None
-                ),
-            }
-        if args.command == "comment-put":
-            payload = {
-                "snapshotVersion": args.snapshot_version,
-                "decision": args.decision,
-                "commentId": args.comment_id,
-                "status": args.status,
-            }
-            comment_record = ledger.record_comment(
-                CommentRecord(args.idempotency_key, args.bug_id, payload)
-            )
-            return 0, {
-                "stored": True,
-                "record": {
-                    "idempotencyKey": comment_record.idempotency_key,
-                    "bugId": comment_record.bug_id,
-                    **comment_record.payload,
-                },
-            }
-        if args.command == "comment-get":
-            found_comment = ledger.get_comment(args.idempotency_key)
-            return 0, {
-                "found": found_comment is not None,
-                "record": (
-                    {
-                        "idempotencyKey": found_comment.idempotency_key,
-                        "bugId": found_comment.bug_id,
-                        **found_comment.payload,
-                    }
-                    if found_comment
-                    else None
-                ),
-            }
-        if args.command == "outbox-put":
-            outbox_record = ledger.put_outbox(
-                OutboxRecord(
-                    args.outbox_key, args.job_key, json.loads(args.payload_json)
-                )
-            )
-            return 0, {
-                "stored": True,
-                "outbox": {
-                    "outboxKey": outbox_record.idempotency_key,
-                    "jobKey": outbox_record.run_kind,
-                    "payload": outbox_record.payload,
-                    "status": outbox_record.status.value,
-                },
-            }
-        if args.command == "outbox-sent":
-            outbox_result = ledger.mark_outbox_result(
-                args.outbox_key, OutboxStatus.CREATED, None
-            )
-            return 0, {"marked": True, "outboxKey": outbox_result.idempotency_key}
-        if args.command == "outbox-list":
-            query, params = "SELECT * FROM outbox WHERE 1=1", []
-            if args.job_key:
-                query += " AND run_kind=?"
-                params.append(args.job_key)
-            if args.status:
-                query += " AND status=?"
-                params.append(args.status)
-            rows = ledger._connection.execute(query, params).fetchall()
-            return 0, {
-                "items": [
-                    {
-                        "outboxKey": row["idempotency_key"],
-                        "jobKey": row["run_kind"],
-                        "payload": json.loads(row["payload_json"]),
-                        "status": row["status"],
-                    }
-                    for row in rows
-                ]
-            }
-    raise ValueError("unknown command")
+        if command == "outbox-list":
+            return 0, ledger.outbox_list(args.job_key, args.status)
+        if command == "outbox-sent":
+            return 0, ledger.outbox_sent(args.outbox_key)
+    raise CliError("unknown_command", "Unknown command.")
+
+
+def _error(error: CliError) -> dict[str, Any]:
+    details: dict[str, Any] = {"code": error.code, "message": error.message}
+    if error.field is not None:
+        details["field"] = error.field
+    return {"ok": False, "error": details}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -256,21 +140,23 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.reconfigure(encoding="utf-8")
     try:
         code, payload = dispatch(_parser().parse_args(argv))
+    except CliError as error:
+        code, payload = 2, _error(error)
     except (ValueError, KeyError, StateError, json.JSONDecodeError) as error:
-        code, payload = (
-            2,
-            {"ok": False, "error": {"code": "invalid_argument", "message": str(error)}},
-        )
+        code, payload = 2, _error(CliError("invalid_argument", str(error)))
     except (sqlite3.Error, OSError):
         code, payload = (
             3,
-            {
-                "ok": False,
-                "error": {
-                    "code": "storage_error",
-                    "message": "The local coordination store operation failed.",
-                },
-            },
+            _error(
+                CliError(
+                    "storage_error", "The local coordination store operation failed."
+                )
+            ),
+        )
+    except Exception:
+        code, payload = (
+            3,
+            _error(CliError("internal_error", "The ledger command failed safely.")),
         )
     print(
         json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
