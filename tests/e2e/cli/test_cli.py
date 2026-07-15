@@ -209,3 +209,23 @@ def test_doctor_json_passes_with_injected_dependencies_and_redacts_secret() -> N
     assert result.exit_code == 0
     assert json.loads(result.stdout)["ok"] is True
     assert "doctor-secret" not in result.stdout
+
+
+def test_mcp_serve_dispatches_project_and_injected_factory(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    import zentao_ai.mcp_server.server as server_module
+
+    dependencies = factory(tmp_path)
+    calls: list[tuple[Path, object]] = []
+    monkeypatch.setattr(
+        server_module,
+        "serve",
+        lambda project, selected: calls.append((project, selected)),
+    )  # type: ignore[attr-defined]
+    result = CliRunner().invoke(
+        app, ["mcp", "serve", "--project", str(tmp_path)], obj=dependencies
+    )
+    assert result.exit_code == 0
+    assert calls == [(tmp_path, dependencies)]

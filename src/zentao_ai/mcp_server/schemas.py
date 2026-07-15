@@ -3,15 +3,21 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
-
-from zentao_ai.safety.actions import AuthorizationRecord
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictInt,
+    StrictStr,
+    StringConstraints,
+    field_validator,
+)
 
 NonEmpty = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
 class StrictInput(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    model_config = ConfigDict(extra="forbid", populate_by_name=True, strict=True)
 
 
 class PagingInput(StrictInput):
@@ -39,9 +45,18 @@ class BugStatisticsInput(StrictInput):
     pass
 
 
-class WriteContext(StrictInput):
+class ToolAuthorization(StrictInput):
     turnId: NonEmpty
-    authorizationRecords: tuple[AuthorizationRecord, ...]
+    source: Literal["user"]
+    action: Literal["comment", "update_steps", "update_steps_with_image"]
+    bugId: StrictInt | StrictStr
+    parameters: dict[StrictStr, object]
+    authorizedImagePaths: list[StrictStr]
+
+
+class WriteContext(StrictInput):
+    currentTurnId: NonEmpty
+    authorization: ToolAuthorization
     scheduled: bool = False
     nonInteractive: bool = False
 
@@ -64,17 +79,17 @@ class ReproductionStepInput(StrictInput):
 
 class UpdateStepsInput(WriteContext):
     bugId: int | NonEmpty
-    steps: tuple[ReproductionStepInput, ...] = Field(min_length=1)
+    steps: list[ReproductionStepInput] = Field(min_length=1)
     confirm: Literal[True]
 
 
 class UpdateStepsWithImageInput(UpdateStepsInput):
-    imagePath: Path
+    imagePath: StrictStr
 
     @field_validator("imagePath")
     @classmethod
-    def absolute_local_path(cls, value: Path) -> Path:
-        if not value.is_absolute():
+    def absolute_local_path(cls, value: str) -> str:
+        if not Path(value).is_absolute():
             raise ValueError("imagePath must be an absolute local path")
         return value
 

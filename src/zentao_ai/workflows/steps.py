@@ -46,6 +46,8 @@ def _permit(
     action: Literal["update_steps", "update_steps_with_image"],
     bug_id: int | str,
     parameters: dict[str, object],
+    *,
+    authorization_parameters: dict[str, object] | None = None,
 ) -> None:
     if context.dryRun or context.readonly or context.team:
         raise PermissionError("write disabled")
@@ -56,7 +58,12 @@ def _permit(
         authorizationRecords=context.authorizationRecords,
     )
     decision = authorize(
-        ActionRequest(action=action, bugId=str(bug_id), parameters=parameters), auth
+        ActionRequest(
+            action=action,
+            bugId=str(bug_id),
+            parameters=authorization_parameters or parameters,
+        ),
+        auth,
     )
     if not decision.allowed:
         raise PermissionError(decision.reason)
@@ -95,7 +102,18 @@ def replace_steps_with_image(
         "imageSha256": validation.sha256,
         "filename": validation.filename,
     }
-    _permit(context, "update_steps_with_image", bug_id, params)
+    authorization_params: dict[str, object] = {
+        "steps": [asdict(step) for step in steps],
+        "imagePath": str(path.resolve(strict=False)),
+        "filename": path.name,
+    }
+    _permit(
+        context,
+        "update_steps_with_image",
+        bug_id,
+        params,
+        authorization_parameters=authorization_params,
+    )
     if not image_artifact_is_current(path, validation):
         raise PermissionError("IMAGE_CHANGED_AFTER_VALIDATION")
     return context.provider.update_bug_steps_with_image(

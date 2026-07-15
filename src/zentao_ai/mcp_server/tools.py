@@ -11,7 +11,11 @@ from zentao_ai.cli.runtime import AppRuntime
 from zentao_ai.safety.actions import ActionName, ActionRequest
 from zentao_ai.workflows.adapters import WorkflowRequest, normalize_codex_request
 from zentao_ai.workflows.comments import _write_comment
-from zentao_ai.workflows.steps import ReproductionStep, replace_steps, replace_steps_with_image
+from zentao_ai.workflows.steps import (
+    ReproductionStep,
+    replace_steps,
+    replace_steps_with_image,
+)
 
 from .schemas import (
     INPUT_MODELS,
@@ -25,8 +29,13 @@ from .schemas import (
 )
 
 TOOL_NAMES = (
-    "query_my_bugs", "query_user_bugs", "query_bug_detail", "query_bug_history",
-    "bug_statistics", "add_bug_comment", "update_bug_steps",
+    "query_my_bugs",
+    "query_user_bugs",
+    "query_bug_detail",
+    "query_bug_history",
+    "bug_statistics",
+    "add_bug_comment",
+    "update_bug_steps",
     "update_bug_steps_with_image",
 )
 
@@ -52,37 +61,51 @@ class ZentaoTools:
         return {name: INPUT_MODELS[name].model_json_schema() for name in TOOL_NAMES}
 
     def _normalized(self, value: AddCommentInput | UpdateStepsInput) -> WorkflowRequest:
-        action = "comment" if isinstance(value, AddCommentInput) else (
-            "update_steps_with_image" if isinstance(value, UpdateStepsWithImageInput) else "update_steps"
-        )
-        params: dict[str, object]
-        if isinstance(value, AddCommentInput):
-            params = {"comment": value.comment}
-        else:
-            params = {"steps": [item.model_dump() for item in value.steps]}
         snapshot = self.runtime.provider.query_bug_detail(value.bugId)
-        return normalize_codex_request({
-            "config": _json(self.runtime.config),
-            "snapshot": _json(snapshot),
-            "phase": "PRECHECK", "signal": {},
-            "authorization": {
-                "context": {
-                    "scheduled": value.scheduled or value.nonInteractive,
-                    "commentEnabled": self.runtime.config.permissions.commentEnabled,
-                    "stepUpdateEnabled": self.runtime.config.permissions.stepUpdateEnabled,
-                    "snapshotStable": getattr(value, "snapshotStable", False),
-                    "historyChecked": getattr(value, "historyChecked", False),
-                    "cooldownPassed": getattr(value, "cooldownPassed", False),
-                    "idempotencyPassed": getattr(value, "idempotencyPassed", False),
-                    "currentTurnId": value.turnId,
+        authorization = value.authorization
+        record = {
+            "turnId": authorization.turnId,
+            "source": authorization.source,
+            "action": authorization.action,
+            "bugId": str(authorization.bugId),
+            "parameters": authorization.parameters,
+        }
+        return normalize_codex_request(
+            {
+                "config": _json(self.runtime.config),
+                "snapshot": _json(snapshot),
+                "phase": "PRECHECK",
+                "signal": {},
+                "authorization": {
+                    "context": {
+                        "scheduled": value.scheduled or value.nonInteractive,
+                        "commentEnabled": self.runtime.config.permissions.commentEnabled,
+                        "stepUpdateEnabled": self.runtime.config.permissions.stepUpdateEnabled,
+                        "snapshotStable": getattr(value, "snapshotStable", False),
+                        "historyChecked": getattr(value, "historyChecked", False),
+                        "cooldownPassed": getattr(value, "cooldownPassed", False),
+                        "idempotencyPassed": getattr(value, "idempotencyPassed", False),
+                        "currentTurnId": value.currentTurnId,
+                    },
+                    "records": [record],
                 },
-                "records": [record.model_dump(mode="json") for record in value.authorizationRecords],
-            },
-            "actions": [ActionRequest(action=cast(ActionName, action), bugId=str(value.bugId), parameters=params).model_dump(mode="json")],
-            "steps": [] if isinstance(value, AddCommentInput) else [item.model_dump() for item in value.steps],
-            "imagePath": str(value.imagePath) if isinstance(value, UpdateStepsWithImageInput) else str(Path.cwd()),
-            "repairBugId": str(value.bugId),
-        })
+                "actions": [
+                    ActionRequest(
+                        action=cast(ActionName, authorization.action),
+                        bugId=str(authorization.bugId),
+                        parameters=authorization.parameters,
+                        source=authorization.source,
+                    ).model_dump(mode="json")
+                ],
+                "steps": []
+                if isinstance(value, AddCommentInput)
+                else [item.model_dump() for item in value.steps],
+                "imagePath": value.imagePath
+                if isinstance(value, UpdateStepsWithImageInput)
+                else str(Path.cwd()),
+                "repairBugId": str(value.bugId),
+            }
+        )
 
     def call(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         model = INPUT_MODELS.get(name)
@@ -92,16 +115,27 @@ class ZentaoTools:
         provider = self.runtime.provider
         if name == "query_my_bugs":
             assert isinstance(value, QueryMyBugsInput)
-            data = provider.query_my_bugs(scope_names=tuple(self.runtime.config.personal.scopeNames), page=value.page, page_size=value.pageSize)
+            data = provider.query_my_bugs(
+                scope_names=tuple(self.runtime.config.personal.scopeNames),
+                page=value.page,
+                page_size=value.pageSize,
+            )
         elif name == "query_user_bugs":
             assert isinstance(value, QueryUserBugsInput)
-            data = provider.query_user_bugs(value.user, scope_names=tuple(self.runtime.config.team.scopeNames), page=value.page, page_size=value.pageSize)
+            data = provider.query_user_bugs(
+                value.user,
+                scope_names=tuple(self.runtime.config.team.scopeNames),
+                page=value.page,
+                page_size=value.pageSize,
+            )
         elif name == "query_bug_detail":
             assert isinstance(value, QueryBugDetailInput)
             data = provider.query_bug_detail(value.bugId)
         elif name == "query_bug_history":
             assert isinstance(value, QueryBugHistoryInput)
-            data = provider.query_bug_history(value.bugId, page=value.page, page_size=value.pageSize)
+            data = provider.query_bug_history(
+                value.bugId, page=value.page, page_size=value.pageSize
+            )
         elif name == "bug_statistics":
             data = provider.bug_statistics()
         elif name == "add_bug_comment":
@@ -116,7 +150,12 @@ class ZentaoTools:
                 cooldownPassed=normalized.authorization.cooldownPassed,
                 idempotencyPassed=normalized.authorization.idempotencyPassed,
             )
-            data = _write_comment(context, normalized.snapshot, value.comment, idempotency_key=value.idempotencyKey)
+            data = _write_comment(
+                context,
+                normalized.snapshot,
+                value.comment,
+                idempotency_key=value.idempotencyKey,
+            )
         else:
             assert isinstance(value, UpdateStepsInput)
             normalized = self._normalized(value)
@@ -124,8 +163,19 @@ class ZentaoTools:
                 scheduled=normalized.authorization.scheduled,
                 currentTurnId=normalized.authorization.currentTurnId,
                 authorizationRecords=normalized.authorization.authorizationRecords,
-                authorizedImagePaths=(normalized.image_path,) if isinstance(value, UpdateStepsWithImageInput) else (),
+                authorizedImagePaths=tuple(
+                    Path(item).resolve(strict=False)
+                    for item in value.authorization.authorizedImagePaths
+                ),
             )
-            steps = tuple(ReproductionStep(item.action, item.expected) for item in value.steps)
-            data = replace_steps_with_image(context, value.bugId, steps, normalized.image_path) if isinstance(value, UpdateStepsWithImageInput) else replace_steps(context, value.bugId, steps)
+            steps = tuple(
+                ReproductionStep(item.action, item.expected) for item in value.steps
+            )
+            data = (
+                replace_steps_with_image(
+                    context, value.bugId, steps, normalized.image_path
+                )
+                if isinstance(value, UpdateStepsWithImageInput)
+                else replace_steps(context, value.bugId, steps)
+            )
         return {"version": "v1", "data": _json(data)}

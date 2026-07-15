@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import os
 import subprocess
 from dataclasses import replace
@@ -51,6 +50,7 @@ class RecordingReportSink:
     def write(self, payload: dict[str, object]) -> None:
         self.calls.append(payload)
 
+
 class ExplodingProvider(RecordingProvider):
     def update_bug_steps(self, *args: object) -> StepUpdateResult:
         raise KeyboardInterrupt
@@ -90,13 +90,9 @@ def context(provider: RecordingProvider, **changes: object) -> RunContext:
 
 
 def authorize_image(ctx: RunContext, image: Path) -> RunContext:
-    try:
-        digest = hashlib.sha256(image.read_bytes()).hexdigest()
-    except OSError:
-        digest = "0" * 64
     params = {
         "steps": [step.__dict__ for step in STEPS],
-        "imageSha256": digest,
+        "imagePath": str(image.resolve(strict=False)),
         "filename": image.name,
     }
     return replace(
@@ -128,8 +124,7 @@ def test_complete_ordered_steps_are_the_only_provider_fields() -> None:
         )
     ]
     assert not any(
-        name in str(provider.calls)
-        for name in ("status", "assignee", "priority")
+        name in str(provider.calls) for name in ("status", "assignee", "priority")
     )
 
 
@@ -176,7 +171,11 @@ def test_disabled_permission_and_every_inexact_authorization_are_rejected() -> N
     disabled = replace(
         base,
         config=base.config.model_copy(
-            update={"permissions": base.config.permissions.model_copy(update={"stepUpdateEnabled": False})}
+            update={
+                "permissions": base.config.permissions.model_copy(
+                    update={"stepUpdateEnabled": False}
+                )
+            }
         ),
     )
     record = base.authorizationRecords[0]
@@ -187,7 +186,10 @@ def test_disabled_permission_and_every_inexact_authorization_are_rejected() -> N
         record.model_copy(update={"bugId": "8"}),
         record.model_copy(update={"parameters": {"steps": []}}),
     )
-    for ctx in (disabled, *(replace(base, authorizationRecords=(record,)) for record in bad_records)):
+    for ctx in (
+        disabled,
+        *(replace(base, authorizationRecords=(record,)) for record in bad_records),
+    ):
         with pytest.raises(PermissionError):
             replace_steps(ctx, 7, STEPS)
     assert provider.calls == []
@@ -205,7 +207,7 @@ def test_image_provider_receives_exact_validated_immutable_bytes_and_no_path(
     assert call[3] == PNG and isinstance(call[3], bytes)
     assert call[4:] == ("proof.png", "image/png", True)
     assert str(image) not in repr(call)
-    assert str(image) not in repr(ctx.authorizationRecords[0].parameters)
+    assert ctx.authorizationRecords[0].parameters["imagePath"] == str(image)
     assert str(image) not in repr(result)
 
 
@@ -268,14 +270,19 @@ def test_image_disabled_permission_and_inexact_authorization_fail_closed(
         record.model_copy(update={"bugId": "8"}),
         record.model_copy(update={"parameters": {"steps": []}}),
     )
-    contexts = (disabled, *(replace(base, authorizationRecords=(r,)) for r in bad_records))
+    contexts = (
+        disabled,
+        *(replace(base, authorizationRecords=(r,)) for r in bad_records),
+    )
     for ctx in contexts:
         with pytest.raises(PermissionError):
             replace_steps_with_image(ctx, 7, STEPS, image)
     assert provider.calls == []
 
 
-@pytest.mark.parametrize("kind", ["unauthorized", "nonfile", "type", "magic", "oversize"])
+@pytest.mark.parametrize(
+    "kind", ["unauthorized", "nonfile", "type", "magic", "oversize"]
+)
 def test_invalid_image_matrix_fails_before_provider(tmp_path: Path, kind: str) -> None:
     image = (tmp_path / "proof.png").resolve()
     image.write_bytes(PNG)
@@ -301,7 +308,9 @@ def test_invalid_image_matrix_fails_before_provider(tmp_path: Path, kind: str) -
     assert provider.calls == []
 
 
-def test_provider_classified_failure_is_returned_and_baseexception_is_not_swallowed() -> None:
+def test_provider_classified_failure_is_returned_and_baseexception_is_not_swallowed() -> (
+    None
+):
     failed = StepUpdateResult(updated=False, bugId=7, status="FAILED")
     assert replace_steps(context(RecordingProvider(failed)), 7, STEPS) == failed
     with pytest.raises(KeyboardInterrupt):
@@ -315,9 +324,12 @@ def test_image_classified_failure_is_returned_and_baseexception_is_not_swallowed
     image.write_bytes(PNG)
     failed = StepUpdateResult(updated=False, bugId=7, status="FAILED")
     provider = RecordingProvider(failed)
-    assert replace_steps_with_image(
-        authorize_image(context(provider), image), 7, STEPS, image
-    ) == failed
+    assert (
+        replace_steps_with_image(
+            authorize_image(context(provider), image), 7, STEPS, image
+        )
+        == failed
+    )
     exploding = ExplodingProvider()
     with pytest.raises(KeyboardInterrupt):
         replace_steps_with_image(
@@ -378,7 +390,9 @@ def test_symlink_image_is_rejected_or_explicitly_skipped(tmp_path: Path) -> None
         pytest.skip("symlink creation is unavailable")
     provider = RecordingProvider()
     with pytest.raises(PermissionError):
-        replace_steps_with_image(authorize_image(context(provider), link), 7, STEPS, link)
+        replace_steps_with_image(
+            authorize_image(context(provider), link), 7, STEPS, link
+        )
     assert provider.calls == []
 
 
@@ -402,5 +416,7 @@ def test_windows_junction_image_is_rejected_or_explicitly_skipped(
     assert junction.lstat().st_file_attributes & REPARSE_POINT
     provider = RecordingProvider()
     with pytest.raises(PermissionError):
-        replace_steps_with_image(authorize_image(context(provider), image), 7, STEPS, image)
+        replace_steps_with_image(
+            authorize_image(context(provider), image), 7, STEPS, image
+        )
     assert provider.calls == []

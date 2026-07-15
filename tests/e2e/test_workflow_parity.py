@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import hashlib
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
@@ -43,7 +42,7 @@ def _payload(
     comment = canonical_resolution_comment(summary)
     image_parameters = {
         "steps": steps,
-        "imageSha256": hashlib.sha256(image).hexdigest(),
+        "imagePath": str(image_path.resolve(strict=False)),
         "filename": "proof.png",
     }
     records = [
@@ -251,9 +250,7 @@ class RecordingProvider:
 
     def add_bug_comment(self, bug_id, comment, confirm, idempotency_key):
         self.calls.append(("comment", str(bug_id), comment, confirm))
-        return CommentWriteResult(
-            created=True, alreadyExists=False, status="CREATED"
-        )
+        return CommentWriteResult(created=True, alreadyExists=False, status="CREATED")
 
     def reconcile_comment(self, *args, **kwargs):
         raise AssertionError("unexpected reconciliation")
@@ -335,9 +332,7 @@ def test_production_adapters_drive_identical_public_workflows_and_side_effects(
     codex = normalize_codex_request(json.dumps(payload))
 
     cli_results, cli_recording = _exercise(cli, str(payload["commentSummary"]))
-    codex_results, codex_recording = _exercise(
-        codex, str(payload["commentSummary"])
-    )
+    codex_results, codex_recording = _exercise(codex, str(payload["commentSummary"]))
 
     assert cli_results == codex_results
     assert cli_recording == codex_recording
