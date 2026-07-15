@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "zentao": {
+      "type": "stdio",
+      "command": "zentao-ai",
+      "args": ["mcp", "serve"],
+      "env": {
+        "ZENTAO_AI_CONFIG": "${ZENTAO_AI_CONFIG}"
+      }
+    }
+  }
+}

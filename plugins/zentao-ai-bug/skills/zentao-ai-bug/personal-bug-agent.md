@@ -16,7 +16,7 @@
 - 自研 `mcp__zentao__` Server 提供结构化列表、详情、历史、稳定 `version` 和带 `idempotencyKey` 的评论参数；将 MCP `version` 规范化为内部 `snapshotVersion`。
 - 取得 `personal:<businessDate>` 任务租约；同一业务日期禁止重入。
 - Bug 的产品、项目、执行和模块名称经 trim、Unicode NFC、ASCII 小写规范化后，只能映射到一个去重后的仓库路径。
-- 运行 `direct-branch-guard.py preflight` 并取得仓库租约后才能编辑。
+- 从本 Skill 目录运行 `python ../../scripts/direct-branch-guard.py preflight` 并取得仓库租约后才能编辑。
 
 旧 MCP 签名、版本缺失、配置错误、范围零/多匹配或门禁失败时，只生成失败关闭报告，不修改代码、不添加评论。
 
@@ -30,7 +30,7 @@
    - `TOOL_OR_PERMISSION_GAP`：记录能力缺口，继续无关 Bug。
    - 只有 `PROCEED_TO_EVIDENCE` 才进入下一步；它不是最终修复结论，也不授权评论。
 4. 对 `PROCEED_TO_EVIDENCE` 执行 `direct-branch` 门禁：
-   1. 用 Bug 的产品、项目、执行、模块名称调用 `direct-branch-guard.py preflight`，要求唯一仓库。
+   1. 用 Bug 的产品、项目、执行、模块名称，从本 Skill 目录调用 `python ../../scripts/direct-branch-guard.py preflight`，要求唯一仓库。
    2. `codeWriteEnabled` 必须为 true；当前分支必须精确等于 `targetBranch`。
    3. 当前分支不得按大小写不敏感的精确名称命中 `dev`、`test`、`release`、`master`、`main`。`feature/main-fix` 只因包含 `main` 不被拒绝。
    4. 必须是普通主 checkout，HEAD 不分离，工作树和暂存区干净，上游存在，现有本地引用显示 ahead/behind 为 `0/0`。

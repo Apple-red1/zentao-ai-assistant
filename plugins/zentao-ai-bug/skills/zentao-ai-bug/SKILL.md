@@ -18,7 +18,7 @@ description: Use when 需要处理禅道 Zentao 个人 Bug、生成团队或每�
 
 ## 输入方式
 
-先读取项目级 `.codex/zentao-ai-bug.yaml`，并运行 `scripts/run-ledger.py validate-config --config <path>`。只有 `valid:true` 才能继续；配置缺失、禁用或无效时，输出字段级错误并失败关闭，不修改代码、不添加评论。
+先读取项目级 `.codex/zentao-ai-bug.yaml`，并从本 Skill 目录运行 `python ../../scripts/run-ledger.py validate-config --config <path>`。只有 `valid:true` 才能继续；配置缺失、禁用或无效时，输出字段级错误并失败关闭，不修改代码、不添加评论。
 
 配置必须限定查询身份、`personal.scopeNames`、`team.scopeNames`、全局精确范围、每次最大 Bug 数量、团队成员、接收渠道、策略、唯一仓库映射、`codeWriteEnabled` 和人工批准的 `targetBranch`。自动运行的业务时区为 `Asia/Shanghai`，每天 `08:00` 执行，包括周末。24 小时内的延迟运行标记为补跑；超过 24 小时只生成缺失摘要，不逐日重放。
 
@@ -29,9 +29,9 @@ description: Use when 需要处理禅道 Zentao 个人 Bug、生成团队或每�
 1. 校验配置并取得北京时间业务日期；获取任务租约。同一业务日期已有有效租约时退出，禁止重入。
 2. 根据意图加载个人或团队工作流；查询必须受配置范围、成员和数量上限约束。
 3. 单个 Bug 获取租约、详情和结构化历史后，先加载 `bug-analysis.md` 运行纯 `BugRepairPrecheck`。`PROCEED_TO_EVIDENCE` 只允许进入证据阶段，不等于 `FIX_CANDIDATE`，也不允许评论。
-4. 进入证据阶段前，使用 `direct-branch-guard.py preflight` 校验唯一仓库、仓库租约、`codeWriteEnabled`、当前分支等于 `targetBranch`、禁改分支、干净状态、上游和本地引用 `ahead/behind=0/0`。任一失败立即停止代码副作用。
+4. 进入证据阶段前，从本 Skill 目录运行 `python ../../scripts/direct-branch-guard.py preflight`，校验唯一仓库、仓库租约、`codeWriteEnabled`、当前分支等于 `targetBranch`、禁改分支、干净状态、上游和本地引用 `ahead/behind=0/0`。任一失败立即停止代码副作用。
 5. 证据阶段完成先失败复现、最小补丁、白名单测试和 diff 检查后，重新查询详情并确认状态、负责人和 `snapshotVersion` 未变，再运行 `FINAL_DECISION` 分析；只有最终 `BugAnalysisResult.decision=FIX_CANDIDATE` 才能渲染解决评论。
-6. 渲染结果前加载 `bug-summary.md`。报告模板固定为 `templateVersion=v2`，并通过项目配置中的 `reporting.renderer`（`scripts/render-report.py`）从结构化 JSON 生成；保存 checkpoint 和固定 outbox 内容，重试复用已渲染内容、`renderedCommentSha256` 和幂等键，不重新生成。
+6. 渲染结果前加载 `bug-summary.md`。报告模板固定为 `templateVersion=v2`，并通过项目配置中的 `reporting.renderer`（从本 Skill 目录运行 `python ../../scripts/render-report.py`）从结构化 JSON 生成；保存 checkpoint 和固定 outbox 内容，重试复用已渲染内容、`renderedCommentSha256` 和幂等键，不重新生成。
 7. 单个 Bug 失败不阻塞无关 Bug。最终报告必须列出成功、失败、未知和覆盖元数据；数据截断或成员失败时只能声明部分完成。
 
 当请求是合成场景、dry-run 或明确禁止真实工具调用时，仍须按本 Skill 列出本来会执行的精确 MCP 工具、参数字段和顺序，并明确标注“仅计划、未执行”。除非决策本身禁止评论，不得用“MCP 调用：无”代替计划调用契约。

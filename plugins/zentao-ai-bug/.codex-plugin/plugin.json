@@ -1,0 +1,27 @@
+{
+  "name": "zentao-ai-bug",
+  "version": "0.1.0",
+  "description": "安全地查询、分析和报告禅道 Bug，并以严格门禁执行有限交互写入。",
+  "author": {
+    "name": "Zentao AI Assistant contributors"
+  },
+  "homepage": "https://github.com/wwtweiwenting/zentao-ai-assistant",
+  "repository": "https://github.com/wwtweiwenting/zentao-ai-assistant",
+  "license": "Apache-2.0",
+  "keywords": ["zentao", "bug", "productivity", "mcp"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "禅道 AI Bug 助手",
+    "shortDescription": "安全查询、分析和报告禅道 Bug。",
+    "longDescription": "通过内置 MCP 查询禅道 Bug、生成个人或团队报告，并在精确授权和安全门禁下执行有限写操作。",
+    "developerName": "Zentao AI Assistant contributors",
+    "category": "Productivity",
+    "capabilities": ["Read", "Interactive", "Write"],
+    "defaultPrompt": [
+      "查询并分析我的未关闭禅道 Bug。",
+      "生成今天的团队 Bug 报告。",
+      "在安全门禁下检查一个禅道 Bug。"
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}
