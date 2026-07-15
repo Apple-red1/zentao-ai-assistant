@@ -53,6 +53,16 @@ class ToolAuthorization(StrictInput):
     parameters: dict[StrictStr, object]
     authorizedImagePaths: list[StrictStr]
 
+    @field_validator("authorizedImagePaths")
+    @classmethod
+    def absolute_authorized_paths(cls, values: list[str]) -> list[str]:
+        for value in values:
+            if not value.strip() or "\x00" in value or not Path(value).is_absolute():
+                raise ValueError(
+                    "authorizedImagePaths must contain absolute local paths"
+                )
+        return values
+
 
 class WriteContext(StrictInput):
     currentTurnId: NonEmpty
@@ -89,7 +99,7 @@ class UpdateStepsWithImageInput(UpdateStepsInput):
     @field_validator("imagePath")
     @classmethod
     def absolute_local_path(cls, value: str) -> str:
-        if not Path(value).is_absolute():
+        if not value.strip() or "\x00" in value or not Path(value).is_absolute():
             raise ValueError("imagePath must be an absolute local path")
         return value
 

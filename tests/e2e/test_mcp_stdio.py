@@ -9,12 +9,14 @@ from zentao_ai.mcp_server.tools import TOOL_NAMES
 
 
 def send(
-    process: subprocess.Popen[str], payload: dict[str, object]
+    process: subprocess.Popen[str], payload: dict[str, object], frames: list[str]
 ) -> dict[str, object]:
     assert process.stdin is not None and process.stdout is not None
     process.stdin.write(json.dumps(payload) + "\n")
     process.stdin.flush()
-    return json.loads(process.stdout.readline())
+    frame = process.stdout.readline().strip()
+    frames.append(frame)
+    return json.loads(frame)
 
 
 def test_stdio_initialize_list_and_shutdown_frames_are_stdout_pure(tmp_path) -> None:
@@ -44,6 +46,7 @@ def test_stdio_initialize_list_and_shutdown_frames_are_stdout_pure(tmp_path) -> 
         encoding="utf-8",
         env=env,
     )
+    frames: list[str] = []
     initialized = send(
         process,
         {
@@ -56,6 +59,7 @@ def test_stdio_initialize_list_and_shutdown_frames_are_stdout_pure(tmp_path) -> 
                 "clientInfo": {"name": "test", "version": "1"},
             },
         },
+        frames,
     )
     assert initialized["id"] == 1 and "result" in initialized
     assert process.stdin is not None
@@ -67,7 +71,9 @@ def test_stdio_initialize_list_and_shutdown_frames_are_stdout_pure(tmp_path) -> 
     )
     process.stdin.flush()
     listed = send(
-        process, {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
+        process,
+        {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+        frames,
     )
     assert tuple(tool["name"] for tool in listed["result"]["tools"]) == TOOL_NAMES
     response = send(
@@ -81,7 +87,18 @@ def test_stdio_initialize_list_and_shutdown_frames_are_stdout_pure(tmp_path) -> 
                 "arguments": {"bugId": 7, "unknown": 1},
             },
         },
+        frames,
     )
     assert response["result"]["isError"] is True
+    # MCP SDK 1.x exposes no ShutdownRequest type/handler. Send the JSON-RPC
+    # lifecycle notification, then EOF, which is the SDK's supported stop signal.
+    process.stdin.write(
+        json.dumps({"jsonrpc": "2.0", "method": "shutdown", "params": {}}) + "\n"
+    )
+    process.stdin.flush()
     process.stdin.close()
     assert process.wait(timeout=10) == 0
+    assert process.stdout.read() == ""
+    decoded = [json.loads(frame) for frame in frames]
+    assert all(frame["jsonrpc"] == "2.0" for frame in decoded)
+    assert [frame["id"] for frame in decoded] == [1, 2, 3]

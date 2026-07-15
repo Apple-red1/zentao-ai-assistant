@@ -348,6 +348,56 @@ def test_image_uses_only_independently_authorized_absolute_path_and_magic(
         ZentaoTools(runtime()).call("update_bug_steps_with_image", args)
 
 
+def test_relative_authorized_image_path_is_rejected_without_provider_write(
+    tmp_path: Path,
+) -> None:
+    image = (tmp_path / "proof.png").resolve()
+    image.write_bytes(b"\x89PNG\r\n\x1a\nproof")
+    params = {
+        "steps": [{"action": "open page", "expected": "page loads"}],
+        "imagePath": str(image),
+        "filename": image.name,
+    }
+    args = {
+        "bugId": 7,
+        "steps": params["steps"],
+        "imagePath": str(image),
+        "confirm": True,
+        **authorization("update_steps_with_image", params, paths=(image,)),
+    }
+    args["authorization"]["authorizedImagePaths"] = ["proof.png"]  # type: ignore[index]
+    provider = Provider()
+    with pytest.raises(ValidationError):
+        ZentaoTools(runtime(provider)).call("update_bug_steps_with_image", args)
+    assert not any(call[0] == "image" for call in provider.calls)
+
+
+@pytest.mark.parametrize("bad", ["", "   ", "bad\x00path.png"])
+def test_blank_or_nul_authorized_image_path_is_rejected(bad: str) -> None:
+    with pytest.raises(ValidationError):
+        AddCommentInput.model_validate(
+            {
+                "bugId": 7,
+                "comment": "hello",
+                "confirm": True,
+                "idempotencyKey": "key",
+                "currentTurnId": "turn",
+                "authorization": {
+                    "turnId": "turn",
+                    "source": "user",
+                    "action": "comment",
+                    "bugId": 7,
+                    "parameters": {"comment": "hello"},
+                    "authorizedImagePaths": [bad],
+                },
+                "snapshotStable": True,
+                "historyChecked": True,
+                "cooldownPassed": True,
+                "idempotencyPassed": True,
+            }
+        )
+
+
 @pytest.mark.anyio
 async def test_tool_errors_are_structured_and_redacted() -> None:
     class FailingProvider(Provider):
