@@ -99,6 +99,34 @@ def test_environment_secret_references_are_allowed(tmp_path: Path) -> None:
     assert validate_config(write_yaml(tmp_path / "valid.yaml", data)).valid
 
 
+@pytest.mark.parametrize("version", [True, 1.0, 2])
+def test_config_version_requires_integer_literal_one(tmp_path: Path, version: object) -> None:
+    data = minimal()
+    data["configVersion"] = version
+    result = validate_config(write_yaml(tmp_path / "bad.yaml", data))
+    assert result.valid is False
+    assert "configVersion" in {error.field for error in result.errors}
+
+
+@pytest.mark.parametrize("value", ["true", "false", 1, 0])
+def test_permission_flags_reject_coercible_values(tmp_path: Path, value: object) -> None:
+    data = minimal()
+    data["permissions"] = {"codeWriteEnabled": value}
+    result = validate_config(write_yaml(tmp_path / "bad.yaml", data))
+    assert result.valid is False
+    assert "permissions.codeWriteEnabled" in {error.field for error in result.errors}
+
+
+@pytest.mark.parametrize(
+    "key",
+    ["password", "token", "cookie", "secret", "authorization"],
+)
+def test_all_sensitive_keys_allow_environment_references(tmp_path: Path, key: str) -> None:
+    data = minimal()
+    data["zentao"] = {key: "${UPPER_SNAKE_CASE}"}
+    assert validate_config(write_yaml(tmp_path / "valid.yaml", data)).valid
+
+
 def test_redaction_is_recursive_case_insensitive_and_non_mutating() -> None:
     original = {
         "Password": "one",

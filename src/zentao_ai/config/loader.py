@@ -90,7 +90,7 @@ def validate_config(path: Path) -> ValidationResult:
             raise ValueError("configuration must be a mapping")
         data = migrate_config(raw)
         version_value = data.get("configVersion")
-        version = version_value if isinstance(version_value, int) else None
+        version = version_value if type(version_value) is int else None
         errors.extend(_custom_errors(data))
         try:
             AppConfig.model_validate(data)

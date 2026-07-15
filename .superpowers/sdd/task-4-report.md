@@ -27,3 +27,9 @@ Implemented versioned configuration models, YAML loading and precedence, v1 migr
 ## Concerns
 
 - Environment-variable references are intentionally syntax-validated but not resolved; resolution belongs to Task 5.
+
+## Review follow-up
+
+- Added fail-closed type validation for `configVersion`: only a genuine integer `1` is accepted; booleans, floats, and future versions fail at `configVersion`.
+- Permission flags now use strict booleans and reject strings and integers instead of coercing them.
+- Added parameterized regression tests for strict versions, strict permissions, and environment references under all five sensitive-key families.

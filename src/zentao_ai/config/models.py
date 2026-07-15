@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator
 
 
 class ConfigModel(BaseModel):
@@ -16,6 +16,7 @@ class ZentaoConfig(ConfigModel):
     token: str | None = None
     cookie: str | None = None
     authorization: str | None = None
+    secret: str | None = None
 
 
 class PersonalConfig(ConfigModel):
@@ -39,9 +40,9 @@ class RepositoryConfig(ConfigModel):
 
 
 class PermissionsConfig(ConfigModel):
-    codeWriteEnabled: bool = False
-    commentEnabled: bool = False
-    stepUpdateEnabled: bool = False
+    codeWriteEnabled: StrictBool = False
+    commentEnabled: StrictBool = False
+    stepUpdateEnabled: StrictBool = False
 
 
 class ReportingConfig(ConfigModel):
@@ -56,7 +57,7 @@ class ScheduleConfig(ConfigModel):
 
 
 class AppConfig(ConfigModel):
-    configVersion: int = 1
+    configVersion: StrictInt = 1
     zentao: ZentaoConfig = Field(default_factory=ZentaoConfig)
     personal: PersonalConfig
     team: TeamConfig
@@ -65,6 +66,13 @@ class AppConfig(ConfigModel):
     permissions: PermissionsConfig = Field(default_factory=PermissionsConfig)
     reporting: ReportingConfig = Field(default_factory=ReportingConfig)
     schedule: ScheduleConfig = Field(default_factory=ScheduleConfig)
+
+    @field_validator("configVersion")
+    @classmethod
+    def require_version_one(cls, value: int) -> int:
+        if value != 1:
+            raise ValueError("must be 1")
+        return value
 
 
 class ValidationError(ConfigModel):
