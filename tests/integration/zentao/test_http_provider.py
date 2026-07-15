@@ -74,7 +74,23 @@ def test_auth_secrets_are_only_sent_in_required_fields() -> None:
     instance = provider(httpx.MockTransport(handle), auth=auth)
     assert "token-secret" not in repr(instance)
     instance.query_my_bugs()
-    assert observations == [(True, True)]
+    assert observations == [(True, False)]
+
+
+def test_cookie_is_used_when_it_is_the_only_auth_mode() -> None:
+    observations: list[tuple[bool, bool]] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        observations.append(
+            ("Cookie" in request.headers, "Authorization" in request.headers)
+        )
+        return httpx.Response(200, json={"items": []})
+
+    provider(
+        httpx.MockTransport(handle),
+        auth=ZentaoAuth(web_cookie=SecretStr("synthetic-cookie")),
+    ).query_my_bugs()
+    assert observations == [(True, False)]
 
 
 def test_password_auth_is_request_body_only() -> None:
@@ -280,7 +296,7 @@ def test_password_auth_covers_reads_and_multipart_without_secret_assertions() ->
     )
     instance.query_my_bugs()
     instance.update_bug_steps_with_image(1, "steps", b"image", "x.png", "image/png")
-    assert observations == [(True, False), (True, True)]
+    assert observations == [(True, False), (False, True)]
 
 
 def test_user_history_and_statistics_contracts() -> None:
@@ -354,3 +370,87 @@ def test_created_and_invalid_comment_results() -> None:
     )
     with pytest.raises(ContractError):
         provider(invalid).add_bug_comment(1, "note", True, "key")
+
+
+def test_mixed_auth_uses_only_highest_precedence_mode() -> None:
+    observations: list[tuple[bool, bool, bool, bool]] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        observations.append(
+            (
+                request.headers.get("Authorization", "").startswith("Bearer "),
+                "Cookie" in request.headers,
+                "password" in body,
+                "account" in body,
+            )
+        )
+        return httpx.Response(200, json={"created": True, "alreadyExists": False})
+
+    auth = ZentaoAuth(
+        username="alice",
+        password=SecretStr("unused-pass"),
+        api_token=SecretStr("selected-token"),
+        web_cookie=SecretStr("unused-cookie"),
+    )
+    provider(httpx.MockTransport(handle), auth=auth).add_bug_comment(
+        1, "note", True, "key"
+    )
+    assert observations == [(True, False, False, False)]
+
+
+def test_password_write_uses_body_without_basic_header() -> None:
+    observations: list[tuple[bool, bool]] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        observations.append(
+            ("Authorization" in request.headers, bool(body.get("password")))
+        )
+        return httpx.Response(200, json={"created": True, "alreadyExists": False})
+
+    auth = ZentaoAuth(username="alice", password=SecretStr("synthetic-pass"))
+    provider(httpx.MockTransport(handle), auth=auth).add_bug_comment(
+        1, "note", True, "key"
+    )
+    assert observations == [(False, True)]
+
+
+def test_get_retries_connection_then_succeeds_and_exhausts() -> None:
+    calls = 0
+
+    def recover(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise httpx.ConnectError("synthetic detail", request=request)
+        return httpx.Response(200, json={"items": []})
+
+    provider(httpx.MockTransport(recover)).query_my_bugs()
+    assert calls == 2
+
+    exhausted = 0
+
+    def fail(request: httpx.Request) -> httpx.Response:
+        nonlocal exhausted
+        exhausted += 1
+        raise httpx.ConnectTimeout("synthetic detail", request=request)
+
+    from zentao_ai.zentao import TransportError
+
+    with pytest.raises(TransportError, match="query_my_bugs"):
+        provider(httpx.MockTransport(fail), max_get_retries=2).query_my_bugs()
+    assert exhausted == 3
+
+
+def test_post_remote_protocol_error_is_unknown_without_retry() -> None:
+    calls = 0
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        raise httpx.RemoteProtocolError("synthetic interruption")
+
+    with pytest.raises(UnknownWriteResultError, match="outcome unknown"):
+        provider(httpx.MockTransport(handle)).add_bug_comment(1, "note", True, "key")
+    assert calls == 1

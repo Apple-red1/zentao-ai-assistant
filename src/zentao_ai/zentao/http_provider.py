@@ -224,19 +224,29 @@ class HttpZentaoProvider:
         )
         return self._step_result(data, bug_id, "update_bug_steps_with_image")
 
-    def _headers(self) -> dict[str, str]:
-        result: dict[str, str] = {}
+    def _auth_mode(self) -> str | None:
+        if self._auth.api_token is not None:
+            return "token"
         if self._auth.password is not None:
+            return "password"
+        if self._auth.web_cookie is not None:
+            return "cookie"
+        return None
+
+    def _headers(self, *, write: bool) -> dict[str, str]:
+        result: dict[str, str] = {}
+        mode = self._auth_mode()
+        if mode == "password" and not write and self._auth.password is not None:
             username = self._auth.username or ""
             token = base64.b64encode(
                 f"{username}:{self._auth.password.get_secret_value()}".encode()
             ).decode("ascii")
             result["Authorization"] = f"Basic {token}"
-        if self._auth.api_token is not None:
+        elif mode == "token" and self._auth.api_token is not None:
             result["Authorization"] = (
                 f"Bearer {self._auth.api_token.get_secret_value()}"
             )
-        if self._auth.web_cookie is not None:
+        elif mode == "cookie" and self._auth.web_cookie is not None:
             result["Cookie"] = self._auth.web_cookie.get_secret_value()
         return result
 
@@ -249,14 +259,25 @@ class HttpZentaoProvider:
         write: bool = False,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        kwargs["headers"] = {**self._headers(), **kwargs.get("headers", {})}
-        if write and self._auth.password is not None and "json" in kwargs:
+        mode = self._auth_mode()
+        kwargs["headers"] = {**self._headers(write=write), **kwargs.get("headers", {})}
+        if (
+            write
+            and mode == "password"
+            and self._auth.password is not None
+            and "json" in kwargs
+        ):
             kwargs["json"] = {
                 **kwargs["json"],
                 "account": self._auth.username,
                 "password": self._auth.password.get_secret_value(),
             }
-        if write and self._auth.password is not None and "data" in kwargs:
+        if (
+            write
+            and mode == "password"
+            and self._auth.password is not None
+            and "data" in kwargs
+        ):
             kwargs["data"] = {
                 **kwargs["data"],
                 "account": self._auth.username or "",
@@ -266,12 +287,15 @@ class HttpZentaoProvider:
         for attempt in range(attempts):
             try:
                 response = self._client.request(method, path, **kwargs)
-            except (httpx.TimeoutException, httpx.NetworkError):
+            except httpx.TransportError as exc:
                 if write:
                     raise UnknownWriteResultError(
                         f"{operation}: write outcome unknown"
                     ) from None
-                if attempt + 1 < attempts:
+                if (
+                    isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout))
+                    and attempt + 1 < attempts
+                ):
                     continue
                 raise TransportError(f"{operation}: transport failure") from None
             if (
