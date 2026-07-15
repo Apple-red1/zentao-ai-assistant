@@ -1,5 +1,6 @@
 import subprocess
 from pathlib import Path
+import yaml
 
 from zentao_ai.repository import RepositoryMapping, preflight_repository, verify_repository_unchanged
 
@@ -20,7 +21,13 @@ def repository(tmp_path: Path) -> Path:
     git(repo, "commit", "-m", "initial")
     git(repo, "branch", "-M", "main")
     git(repo, "push", "-u", "origin", "main")
+    write_config(tmp_path / "trusted.yaml", repo)
     return repo
+
+
+def write_config(path: Path, repo: Path, commands=("pytest",)) -> None:
+    data = {"configVersion": 1, "personal": {"scopeNames": ["scope"]}, "team": {"scopeNames": ["scope"]}, "repositories": {"scope": {"repository": "example", "path": str(repo), "targetBranch": "main", "testCommands": list(commands)}}}
+    path.write_text(yaml.safe_dump(data), encoding="utf-8")
 
 
 def test_clean_exact_repository_passes_without_changing_head(tmp_path):
@@ -50,7 +57,15 @@ def test_dirty_staged_wrong_branch_and_unknown_test_fail_closed(tmp_path):
     git(repo, "checkout", "-b", "other")
     assert "TARGET_BRANCH_MISMATCH" in preflight_repository(mapping()).reasons
     git(repo, "checkout", "main")
+    write_config(tmp_path / "trusted.yaml", repo, ("custom-safe-test --flag",))
     assert "TEST_COMMAND_NOT_ALLOWED" not in preflight_repository(mapping(commands=("custom-safe-test --flag",))).reasons
+
+
+def test_forged_mapping_is_rejected_against_trusted_config(tmp_path):
+    repo = repository(tmp_path)
+    forged = RepositoryMapping(repository="example", path=repo, targetBranch="other", testCommands=("pytest",), configPath=tmp_path / "trusted.yaml", repositoryKey="scope")
+    result = preflight_repository(forged)
+    assert not result.allowed and result.reasons == ["REPOSITORY_PROVENANCE_INVALID"]
 
 
 def test_repository_disappearing_during_final_fingerprint_is_denied(tmp_path, monkeypatch):
@@ -67,6 +82,24 @@ def test_repository_disappearing_during_final_fingerprint_is_denied(tmp_path, mo
         return original(path, *args)
 
     monkeypatch.setattr(guard, "_git", disappearing)
-    mapping = RepositoryMapping(repository="example", path=repo, targetBranch="main", testCommands=("custom-safe-test --flag",), configPath=tmp_path / "trusted.yaml", repositoryKey="scope")
+    mapping = RepositoryMapping(repository="example", path=repo, targetBranch="main", testCommands=("pytest",), configPath=tmp_path / "trusted.yaml", repositoryKey="scope")
     result = preflight_repository(mapping)
     assert not result.allowed and "REPOSITORY_PREFLIGHT_FAILED" in result.reasons
+
+
+def test_upstream_reads_catch_oserror_at_calls_five_and_six(tmp_path, monkeypatch):
+    from zentao_ai.repository import guard
+    for failing_call in (5, 6):
+        repo = repository(tmp_path / str(failing_call))
+        original = guard._git
+        calls = 0
+        def fail(path, *args):
+            nonlocal calls
+            calls += 1
+            if calls == failing_call:
+                raise OSError("gone")
+            return original(path, *args)
+        monkeypatch.setattr(guard, "_git", fail)
+        mapping = RepositoryMapping(repository="example", path=repo, targetBranch="main", testCommands=("pytest",), configPath=tmp_path / str(failing_call) / "trusted.yaml", repositoryKey="scope")
+        assert not preflight_repository(mapping).allowed
+        monkeypatch.setattr(guard, "_git", original)

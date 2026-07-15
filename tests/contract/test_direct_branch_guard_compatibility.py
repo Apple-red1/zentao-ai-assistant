@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -7,9 +8,6 @@ from pathlib import Path
 import yaml
 
 SCRIPT = Path(__file__).parents[2] / "scripts" / "direct-branch-guard.py"
-FIELDS = {"ok", "reasonCodes", "scopeName", "matchedRepositoryCount", "repositoryKey", "repositoryName", "repositoryPath", "upstream", "dirtyEntryCount"}
-
-
 def git(path: Path, *args: str) -> None:
     subprocess.run(["git", *args], cwd=path, check=True, capture_output=True)
 
@@ -39,14 +37,18 @@ def test_golden_success_reads_config_and_selects_unique_repository(tmp_path: Pat
     repo, config = setup(tmp_path)
     result = run(config, {"product": " example site admin "})
     payload = json.loads(result.stdout)
-    assert result.returncode == 0 and FIELDS <= payload.keys()
-    assert payload | {"repositoryPath": str(repo.resolve())} == payload
-    assert payload["ok"] and payload["matchedRepositoryCount"] == 1
-    assert payload["upstream"] == "origin/main"
-    assert payload["dirtyEntryCount"] == 0
-    normalized = str(repo.resolve()).replace("\\", "/").casefold()
-    assert payload["repositoryKey"] == hashlib.sha256(normalized.encode()).hexdigest()
-    assert payload["repositoryName"] == repo.name
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, check=True, text=True, capture_output=True).stdout.strip()
+    normalized = os.path.normcase(str(repo.resolve()))
+    empty_hash = hashlib.sha256(b"").hexdigest()
+    assert result.returncode == 0
+    assert payload == {
+        "ok": True, "reasonCodes": [], "scopeName": "example site admin", "matchedRepositoryCount": 1,
+        "repositoryKey": hashlib.sha256(normalized.encode()).hexdigest(), "repositoryName": repo.name,
+        "repositoryPath": str(repo.resolve()), "upstream": "origin/main", "dirtyEntryCount": 0,
+        "ahead": 0, "behind": 0, "head": head, "branch": "main", "testCommands": ["pytest"],
+        "indexFingerprint": empty_hash, "worktreeFingerprint": empty_hash,
+        "preimageFingerprint": hashlib.sha256(f"{head}\0main\0\0".encode()).hexdigest(),
+    }
 
 
 def test_golden_no_match_and_invalid_config(tmp_path: Path):

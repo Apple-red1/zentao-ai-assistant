@@ -3,6 +3,8 @@ import subprocess
 import hashlib
 from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field
+from zentao_ai.config import load_config
+from zentao_ai.routing.router import normalize_scope_name
 
 class RepositoryMapping(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -50,6 +52,20 @@ def preflight_repository(mapping: RepositoryMapping) -> GuardResult:
     reasons: list[str] = []
     path = mapping.path.resolve()
     try:
+        config_path = mapping.configPath.resolve(strict=True)
+        config = load_config(config_path)
+        matches = [(key, value) for key, value in config.repositories.items() if normalize_scope_name(key) == normalize_scope_name(mapping.repositoryKey)]
+        if len(matches) != 1:
+            raise ValueError("repository identity is not unique")
+        _, trusted = matches[0]
+        trusted_path = Path(trusted.path)
+        if not trusted_path.is_absolute():
+            trusted_path = config_path.parent / trusted_path
+        if trusted.repository != mapping.repository or trusted_path.resolve() != path or trusted.targetBranch != mapping.targetBranch or tuple(trusted.testCommands) != mapping.testCommands:
+            raise ValueError("repository mapping differs from trusted config")
+    except (OSError, ValueError, TypeError):
+        return GuardResult(allowed=False, reasons=["REPOSITORY_PROVENANCE_INVALID"], repository=mapping.repository, path=str(path), configPath=str(mapping.configPath.resolve()), repositoryKey=mapping.repositoryKey)
+    try:
         top = Path(_git(path, "rev-parse", "--show-toplevel")).resolve()
         if top != path:
             reasons.append("REPOSITORY_PATH_NOT_TOP_LEVEL")
@@ -73,7 +89,7 @@ def preflight_repository(mapping: RepositoryMapping) -> GuardResult:
         ahead, behind = (int(value) for value in counts.split())
         if ahead or behind:
             reasons.append("UPSTREAM_DIVERGED")
-    except (subprocess.SubprocessError, ValueError):
+    except (OSError, subprocess.SubprocessError, ValueError):
         reasons.append("UPSTREAM_REQUIRED")
     try:
         index_state = _git(path, "diff", "--cached", "--binary", "--no-ext-diff")

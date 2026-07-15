@@ -3,8 +3,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
-import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -12,10 +12,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from zentao_ai.config import load_config  # noqa: E402
 from zentao_ai.repository import RepositoryMapping, preflight_repository  # noqa: E402
+from zentao_ai.routing.router import normalize_scope_name  # noqa: E402
 
 
 def norm(value: object) -> str:
-    return unicodedata.normalize("NFC", str(value)).strip().casefold()
+    return normalize_scope_name(str(value))
 
 
 def output(reason_codes: list[str], **values: Any) -> int:
@@ -75,7 +76,7 @@ def main() -> int:
     if not repository_path.is_absolute():
         repository_path = config_path.parent / repository_path
     repository_path = repository_path.resolve()
-    normalized_path = unicodedata.normalize("NFC", repository_path.as_posix()).casefold()
+    normalized_path = os.path.normcase(str(repository_path.resolve()))
     legacy_repository_key = hashlib.sha256(normalized_path.encode("utf-8")).hexdigest()
     result = preflight_repository(
         RepositoryMapping(
@@ -89,7 +90,7 @@ def main() -> int:
     )
     return output(
         result.reasons,
-        scopeName=key,
+        scopeName=normalize_scope_name(key),
         matchedRepositoryCount=1,
         repositoryKey=legacy_repository_key,
         repositoryName=repository_path.name,
