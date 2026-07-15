@@ -4,6 +4,10 @@ import sys
 import unittest
 from pathlib import Path
 
+import pytest
+
+from zentao_ai.reporting import ReportError, render_personal, render_team
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "render-report.py"
@@ -24,6 +28,20 @@ def render(mode: str, fixture: str) -> subprocess.CompletedProcess[str]:
 
 
 class ReportRendererTests(unittest.TestCase):
+    def test_public_renderers_accept_unknown_fields(self):
+        personal = json.loads((FIXTURES / "personal-report.json").read_text(encoding="utf-8"))
+        team = json.loads((FIXTURES / "team-report.json").read_text(encoding="utf-8"))
+        personal["unknown"] = {"ignored": True}
+        team["coverage"]["unknown"] = "ignored"
+        self.assertEqual(render_personal(personal), render_personal(personal))
+        self.assertEqual(render_team(team), render_team(team))
+
+    def test_public_renderer_rejects_missing_required_field(self):
+        personal = json.loads((FIXTURES / "personal-report.json").read_text(encoding="utf-8"))
+        del personal["run"]
+        with pytest.raises(ReportError, match="run must be an object"):
+            render_personal(personal)
+
     def test_personal_report_uses_approved_groups_and_truthful_results(self):
         result = render("personal", "personal-report.json")
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -67,6 +85,30 @@ class ReportRendererTests(unittest.TestCase):
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("duplicate Bug", result.stderr)
+
+    def test_cli_rejects_invalid_json_with_exit_code_two(self):
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "--mode", "personal"],
+            input="{not json}",
+            text=True,
+            encoding="utf-8",
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stdout, "")
+        self.assertTrue(result.stderr.strip())
+
+    def test_cli_emits_utf8_markdown(self):
+        payload = (FIXTURES / "personal-report.json").read_bytes()
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "--mode", "personal"],
+            input=payload,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8"))
+        self.assertIn("个人 Bug 日报", result.stdout.decode("utf-8"))
 
 
 if __name__ == "__main__":
