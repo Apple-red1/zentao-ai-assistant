@@ -90,14 +90,14 @@ def replace_steps_with_image(
         raise PermissionError(",".join(validation.reasons))
     if validation.content is None or validation.filename is None:
         raise PermissionError("IMAGE_ARTIFACT_REQUIRED")
-    if not image_artifact_is_current(path, validation):
-        raise PermissionError("IMAGE_CHANGED_AFTER_VALIDATION")
     params: dict[str, object] = {
         "steps": [asdict(step) for step in steps],
         "imageSha256": validation.sha256,
         "filename": validation.filename,
     }
     _permit(context, "update_steps_with_image", bug_id, params)
+    if not image_artifact_is_current(path, validation):
+        raise PermissionError("IMAGE_CHANGED_AFTER_VALIDATION")
     return context.provider.update_bug_steps_with_image(
         bug_id,
         rendered,

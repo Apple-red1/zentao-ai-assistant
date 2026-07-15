@@ -88,3 +88,19 @@ def test_windows_junction_component_is_rejected(tmp_path):
         pytest.skip("junction creation is unavailable")
     through_junction = junction / "x.png"
     assert "SYMLINK_OR_REPARSE_COMPONENT" in validate_user_image(through_junction, auth((through_junction,))).reasons
+
+
+def test_growth_after_initial_stat_is_rejected(tmp_path, monkeypatch):
+    image = (tmp_path / "growing.png").resolve()
+    image.write_bytes(PNG)
+    original_open = Path.open
+
+    def grow_then_open(self, *args, **kwargs):
+        if self == image:
+            with original_open(self, "ab") as stream:
+                stream.write(b"x" * (10 * 1024 * 1024))
+        return original_open(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", grow_then_open)
+    result = validate_user_image(image, auth((image,)))
+    assert "IMAGE_TOO_LARGE" in result.reasons

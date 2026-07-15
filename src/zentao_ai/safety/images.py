@@ -90,6 +90,12 @@ def validate_user_image(
                 after.st_mtime_ns,
             ):
                 reasons.append("IMAGE_CHANGED_DURING_VALIDATION")
+            if (
+                before.st_size > MAX_IMAGE_BYTES
+                or after.st_size > MAX_IMAGE_BYTES
+                or len(content) > MAX_IMAGE_BYTES
+            ):
+                reasons.append("IMAGE_TOO_LARGE")
             valid_magic = any(header.startswith(prefix) for prefix in MAGIC[suffix])
             if suffix == ".webp":
                 valid_magic = header.startswith(b"RIFF") and header[8:12] == b"WEBP"

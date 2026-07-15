@@ -47,6 +47,9 @@ class ExplodingProvider(RecordingProvider):
     def update_bug_steps(self, *args: object) -> StepUpdateResult:
         raise KeyboardInterrupt
 
+    def update_bug_steps_with_image(self, *args: object) -> StepUpdateResult:
+        raise KeyboardInterrupt
+
 
 def context(provider: RecordingProvider, **changes: object) -> RunContext:
     config = AppConfig.model_validate(
@@ -189,12 +192,61 @@ def test_image_provider_receives_exact_validated_immutable_bytes_and_no_path(
     image.write_bytes(PNG)
     provider = RecordingProvider()
     ctx = authorize_image(context(provider), image)
-    replace_steps_with_image(ctx, 7, STEPS, image)
+    result = replace_steps_with_image(ctx, 7, STEPS, image)
     call = provider.calls[0]
     assert call[3] == PNG and isinstance(call[3], bytes)
     assert call[4:] == ("proof.png", "image/png", True)
     assert str(image) not in repr(call)
     assert str(image) not in repr(ctx.authorizationRecords[0].parameters)
+    assert str(image) not in repr(result)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("scheduled", True), ("team", True), ("readonly", True), ("dryRun", True)],
+)
+def test_image_runtime_gates_fail_before_provider(
+    tmp_path: Path, field: str, value: bool
+) -> None:
+    image = (tmp_path / "proof.png").resolve()
+    image.write_bytes(PNG)
+    provider = RecordingProvider()
+    ctx = authorize_image(context(provider, **{field: value}), image)
+    with pytest.raises(PermissionError):
+        replace_steps_with_image(ctx, 7, STEPS, image)
+    assert provider.calls == []
+
+
+def test_image_disabled_permission_and_inexact_authorization_fail_closed(
+    tmp_path: Path,
+) -> None:
+    image = (tmp_path / "proof.png").resolve()
+    image.write_bytes(PNG)
+    provider = RecordingProvider()
+    base = authorize_image(context(provider), image)
+    disabled = replace(
+        base,
+        config=base.config.model_copy(
+            update={
+                "permissions": base.config.permissions.model_copy(
+                    update={"stepUpdateEnabled": False}
+                )
+            }
+        ),
+    )
+    record = base.authorizationRecords[0]
+    bad_records = (
+        record.model_copy(update={"turnId": "old"}),
+        record.model_copy(update={"source": "bug"}),
+        record.model_copy(update={"action": "update_steps"}),
+        record.model_copy(update={"bugId": "8"}),
+        record.model_copy(update={"parameters": {"steps": []}}),
+    )
+    contexts = (disabled, *(replace(base, authorizationRecords=(r,)) for r in bad_records))
+    for ctx in contexts:
+        with pytest.raises(PermissionError):
+            replace_steps_with_image(ctx, 7, STEPS, image)
+    assert provider.calls == []
 
 
 @pytest.mark.parametrize("kind", ["unauthorized", "nonfile", "type", "magic", "oversize"])
@@ -230,6 +282,23 @@ def test_provider_classified_failure_is_returned_and_baseexception_is_not_swallo
         replace_steps(context(ExplodingProvider()), 7, STEPS)
 
 
+def test_image_classified_failure_is_returned_and_baseexception_is_not_swallowed(
+    tmp_path: Path,
+) -> None:
+    image = (tmp_path / "proof.png").resolve()
+    image.write_bytes(PNG)
+    failed = StepUpdateResult(updated=False, bugId=7, status="FAILED")
+    provider = RecordingProvider(failed)
+    assert replace_steps_with_image(
+        authorize_image(context(provider), image), 7, STEPS, image
+    ) == failed
+    exploding = ExplodingProvider()
+    with pytest.raises(KeyboardInterrupt):
+        replace_steps_with_image(
+            authorize_image(context(exploding), image), 7, STEPS, image
+        )
+
+
 def test_file_replaced_after_validation_fails_closed_before_provider(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -247,6 +316,27 @@ def test_file_replaced_after_validation_fails_closed_before_provider(
         return result
 
     monkeypatch.setattr(steps_module, "validate_user_image", validate_then_replace)
+    with pytest.raises(PermissionError, match="IMAGE_CHANGED_AFTER_VALIDATION"):
+        replace_steps_with_image(ctx, 7, STEPS, image)
+    assert provider.calls == []
+
+
+def test_file_replaced_during_permit_fails_closed_before_provider(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    image = (tmp_path / "proof.png").resolve()
+    image.write_bytes(PNG)
+    provider = RecordingProvider()
+    ctx = authorize_image(context(provider), image)
+    from zentao_ai.workflows import steps as steps_module
+
+    original = steps_module._permit
+
+    def permit_then_replace(*args: object, **kwargs: object) -> None:
+        original(*args, **kwargs)  # type: ignore[arg-type]
+        image.write_bytes(PNG + b"changed-during-permit")
+
+    monkeypatch.setattr(steps_module, "_permit", permit_then_replace)
     with pytest.raises(PermissionError, match="IMAGE_CHANGED_AFTER_VALIDATION"):
         replace_steps_with_image(ctx, 7, STEPS, image)
     assert provider.calls == []
