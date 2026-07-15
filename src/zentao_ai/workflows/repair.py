@@ -119,7 +119,7 @@ def repair_bug(context: RunContext, bug_id: int | str) -> RepairResult:
         )
     if getattr(lease, "allowed", False) is not True:
         return _failure(bug_id, Decision.TOOL_OR_PERMISSION_GAP, "REPOSITORY_LEASE_DENIED")
-    if getattr(lease, "confined", True) is not True:
+    if getattr(lease, "confined", False) is not True:
         return _failure(
             bug_id, Decision.TOOL_OR_PERMISSION_GAP, "REPOSITORY_CONFINEMENT_FAILED"
         )

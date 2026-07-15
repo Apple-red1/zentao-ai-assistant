@@ -90,6 +90,8 @@ class RecordingRepository:
     def __init__(self, calls):
         self.calls = calls
         self.allowed = True
+        self.include_confined = True
+        self.confined = True
         self.unchanged_result = True
         self.fail_at = None
 
@@ -97,9 +99,10 @@ class RecordingRepository:
         self.calls.append("preflight")
         if self.fail_at == "preflight":
             raise RuntimeError("preflight")
-        return type(
-            "Lease", (), {"allowed": self.allowed, "confined": self.allowed}
-        )()
+        fields = {"allowed": self.allowed}
+        if self.include_confined:
+            fields["confined"] = self.confined
+        return type("Lease", (), fields)()
 
     def unchanged(self, lease):
         self.calls.append("repository_unchanged")
@@ -274,6 +277,131 @@ def test_dryrun_and_readonly_do_not_touch_provider_or_patch(readonly, dry_run):
     assert calls == []
 
 
+def assert_stopped(result, calls, expected_calls, *, retained=False, tests=()):
+    assert calls == expected_calls
+    assert result.success is False
+    assert result.localCandidateSuccess is False
+    assert result.commentDelivered is False
+    assert result.localChangesRetained is retained
+    assert result.testResults == tests
+    assert result.commentResult is None
+    assert not any(
+        call in {"checkout", "commit", "push", "merge", "deploy", "reset", "resolve", "close"}
+        for call in calls
+        if isinstance(call, str)
+    )
+
+
+def test_precheck_nonproceed_stops_before_routing_and_preserves_decision():
+    context, _, _, _, _, calls = harness()
+
+    def recheck(snapshot, history, phase):
+        calls.append("precheck")
+        return AnalysisSignal(needsReporterInfo=True)
+
+    result = repair_bug(replace(context, analysis=recheck), 7)
+    assert result.decision is Decision.NEEDS_REPORTER_INFO
+    assert_stopped(result, calls, ["snapshot", "history", "precheck"])
+
+
+@pytest.mark.parametrize("missing", ["repository", "patchExecutor"])
+def test_each_required_port_missing_stops_before_preflight(missing):
+    context, _, _, _, _, calls = harness()
+    result = repair_bug(replace(context, **{missing: None}), 7)
+    assert result.reasons == ("PORT_NOT_CONFIGURED",)
+    assert_stopped(result, calls, ["snapshot", "history", "precheck"])
+
+
+@pytest.mark.parametrize("mode", ["unconfigured", "empty_whitelist"])
+def test_repository_mapping_and_whitelist_are_required(mode):
+    context, _, _, _, _, calls = harness()
+    repositories = {} if mode == "unconfigured" else {
+        "main": context.config.repositories["main"].model_copy(update={"testCommands": []})
+    }
+    config = context.config.model_copy(update={"repositories": repositories})
+    result = repair_bug(replace(context, config=config), 7)
+    assert result.reasons == ("TEST_WHITELIST_REQUIRED",)
+    assert_stopped(result, calls, ["snapshot", "history", "precheck"])
+
+
+@pytest.mark.parametrize(
+    "allowed,include_confined,confined,reason",
+    [
+        (False, True, True, "REPOSITORY_LEASE_DENIED"),
+        (True, True, False, "REPOSITORY_CONFINEMENT_FAILED"),
+        (True, False, True, "REPOSITORY_CONFINEMENT_FAILED"),
+    ],
+)
+def test_incomplete_or_denied_lease_fails_closed_before_reproduction(
+    allowed, include_confined, confined, reason
+):
+    context, _, _, repository, _, calls = harness()
+    repository.allowed = allowed
+    repository.include_confined = include_confined
+    repository.confined = confined
+    result = repair_bug(context, 7)
+    assert result.reasons == (reason,)
+    assert_stopped(
+        result, calls, ["snapshot", "history", "precheck", "preflight"]
+    )
+
+
+def test_reproduction_must_fail_before_patch_application():
+    context, _, _, _, patch, calls = harness()
+    patch.reproduced = True
+    result = repair_bug(context, 7)
+    assert result.reasons == ("REPRODUCTION_DID_NOT_FAIL",)
+    assert_stopped(
+        result,
+        calls,
+        ["snapshot", "history", "precheck", "preflight", "repro"],
+    )
+
+
+def test_failed_patch_outcome_retains_possible_changes_and_stops():
+    context, _, _, _, patch, calls = harness()
+    patch.outcome = PatchOutcome.FAILED
+    result = repair_bug(context, 7)
+    assert result.reasons == ("PATCH_APPLICATION_FAILED",)
+    assert_stopped(
+        result,
+        calls,
+        ["snapshot", "history", "precheck", "preflight", "repro", "apply"],
+        retained=True,
+    )
+
+
+def test_unsafe_diff_retains_patch_without_fresh_reads_or_comment():
+    context, _, _, _, patch, calls = harness()
+    patch.safe = False
+    result = repair_bug(context, 7)
+    expected_tests = tuple(
+        WorkflowTestResult(command, True) for command in ("pytest -q", "ruff check .")
+    )
+    assert result.reasons == ("UNSAFE_DIFF",)
+    assert_stopped(
+        result,
+        calls,
+        [
+            "snapshot", "history", "precheck", "preflight", "repro", "apply",
+            ("tests", ("pytest -q", "ruff check .")), "diff",
+        ],
+        retained=True,
+        tests=expected_tests,
+    )
+
+
+def test_candidate_comment_skipped_is_not_delivery_or_overall_success():
+    context, *_rest, calls = harness()
+    context = replace(context, authorizationRecords=())
+    result = repair_bug(context, 7)
+    assert result.decision is Decision.FIX_CANDIDATE
+    assert result.localCandidateSuccess and result.localChangesRetained
+    assert not result.commentDelivered and not result.success
+    assert result.commentResult is not None and result.commentResult.status == "SKIPPED"
+    assert calls[-1] == "final"
+
+
 @pytest.mark.parametrize(
     "routing",
     [
@@ -287,7 +415,7 @@ def test_untrusted_routing_stops_before_repository(routing):
     context, *_rest, calls = harness(snapshots=(bug(routing=routing), bug()))
     result = repair_bug(context, 7)
     assert result.reasons == ("ROUTING_NOT_TRUSTED",)
-    assert "preflight" not in calls
+    assert_stopped(result, calls, ["snapshot", "history", "precheck"])
 
 
 @pytest.mark.parametrize(
