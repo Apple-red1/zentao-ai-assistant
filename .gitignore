@@ -32,3 +32,4 @@ dist/
 
 # Local agent coordination artifacts
 .superpowers/
+.worktrees/
