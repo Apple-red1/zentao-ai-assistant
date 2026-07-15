@@ -1,12 +1,30 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
+from types import MappingProxyType
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 
+def deep_freeze(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return MappingProxyType(
+            {str(key): deep_freeze(item) for key, item in value.items()}
+        )
+    if isinstance(value, (list, tuple)):
+        return tuple(deep_freeze(item) for item in value)
+    return value
+
+
 class FrozenModel(BaseModel):
-    model_config = ConfigDict(frozen=True, populate_by_name=True, extra="ignore")
+    model_config = ConfigDict(
+        frozen=True, populate_by_name=True, extra="ignore", arbitrary_types_allowed=True
+    )
+
+    def model_post_init(self, __context: Any) -> None:
+        for name in type(self).model_fields:
+            object.__setattr__(self, name, deep_freeze(getattr(self, name)))
 
 
 class RoutingData(FrozenModel):
@@ -25,7 +43,7 @@ class BugSnapshot(FrozenModel):
     title: str = ""
     steps: str = ""
     routing: RoutingData | None = None
-    raw: dict[str, Any] = Field(default_factory=dict)
+    raw: Mapping[str, Any] = Field(default_factory=dict)
 
 
 class BugHistoryEntry(FrozenModel):
@@ -36,7 +54,7 @@ class BugHistoryEntry(FrozenModel):
     content_hash: str | None = Field(None, alias="contentHash")
     created: bool | None = None
     already_exists: bool | None = Field(None, alias="alreadyExists")
-    raw: dict[str, Any] = Field(default_factory=dict)
+    raw: Mapping[str, Any] = Field(default_factory=dict)
 
 
 class Coverage(FrozenModel):
@@ -57,8 +75,9 @@ class HistoryPage(FrozenModel):
 
 
 class BugStatistics(FrozenModel):
-    values: dict[str, int] = Field(default_factory=dict)
+    values: Mapping[str, int] = Field(default_factory=dict)
     coverage: Coverage | None = None
+    raw: Mapping[str, Any] = Field(default_factory=dict)
 
 
 class CommentWriteResult(FrozenModel):

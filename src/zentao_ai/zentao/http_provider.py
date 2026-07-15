@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import base64
 import hashlib
+import re
 import time
 from collections.abc import Mapping
 from email.utils import parsedate_to_datetime
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -71,14 +74,16 @@ class HttpZentaoProvider:
     ) -> BugPage:
         return self._bug_page(
             "query_user_bugs",
-            self._endpoints.user_bugs.format(user=user),
+            self._endpoints.user_bugs.format(user=self._segment(user)),
             page,
             page_size,
         )
 
     def query_bug_detail(self, bug_id: int | str) -> BugSnapshot:
         data = self._request(
-            "GET", self._endpoints.bug_detail.format(bug_id=bug_id), "query_bug_detail"
+            "GET",
+            self._endpoints.bug_detail.format(bug_id=self._segment(bug_id)),
+            "query_bug_detail",
         )
         return self._snapshot(data, "query_bug_detail")
 
@@ -87,7 +92,7 @@ class HttpZentaoProvider:
     ) -> HistoryPage:
         data = self._request(
             "GET",
-            self._endpoints.bug_history.format(bug_id=bug_id),
+            self._endpoints.bug_history.format(bug_id=self._segment(bug_id)),
             "query_bug_history",
             params={"page": page, "pageSize": page_size},
         )
@@ -106,7 +111,7 @@ class HttpZentaoProvider:
             not isinstance(v, int) for v in source.values()
         ):
             raise ContractError("bug_statistics: invalid response contract")
-        return BugStatistics(values=dict(source))
+        return BugStatistics(values=dict(source), raw=self._sanitize(data))
 
     def add_bug_comment(
         self, bug_id: int | str, comment: str, confirm: bool, idempotency_key: str
@@ -118,7 +123,7 @@ class HttpZentaoProvider:
             )
         data = self._request(
             "POST",
-            self._endpoints.add_comment.format(bug_id=bug_id),
+            self._endpoints.add_comment.format(bug_id=self._segment(bug_id)),
             "add_bug_comment",
             json={
                 "bugId": bug_id,
@@ -133,23 +138,44 @@ class HttpZentaoProvider:
     def reconcile_comment(
         self, idempotency_key: str, bug_id: int | str, *, comment: str | None = None
     ) -> CommentWriteResult:
-        page = self.query_bug_history(bug_id, page=1, page_size=100)
         digest = (
             hashlib.sha256(comment.strip().encode("utf-8")).hexdigest()
             if comment is not None
             else None
         )
-        for entry in page.items:
-            if entry.idempotency_key != idempotency_key or (
-                digest is not None and entry.content_hash != digest
+        seen = 0
+        for page_number in range(1, 101):
+            page = self.query_bug_history(bug_id, page=page_number, page_size=100)
+            for entry in page.items:
+                seen += 1
+                if seen > 10_000:
+                    break
+                if entry.idempotency_key != idempotency_key or (
+                    digest is not None and entry.content_hash != digest
+                ):
+                    continue
+                if entry.created is True and entry.already_exists is not True:
+                    return CommentWriteResult(
+                        created=True,
+                        alreadyExists=False,
+                        commentId=entry.id,
+                        status="CREATED",
+                    )
+                if entry.already_exists is True and entry.created is not True:
+                    return CommentWriteResult(
+                        created=False,
+                        alreadyExists=True,
+                        commentId=entry.id,
+                        status="ALREADY_EXISTS",
+                    )
+            pages = page.coverage.pages
+            if (
+                seen > 10_000
+                or not page.items
+                or (pages is not None and page_number >= pages)
+                or (pages is None and seen >= page.coverage.total)
             ):
-                continue
-            return CommentWriteResult(
-                created=entry.created is True,
-                alreadyExists=entry.already_exists is True,
-                commentId=entry.id,
-                status="CREATED" if entry.created else "ALREADY_EXISTS",
-            )
+                break
         return CommentWriteResult(
             created=False, alreadyExists=False, commentId=None, status="UNKNOWN"
         )
@@ -161,7 +187,7 @@ class HttpZentaoProvider:
             raise ValueError("complete steps are required and confirm must be true")
         data = self._request(
             "POST",
-            self._endpoints.update_steps.format(bug_id=bug_id),
+            self._endpoints.update_steps.format(bug_id=self._segment(bug_id)),
             "update_bug_steps",
             json={"bugId": bug_id, "steps": steps, "confirm": True},
             write=True,
@@ -190,7 +216,7 @@ class HttpZentaoProvider:
             )
         data = self._request(
             "POST",
-            self._endpoints.update_steps.format(bug_id=bug_id),
+            self._endpoints.update_steps.format(bug_id=self._segment(bug_id)),
             "update_bug_steps_with_image",
             data={"bugId": str(bug_id), "steps": steps, "confirm": "true"},
             files={"image": (filename, image, content_type)},
@@ -200,6 +226,12 @@ class HttpZentaoProvider:
 
     def _headers(self) -> dict[str, str]:
         result: dict[str, str] = {}
+        if self._auth.password is not None:
+            username = self._auth.username or ""
+            token = base64.b64encode(
+                f"{username}:{self._auth.password.get_secret_value()}".encode()
+            ).decode("ascii")
+            result["Authorization"] = f"Basic {token}"
         if self._auth.api_token is not None:
             result["Authorization"] = (
                 f"Bearer {self._auth.api_token.get_secret_value()}"
@@ -222,6 +254,12 @@ class HttpZentaoProvider:
             kwargs["json"] = {
                 **kwargs["json"],
                 "account": self._auth.username,
+                "password": self._auth.password.get_secret_value(),
+            }
+        if write and self._auth.password is not None and "data" in kwargs:
+            kwargs["data"] = {
+                **kwargs["data"],
+                "account": self._auth.username or "",
                 "password": self._auth.password.get_secret_value(),
             }
         attempts = 1 if method != "GET" else self._max_get_retries + 1
@@ -291,17 +329,12 @@ class HttpZentaoProvider:
             raise ContractError(f"{operation}: invalid items")
         return items
 
-    @staticmethod
-    def _snapshot(data: Mapping[str, Any], operation: str) -> BugSnapshot:
+    @classmethod
+    def _snapshot(cls, data: Mapping[str, Any], operation: str) -> BugSnapshot:
         version = data.get("version")
         if version is None or not str(version).strip():
             raise ContractError(f"{operation}: missing stable version")
-        safe = {
-            str(k): v
-            for k, v in data.items()
-            if str(k).lower()
-            not in {"password", "token", "authorization", "cookie", "set-cookie"}
-        }
+        safe = cls._sanitize(data)
         normalized = {
             **data,
             "version": str(version).strip(),
@@ -313,10 +346,10 @@ class HttpZentaoProvider:
         except Exception:
             raise ContractError(f"{operation}: invalid bug contract") from None
 
-    @staticmethod
-    def _history(data: Mapping[str, Any], operation: str) -> BugHistoryEntry:
+    @classmethod
+    def _history(cls, data: Mapping[str, Any], operation: str) -> BugHistoryEntry:
         try:
-            return BugHistoryEntry(**data, raw=dict(data))
+            return BugHistoryEntry(**data, raw=cls._sanitize(data))
         except Exception:
             raise ContractError(f"{operation}: invalid history contract") from None
 
@@ -378,3 +411,31 @@ class HttpZentaoProvider:
             except (TypeError, ValueError):
                 return
         time.sleep(min(delay, self._retry_after_cap))
+
+    @staticmethod
+    def _segment(value: int | str) -> str:
+        return quote(str(value), safe="")
+
+    @classmethod
+    def _sanitize(cls, value: Any) -> Any:
+        if isinstance(value, Mapping):
+            result: dict[str, Any] = {}
+            for key, item in value.items():
+                normalized = re.sub(r"[^a-z0-9]", "", str(key).lower())
+                if any(
+                    word in normalized
+                    for word in (
+                        "password",
+                        "token",
+                        "authorization",
+                        "cookie",
+                        "secret",
+                        "credential",
+                    )
+                ):
+                    continue
+                result[str(key)] = cls._sanitize(item)
+            return result
+        if isinstance(value, (list, tuple)):
+            return [cls._sanitize(item) for item in value]
+        return value

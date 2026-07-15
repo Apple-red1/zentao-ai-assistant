@@ -37,3 +37,6 @@ class ZentaoProvider(Protocol):
         content_type: str,
         confirm: bool = True,
     ) -> StepUpdateResult: ...
+    def reconcile_comment(
+        self, idempotency_key: str, bug_id: int | str, *, comment: str | None = None
+    ) -> CommentWriteResult: ...
