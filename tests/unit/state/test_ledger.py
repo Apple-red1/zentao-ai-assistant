@@ -100,6 +100,16 @@ def test_checkpoint_and_payload_protection(tmp_path):
             )
 
 
+def test_legacy_oversized_payload_has_exact_error(monkeypatch):
+    from zentao_ai.state import ledger as state_ledger
+    from zentao_ai.state.models import CliError
+
+    monkeypatch.setattr(state_ledger, "MAX_PAYLOAD_BYTES", 8)
+    with pytest.raises(CliError) as caught:
+        state_ledger._legacy_payload('{"value":"too long"}')
+    assert (caught.value.code, caught.value.field) == ("payload_too_large", "payload-json")
+
+
 def test_migration_rolls_back_on_failure(tmp_path, monkeypatch):
     from zentao_ai.state import migrations
 

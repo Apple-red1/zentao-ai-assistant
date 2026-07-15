@@ -189,7 +189,13 @@ def test_comment_and_outbox_full_contract(tmp_path):
 
 
 def test_argparse_errors_are_structured_json():
-    for args in (("acquire-job",), ("unknown-command",), ("init", "--unknown")):
+    for args in (
+        ("--help",),
+        ("acquire-job", "--help"),
+        ("acquire-job",),
+        ("unknown-command",),
+        ("init", "--unknown"),
+    ):
         result = run(*args)
         assert result.returncode == 2
         assert json.loads(result.stdout) == {
@@ -199,3 +205,179 @@ def test_argparse_errors_are_structured_json():
                 "message": "Invalid command arguments.",
             },
         }
+
+
+def test_validation_error_contracts(tmp_path):
+    db = str(tmp_path / "db")
+    trimmed = json.loads(
+        run(
+            "--db",
+            db,
+            "acquire-job",
+            "--job-key",
+            " daily ",
+            "--owner",
+            " one ",
+            "--business-date",
+            "2026-07-15",
+            "--lease-seconds",
+            "60",
+        ).stdout
+    )
+    assert trimmed["jobKey"] == "daily" and trimmed["owner"] == "one"
+    cases = [
+        (
+            (
+                "--db",
+                db,
+                "acquire-job",
+                "--job-key",
+                " ",
+                "--owner",
+                "x",
+                "--business-date",
+                "2026-07-15",
+                "--lease-seconds",
+                "60",
+            ),
+            "invalid_argument",
+            "job-key",
+        ),
+        (
+            (
+                "--db",
+                db,
+                "acquire-repo",
+                "--repo-key",
+                "r",
+                "--owner",
+                "x",
+                "--lease-seconds",
+                "86401",
+            ),
+            "invalid_argument",
+            "lease-seconds",
+        ),
+        (
+            (
+                "--db",
+                db,
+                "acquire-job",
+                "--job-key",
+                "j",
+                "--owner",
+                "x",
+                "--business-date",
+                "2026-7-1",
+                "--lease-seconds",
+                "60",
+            ),
+            "invalid_argument",
+            "business-date",
+        ),
+        (
+            (
+                "--db",
+                db,
+                "outbox-put",
+                "--outbox-key",
+                "o",
+                "--job-key",
+                "j",
+                "--payload-json",
+                "{",
+            ),
+            "invalid_json",
+            "payload-json",
+        ),
+        (
+            (
+                "--db",
+                db,
+                "outbox-put",
+                "--outbox-key",
+                "o",
+                "--job-key",
+                "j",
+                "--payload-json",
+                '{"logs":"x"}',
+            ),
+            "disallowed_payload",
+            "payload-json",
+        ),
+        (
+            (
+                "--db",
+                db,
+                "outbox-put",
+                "--outbox-key",
+                "o",
+                "--job-key",
+                "j",
+                "--payload-json",
+                '{"value":"Bearer abc"}',
+            ),
+            "disallowed_payload",
+            "payload-json",
+        ),
+    ]
+    for args, code, field in cases:
+        result = run(*args)
+        error = json.loads(result.stdout)["error"]
+        assert result.returncode == 2 and (error["code"], error["field"]) == (
+            code,
+            field,
+        )
+
+
+def test_exact_conflict_and_lease_errors(tmp_path):
+    db = str(tmp_path / "db")
+    comment = (
+        "--db",
+        db,
+        "comment-put",
+        "--idempotency-key",
+        "c",
+        "--bug-id",
+        "1",
+        "--snapshot-version",
+        "v",
+        "--decision",
+        "fix",
+        "--status",
+        "ok",
+    )
+    assert run(*comment).returncode == 0
+    changed = list(comment)
+    changed[changed.index("fix")] = "other"
+    conflict = json.loads(run(*changed).stdout)["error"]
+    assert (conflict["code"], conflict["field"]) == (
+        "idempotency_conflict",
+        "idempotency-key",
+    )
+    missing = json.loads(
+        run("--db", db, "release-repo", "--repo-key", "none", "--owner", "x").stdout
+    )["error"]
+    assert (missing["code"], missing["field"]) == ("lease_not_found", "repo-key")
+    run(
+        "--db",
+        db,
+        "acquire-repo",
+        "--repo-key",
+        "r",
+        "--owner",
+        "one",
+        "--lease-seconds",
+        "60",
+    )
+    mismatch = json.loads(
+        run("--db", db, "release-repo", "--repo-key", "r", "--owner", "two").stdout
+    )["error"]
+    assert (mismatch["code"], mismatch["field"]) == ("lease_owner_mismatch", "owner")
+    missing_outbox = json.loads(
+        run("--db", db, "outbox-sent", "--outbox-key", "none").stdout
+    )["error"]
+    assert (missing_outbox["code"], missing_outbox["field"]) == (
+        "outbox_not_found",
+        "outbox-key",
+    )

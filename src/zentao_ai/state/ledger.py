@@ -35,6 +35,88 @@ SENSITIVE = (
     "cookie",
     "credential",
 )
+DISALLOWED_KEYS = {
+    "sourcecode",
+    "fullbugbody",
+    "bugbody",
+    "credential",
+    "credentials",
+    "screenshot",
+    "screenshots",
+    "attachment",
+    "attachments",
+    "log",
+    "logs",
+    "rawlog",
+    "rawlogs",
+}
+SENSITIVE_VALUES = (
+    re.compile(r"(?i)^\s*bearer\s+\S+"),
+    re.compile(r"(?i)^(?:sk-|ghp_|github_pat_)[A-Za-z0-9_-]+"),
+    re.compile(r"^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$"),
+)
+
+
+def _required(value: str | None, field: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise CliError("invalid_argument", "A required value is missing.", field)
+    return value.strip()
+
+
+def _business_date(value: str) -> str:
+    try:
+        parsed = date.fromisoformat(value)
+    except (TypeError, ValueError) as exc:
+        raise CliError(
+            "invalid_argument", "Business date must use YYYY-MM-DD.", "business-date"
+        ) from exc
+    if parsed.isoformat() != value:
+        raise CliError(
+            "invalid_argument", "Business date must use YYYY-MM-DD.", "business-date"
+        )
+    return value
+
+
+def _legacy_payload(raw: str, field: str = "payload-json") -> tuple[Any, str]:
+    try:
+        value = json.loads(raw)
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise CliError("invalid_json", "Payload must be valid JSON.", field) from exc
+
+    def inspect(item: Any) -> None:
+        if isinstance(item, dict):
+            for key, nested in item.items():
+                normalized = re.sub(r"[^a-z0-9]", "", str(key).lower())
+                if normalized in DISALLOWED_KEYS or any(
+                    part in normalized for part in SENSITIVE
+                ):
+                    raise CliError(
+                        "disallowed_payload",
+                        "Payload contains data outside the coordination-store scope.",
+                        field,
+                    )
+                inspect(nested)
+        elif isinstance(item, list):
+            for nested in item:
+                inspect(nested)
+        elif isinstance(item, str) and any(
+            pattern.search(item) for pattern in SENSITIVE_VALUES
+        ):
+            raise CliError(
+                "disallowed_payload",
+                "Payload contains data outside the coordination-store scope.",
+                field,
+            )
+
+    inspect(value)
+    rendered = json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    )
+    if len(rendered.encode("utf-8")) > MAX_PAYLOAD_BYTES:
+        raise CliError(
+            "payload_too_large", "Payload exceeds the coordination-store limit.", field
+        )
+    return value, rendered
 
 
 def default_ledger_path() -> Path:
@@ -343,7 +425,12 @@ class Ledger:
         ttl: int,
         business_date: str | None = None,
     ) -> dict[str, Any]:
-        if ttl < 1 or ttl > 86400:
+        keys = {
+            name: _required(value, name.replace("_", "-"))
+            for name, value in keys.items()
+        }
+        owner = _required(owner, "owner")
+        if type(ttl) is not int or ttl < 1 or ttl > 86400:
             raise CliError(
                 "invalid_argument",
                 "Lease duration must be between 1 and 86400 seconds.",
@@ -415,6 +502,11 @@ class Ledger:
     def _legacy_release(
         self, table: str, keys: dict[str, str], owner: str
     ) -> dict[str, Any]:
+        keys = {
+            name: _required(value, name.replace("_", "-"))
+            for name, value in keys.items()
+        }
+        owner = _required(owner, "owner")
         where = " AND ".join(f"{name}=?" for name in keys)
         values = tuple(keys.values())
         connection = self._write()
@@ -428,7 +520,12 @@ class Ledger:
                 else ("repo-key" if "repo_key" in keys else "job-key")
             )
             if row is None:
-                raise CliError("lease_not_found", "Lease does not exist.", field)
+                messages = {
+                    "bug-id": "Bug lease does not exist.",
+                    "repo-key": "Repository lease does not exist.",
+                    "job-key": "Job lease does not exist.",
+                }
+                raise CliError("lease_not_found", messages[field], field)
             if row["owner"] != owner:
                 raise CliError(
                     "lease_owner_mismatch",
@@ -456,7 +553,9 @@ class Ledger:
     def acquire_job(
         self, job_key: str, owner: str, business_date: str, lease_seconds: int
     ) -> dict[str, Any]:
-        date.fromisoformat(business_date)
+        job_key = _required(job_key, "job-key")
+        owner = _required(owner, "owner")
+        business_date = _business_date(business_date)
         return self._legacy_lease(
             "job_leases", {"job_key": job_key}, owner, lease_seconds, business_date
         )
@@ -494,8 +593,11 @@ class Ledger:
         stage: str,
         payload_raw: str,
     ) -> dict[str, Any]:
-        payload = json.loads(payload_raw)
-        rendered, _ = _payload(payload)
+        job_key = _required(job_key, "job-key")
+        bug_id = _required(bug_id, "bug-id")
+        snapshot_version = _required(snapshot_version, "snapshot-version")
+        stage = _required(stage, "stage")
+        payload, rendered = _legacy_payload(payload_raw)
         updated = _text(_now())
         connection = self._write()
         try:
@@ -520,6 +622,8 @@ class Ledger:
         }
 
     def compat_checkpoint_get(self, job_key: str, bug_id: str) -> dict[str, Any]:
+        job_key = _required(job_key, "job-key")
+        bug_id = _required(bug_id, "bug-id")
         row = self._connection.execute(
             "SELECT * FROM legacy_checkpoints WHERE job_key=? AND bug_id=?",
             (job_key, bug_id),
@@ -547,6 +651,13 @@ class Ledger:
         comment_id: str | None,
         status: str,
     ) -> dict[str, Any]:
+        idempotency_key = _required(idempotency_key, "idempotency-key")
+        bug_id = _required(bug_id, "bug-id")
+        snapshot_version = _required(snapshot_version, "snapshot-version")
+        decision = _required(decision, "decision")
+        status = _required(status, "status")
+        if comment_id is not None:
+            comment_id = _required(comment_id, "comment-id")
         updated = _text(_now())
         connection = self._write()
         try:
@@ -603,6 +714,7 @@ class Ledger:
         }
 
     def comment_get(self, idempotency_key: str) -> dict[str, Any]:
+        idempotency_key = _required(idempotency_key, "idempotency-key")
         row = self._connection.execute(
             "SELECT * FROM comment_records WHERE idempotency_key=?", (idempotency_key,)
         ).fetchone()
@@ -624,8 +736,9 @@ class Ledger:
     def outbox_put(
         self, outbox_key: str, job_key: str, payload_raw: str
     ) -> dict[str, Any]:
-        payload = json.loads(payload_raw)
-        rendered, _ = _payload(payload)
+        outbox_key = _required(outbox_key, "outbox-key")
+        job_key = _required(job_key, "job-key")
+        payload, rendered = _legacy_payload(payload_raw)
         created_at = _text(_now())
         connection = self._write()
         try:
@@ -681,6 +794,10 @@ class Ledger:
         }
 
     def outbox_list(self, job_key: str | None, status: str | None) -> dict[str, Any]:
+        if job_key is not None:
+            job_key = _required(job_key, "job-key")
+        if status is not None:
+            status = _required(status, "status")
         sql = "SELECT * FROM legacy_outbox"
         clauses: list[str] = []
         values: list[str] = []
@@ -698,6 +815,7 @@ class Ledger:
         return {"items": [self._legacy_outbox_row(row) for row in rows]}
 
     def outbox_sent(self, outbox_key: str) -> dict[str, Any]:
+        outbox_key = _required(outbox_key, "outbox-key")
         connection = self._write()
         try:
             row = connection.execute(
