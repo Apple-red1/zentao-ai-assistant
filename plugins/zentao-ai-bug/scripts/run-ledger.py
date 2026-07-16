@@ -3,7 +3,7 @@ try:
     from zentao_ai.state.cli import main
 except ModuleNotFoundError as exc:
     if exc.name and exc.name.startswith("zentao_ai"):
-        raise SystemExit("Clone the repository, then run: pipx install . from the repository root. See docs/plugin-installation.md.") from exc
+        raise SystemExit('Install the CLI with: pipx install "git+https://github.com/wwtweiwenting/zentao-ai-assistant.git@feature/zentao-open-source". See docs/plugin-installation.md.') from exc
     raise
 
 raise SystemExit(main())

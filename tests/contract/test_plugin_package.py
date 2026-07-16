@@ -134,19 +134,21 @@ def test_repository_guard_has_an_installed_cli_entrypoint() -> None:
     assert "preflight" in result.stdout
 
 
-def test_wrappers_report_clear_install_error_when_package_is_unavailable() -> None:
-    wrapper = PLUGIN / "scripts" / "run-ledger.py"
-    isolated = subprocess.run(
-        [sys.executable, "-I", "-S", str(wrapper), "--help"],
-        text=True,
-        capture_output=True,
-        check=False,
+def test_wrappers_report_github_install_error_when_package_is_unavailable() -> None:
+    github_install = (
+        'pipx install "git+https://github.com/wwtweiwenting/'
+        'zentao-ai-assistant.git@feature/zentao-open-source"'
     )
-    assert isolated.returncode != 0
-    assert (
-        "Clone the repository, then run: pipx install . from the repository root. "
-        "See docs/plugin-installation.md."
-    ) in isolated.stderr
+    for wrapper in (PLUGIN / "scripts").glob("*.py"):
+        isolated = subprocess.run(
+            [sys.executable, "-I", "-S", str(wrapper), "--help"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert isolated.returncode != 0
+        assert github_install in isolated.stderr
+        assert "pipx install ." not in isolated.stderr
 
 
 def test_plugin_and_all_docs_never_claim_an_unpublished_pypi_install() -> None:
