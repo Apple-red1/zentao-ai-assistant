@@ -88,6 +88,14 @@ def test_marketplace_entry_is_team_installable() -> None:
     assert entry["category"] == "Productivity"
 
 
+def test_github_marketplace_keeps_repository_relative_plugin_path() -> None:
+    text = (ROOT / "docs" / "plugin-installation.md").read_text(encoding="utf-8")
+    assert "wwtweiwenting/zentao-ai-assistant@feature/zentao-open-source" in text
+    market = load_json(ROOT / ".agents" / "plugins" / "marketplace.json")
+    entry = next(item for item in market["plugins"] if item["name"] == "zentao-ai-bug")
+    assert entry["source"] == {"source": "local", "path": "./plugins/zentao-ai-bug"}
+
+
 def test_plugin_wrappers_are_thin_import_only_entrypoints() -> None:
     expected = {
         "run-ledger.py": "zentao_ai.state.cli",
