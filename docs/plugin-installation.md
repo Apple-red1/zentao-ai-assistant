@@ -1,21 +1,17 @@
 # Codex 插件安装
 
-本插件依赖仓库中的开源 CLI。请先安装 Python 3.11 或更高版本及 `pipx`，clone 本仓库并在仓库根目录运行：
+本插件依赖仓库中的开源 CLI。请先安装 Python 3.11 或更高版本及 `pipx`，然后直接从 GitHub 功能分支安装：
 
 ```shell
-pipx install .
+pipx install "git+https://github.com/wwtweiwenting/zentao-ai-assistant.git@feature/zentao-open-source"
 ```
 
-当前项目尚未发布到 PyPI。仓库公开发布后，也可使用 VCS URL 安装指定分支；把 `<branch>` 换成要验证的分支名：
+当前项目尚未发布到 PyPI。私有仓库用户需要拥有该仓库的读取权限，并为 Git 配置可用于 GitHub 的已认证凭据。
+
+添加唯一名称为 `zentao-team` 的团队 Marketplace：
 
 ```shell
-pipx install git+https://github.com/wwtweiwenting/zentao-ai-assistant.git@<branch>
-```
-
-从仓库根目录添加唯一名称为 `zentao-team` 的团队 Marketplace：
-
-```shell
-codex plugin marketplace add .
+codex plugin marketplace add "wwtweiwenting/zentao-ai-assistant@feature/zentao-open-source"
 ```
 
 Codex CLI 0.130.0 没有插件安装子命令。添加 Marketplace 后，打开 Codex app 的 Plugins 页面，从 `Zentao Team` Marketplace 选择并启用 `zentao-ai-bug`；不要运行不存在的 CLI 安装命令。

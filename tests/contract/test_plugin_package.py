@@ -164,10 +164,19 @@ def test_forbidden_install_command_is_not_embedded_in_compiled_test_bytecode() -
 
 def test_installation_document_covers_supported_plugin_flow() -> None:
     text = (ROOT / "docs" / "plugin-installation.md").read_text(encoding="utf-8")
+    github_cli = (
+        'pipx install "git+https://github.com/wwtweiwenting/'
+        'zentao-ai-assistant.git@feature/zentao-open-source"'
+    )
+    github_marketplace = (
+        'codex plugin marketplace add '
+        '"wwtweiwenting/zentao-ai-assistant@feature/zentao-open-source"'
+    )
+    assert github_cli in text
+    assert github_marketplace in text
+    assert "pipx install ." not in text
+    assert "codex plugin marketplace add ." not in text
     for required in (
-        "pipx install .",
-        "pipx install git+https://github.com/wwtweiwenting/zentao-ai-assistant.git@",
-        "codex plugin marketplace add",
         "zentao-team",
         "Codex app",
         "Windows",
@@ -179,7 +188,9 @@ def test_installation_document_covers_supported_plugin_flow() -> None:
     assert "codex plugin add" not in text
     assert UNPUBLISHED_PYPI_INSTALL not in text
     assert "尚未发布到 PyPI" in text
-    assert "仓库公开发布后" in text
+    assert "私有仓库" in text
+    assert "读取权限" in text
+    assert "已认证凭据" in text
     assert not re.search(r"(?i)(password|token|cookie|secret)\s*[:=]\s*\S+", text)
 
 
