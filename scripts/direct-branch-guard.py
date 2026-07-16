@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import json
 import os
 import sys
@@ -32,6 +33,8 @@ def output(reason_codes: list[str], **values: Any) -> int:
         "dirtyEntryCount": values.get("dirtyEntryCount", 0),
     }
     payload.update(values)
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout.reconfigure(encoding="utf-8")
     print(json.dumps(payload, ensure_ascii=False))
     return 0 if not reason_codes else 2
 

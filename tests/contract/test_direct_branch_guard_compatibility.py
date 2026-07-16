@@ -8,6 +8,7 @@ from pathlib import Path
 import yaml
 
 SCRIPT = Path(__file__).parents[2] / "scripts" / "direct-branch-guard.py"
+PROJECT_ROOT = SCRIPT.parents[1]
 def git(path: Path, *args: str) -> None:
     subprocess.run(["git", *args], cwd=path, check=True, capture_output=True)
 
@@ -97,3 +98,40 @@ def test_non_ascii_uppercase_scope_uses_legacy_lower_matching(tmp_path: Path):
     assert result.returncode == 0
     assert payload["scopeName"] == "éλλα"
     assert payload["repositoryPath"] == str(repo.resolve())
+
+
+def test_guard_entrypoints_write_utf8_json_with_non_utf8_stdio(tmp_path: Path):
+    _, config = setup(tmp_path)
+    data = yaml.safe_load(config.read_text(encoding="utf-8"))
+    mapping = data["repositories"].pop("Example Site Admin")
+    data["repositories"]["ÉQUIPE"] = mapping
+    data["personal"]["scopeNames"] = ["ÉQUIPE"]
+    data["team"]["scopeNames"] = ["ÉQUIPE"]
+    config.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+    env = {
+        **os.environ,
+        "PYTHONIOENCODING": "cp1252",
+        "PYTHONPATH": str(PROJECT_ROOT / "src"),
+    }
+
+    commands = (
+        [sys.executable, str(SCRIPT)],
+        [sys.executable, "-m", "zentao_ai.repository.cli"],
+    )
+    for command in commands:
+        result = subprocess.run(
+            [
+                *command,
+                "preflight",
+                "--config",
+                str(config),
+                "--scope-json",
+                json.dumps({"product": "équipe"}),
+            ],
+            capture_output=True,
+            env=env,
+        )
+
+        payload = json.loads(result.stdout.decode("utf-8"))
+        assert result.returncode == 0
+        assert payload["scopeName"] == "équipe"
