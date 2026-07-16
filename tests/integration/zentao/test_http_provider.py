@@ -443,6 +443,26 @@ def test_get_retries_connection_then_succeeds_and_exhausts() -> None:
     assert exhausted == 3
 
 
+def test_password_auth_logs_in_once_and_caches_token() -> None:
+    calls: list[str] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url.path)
+        if request.url.path == "/api.php/v2/users/login":
+            assert json.loads(request.content) == {"account": "alice", "password": "secret"}
+            return httpx.Response(200, json={"token": "issued-token"})
+        assert request.headers["Authorization"] == "Bearer issued-token"
+        return httpx.Response(200, json={"items": []})
+
+    instance = provider(
+        httpx.MockTransport(handle),
+        auth=ZentaoAuth(username="alice", password=SecretStr("secret")),
+    )
+    instance.query_my_bugs()
+    instance.query_my_bugs()
+    assert calls == ["/api.php/v2/users/login", "/api/bugs/mine", "/api/bugs/mine"]
+
+
 def test_post_remote_protocol_error_is_unknown_without_retry() -> None:
     calls = 0
 

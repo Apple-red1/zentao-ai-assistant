@@ -14,7 +14,7 @@ import typer
 
 from zentao_ai.config.loader import load_config
 from zentao_ai.config.models import AppConfig
-from zentao_ai.credentials.environment import resolve_credential
+from zentao_ai.credentials.environment import CredentialUnavailableError, resolve_credential
 from zentao_ai.credentials.store import CredentialName, CredentialStore
 from zentao_ai.repository.guard import (
     GuardResult,
@@ -205,7 +205,12 @@ class DependencyFactory:
         config_path = project / ".codex" / "zentao-ai-bug.yaml"
         config = load_config(config_path)
         store = CredentialStore()
-        token = resolve_credential(CredentialName.API_TOKEN, os.environ, store)
+        try:
+            token = resolve_credential(CredentialName.API_TOKEN, os.environ, store)
+            password = None
+        except CredentialUnavailableError:
+            token = None
+            password = resolve_credential(CredentialName.PASSWORD, os.environ, store)
         if not config.zentao.baseUrl:
             raise ValueError("zentao.baseUrl is required")
         provider = HttpZentaoProvider(
@@ -220,7 +225,7 @@ class DependencyFactory:
                 updateSteps="/api/bugs/{bug_id}/steps",
             ),
             auth=ZentaoAuth(
-                username=config.zentao.account, apiToken=token, webCookie=None
+                username=config.zentao.account, apiToken=token, password=password, webCookie=None
             ),
         )
         ledger = Ledger(project / ".codex" / "zentao-ai-state.sqlite3")

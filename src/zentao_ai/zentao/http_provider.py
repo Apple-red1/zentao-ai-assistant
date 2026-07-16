@@ -45,6 +45,7 @@ class HttpZentaoProvider:
         retry_after_cap: float = 2.0,
     ) -> None:
         self._auth = auth or ZentaoAuth(apiToken=None, webCookie=None)
+        self._password_token: str | None = None
         self._endpoints = endpoints
         self._max_get_retries = max(0, max_get_retries)
         self._retry_after_cap = max(0.0, retry_after_cap)
@@ -246,15 +247,18 @@ class HttpZentaoProvider:
     def _headers(self, *, write: bool) -> dict[str, str]:
         result: dict[str, str] = {}
         mode = self._auth_mode()
+        if self._password_token is not None:
+            result["Authorization"] = f"Bearer {self._password_token}"
+            return result
         if mode == "password" and not write and self._auth.password is not None:
             username = self._auth.username or ""
             token = base64.b64encode(
                 f"{username}:{self._auth.password.get_secret_value()}".encode()
             ).decode("ascii")
             result["Authorization"] = f"Basic {token}"
-        elif mode == "token" and self._auth.api_token is not None:
+        elif mode == "token" and (self._auth.api_token is not None or self._password_token is not None):
             result["Authorization"] = (
-                f"Bearer {self._auth.api_token.get_secret_value()}"
+                f"Bearer {self._auth.api_token.get_secret_value() if self._auth.api_token is not None else self._password_token}"
             )
         elif mode == "cookie" and self._auth.web_cookie is not None:
             result["Cookie"] = self._auth.web_cookie.get_secret_value()
@@ -270,6 +274,8 @@ class HttpZentaoProvider:
         **kwargs: Any,
     ) -> dict[str, Any]:
         mode = self._auth_mode()
+        if mode == "password":
+            self._ensure_password_token()
         kwargs["headers"] = {**self._headers(write=write), **kwargs.get("headers", {})}
         if (
             write
@@ -315,8 +321,23 @@ class HttpZentaoProvider:
             ):
                 self._sleep_retry_after(response.headers.get("Retry-After"))
                 continue
+            if response.status_code in (401, 407) and self._auth.password is not None and self._password_token is not None:
+                self._password_token = None
+                self._ensure_password_token()
+                kwargs["headers"] = {**self._headers(write=write), **kwargs.get("headers", {})}
+                response = self._client.request(method, path, **kwargs)
             return self._decode(response, operation)
         raise TransportError(f"{operation}: transport failure")
+
+    def _ensure_password_token(self) -> None:
+        if self._password_token is not None or self._auth.password is None or not self._auth.username:
+            return
+        response = self._client.post(self._endpoints.login, json={"account": self._auth.username, "password": self._auth.password.get_secret_value()})
+        data = self._decode(response, "login")
+        token = data.get("token")
+        if not isinstance(token, str) or not token.strip():
+            raise ContractError("login: missing token")
+        self._password_token = token
 
     def _decode(self, response: httpx.Response, operation: str) -> dict[str, Any]:
         request_id = response.headers.get("X-Request-Id")

@@ -13,3 +13,8 @@
 ```powershell
 python -m unittest discover -s tests -v
 ```
+
+Use `zentao-ai auth login --kind password` once to store the ZenTao password
+in the system credential store. If no API token is configured, the runtime
+logs in via `/api.php/v2/users/login` and caches only the returned token in
+memory; the password is never written to config, logs, or results.
