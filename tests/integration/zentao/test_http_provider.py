@@ -94,16 +94,14 @@ def test_cookie_is_used_when_it_is_the_only_auth_mode() -> None:
 
 
 def test_password_auth_is_request_body_only() -> None:
-    observed = False
+    observations: list[tuple[str, bool]] = []
 
     def handle(request: httpx.Request) -> httpx.Response:
-        nonlocal observed
         body = json.loads(request.content)
-        observed = (
-            body.get("account") == "alice"
-            and isinstance(body.get("password"), str)
-            and bool(body["password"])
-        )
+        if request.url.path.endswith("/users/login"):
+            observations.append(("login", body == {"account": "alice", "password": "password-secret"}))
+            return httpx.Response(200, json={"token": "issued-token"})
+        observations.append(("business", request.headers.get("Authorization", "") == "Bearer issued-token" and b"password-secret" not in request.content))
         return httpx.Response(
             200, json={"created": True, "alreadyExists": False, "commentId": "9"}
         )
@@ -112,7 +110,7 @@ def test_password_auth_is_request_body_only() -> None:
     provider(httpx.MockTransport(handle), auth=auth).add_bug_comment(
         1, "hello", True, "stable-key"
     )
-    assert observed
+    assert observations == [("login", True), ("business", True)]
 
 
 def test_write_timeout_is_unknown_and_is_not_retried() -> None:
@@ -277,10 +275,12 @@ def test_password_auth_covers_reads_and_multipart_without_secret_assertions() ->
     observations: list[tuple[bool, bool]] = []
 
     def handle(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/users/login"):
+            return httpx.Response(200, json={"token": "issued-token"})
         observations.append(
             (
-                request.headers.get("Authorization", "").startswith("Basic "),
-                b"account" in request.content and b"password" in request.content,
+                request.headers.get("Authorization", "") == "Bearer issued-token",
+                b"synthetic-pass" in request.content,
             )
         )
         return httpx.Response(
@@ -296,7 +296,7 @@ def test_password_auth_covers_reads_and_multipart_without_secret_assertions() ->
     )
     instance.query_my_bugs()
     instance.update_bug_steps_with_image(1, "steps", b"image", "x.png", "image/png")
-    assert observations == [(True, False), (False, True)]
+    assert observations == [(True, False), (True, False)]
 
 
 def test_user_history_and_statistics_contracts() -> None:
@@ -403,9 +403,11 @@ def test_password_write_uses_body_without_basic_header() -> None:
     observations: list[tuple[bool, bool]] = []
 
     def handle(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/users/login"):
+            return httpx.Response(200, json={"token": "issued-token"})
         body = json.loads(request.content)
         observations.append(
-            ("Authorization" in request.headers, bool(body.get("password")))
+            (request.headers.get("Authorization", "") == "Bearer issued-token", bool(body.get("password")))
         )
         return httpx.Response(200, json={"created": True, "alreadyExists": False})
 
@@ -413,7 +415,7 @@ def test_password_write_uses_body_without_basic_header() -> None:
     provider(httpx.MockTransport(handle), auth=auth).add_bug_comment(
         1, "note", True, "key"
     )
-    assert observations == [(False, True)]
+    assert observations == [(True, False)]
 
 
 def test_get_retries_connection_then_succeeds_and_exhausts() -> None:

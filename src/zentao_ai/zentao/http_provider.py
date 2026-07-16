@@ -277,28 +277,6 @@ class HttpZentaoProvider:
         if mode == "password":
             self._ensure_password_token()
         kwargs["headers"] = {**self._headers(write=write), **kwargs.get("headers", {})}
-        if (
-            write
-            and mode == "password"
-            and self._auth.password is not None
-            and "json" in kwargs
-        ):
-            kwargs["json"] = {
-                **kwargs["json"],
-                "account": self._auth.username,
-                "password": self._auth.password.get_secret_value(),
-            }
-        if (
-            write
-            and mode == "password"
-            and self._auth.password is not None
-            and "data" in kwargs
-        ):
-            kwargs["data"] = {
-                **kwargs["data"],
-                "account": self._auth.username or "",
-                "password": self._auth.password.get_secret_value(),
-            }
         attempts = 1 if method != "GET" else self._max_get_retries + 1
         for attempt in range(attempts):
             try:

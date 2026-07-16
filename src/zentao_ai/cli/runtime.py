@@ -216,6 +216,7 @@ class DependencyFactory:
         provider = HttpZentaoProvider(
             base_url=config.zentao.baseUrl,
             endpoints=ZentaoEndpoints(
+                login="/api.php/v2/users/login",
                 myBugs="/api/bugs/mine",
                 userBugs="/api/bugs/user/{user}",
                 bugDetail="/api/bugs/{bug_id}",
