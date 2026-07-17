@@ -1081,6 +1081,71 @@ def test_query_user_bugs_retains_items_when_pagination_is_contradictory() -> Non
     assert result.coverage.pages is None
 
 
+@pytest.mark.parametrize(
+    ("page", "total", "pages", "returned_ids"),
+    [
+        (1, 2, 1, [2537]),
+        (2, 22, 2, [3397]),
+    ],
+)
+def test_query_user_bugs_marks_underfilled_nonempty_pages_incomplete(
+    page: int, total: int, pages: int, returned_ids: list[int]
+) -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            json={
+                "items": [
+                    {
+                        "id": bug_id,
+                        "status": "open",
+                        "version": f"v-{bug_id}",
+                    }
+                    for bug_id in returned_ids
+                ],
+                "page": page,
+                "pageSize": 20,
+                "total": total,
+                "pages": pages,
+            },
+        )
+    )
+
+    result = provider(transport).query_user_bugs("alice", page=page)
+
+    assert [item.id for item in result.items] == returned_ids
+    assert result.coverage.total == -1
+    assert result.coverage.pages is None
+
+
+@pytest.mark.parametrize(
+    ("response_page", "response_page_size"), [(3, 20), (2, 10)]
+)
+def test_query_user_bugs_falls_back_when_response_pagination_mismatches_request(
+    response_page: int, response_page_size: int
+) -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            json={
+                "items": [{"id": 2537, "status": "open", "version": "v1"}],
+                "page": response_page,
+                "pageSize": response_page_size,
+                "total": 21,
+                "pages": 2,
+            },
+        )
+    )
+
+    result = provider(transport).query_user_bugs("alice", page=2, page_size=20)
+
+    assert [item.id for item in result.items] == [2537]
+    assert result.coverage.page == 2
+    assert result.coverage.page_size == 20
+    assert result.coverage.total == -1
+    assert result.coverage.pages is None
+
+
 def test_missing_version_is_contract_error() -> None:
     transport = httpx.MockTransport(
         lambda request: httpx.Response(200, json={"id": 7, "status": "open"})

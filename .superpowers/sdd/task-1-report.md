@@ -21,3 +21,16 @@
   - Complete, internally consistent pagination is preserved; missing, invalid, or contradictory metadata retains parsed candidates with `total=-1` and `pages=None`.
   - No Zentao write endpoint, write permission, or write behavior was changed or invoked.
 - concerns: none.
+
+## Review Fixes
+
+- status: DONE
+- RED command: `uv run --extra dev pytest tests/integration/zentao/test_http_provider.py -k "underfilled_nonempty_pages or falls_back_when_response_pagination_mismatches_request" -vv`
+  - Result: 4 failed, 80 deselected. Both underfilled-page cases incorrectly trusted `total`/`pages`; mismatched response coordinates incorrectly replaced the requested page or page size.
+- GREEN command: `uv run --extra dev pytest tests/integration/zentao/test_http_provider.py -vv`
+  - Result: 84 passed in 0.61s.
+- Static checks: targeted Ruff check and `git diff --check` passed.
+- fixes:
+  - Exact expected item counts are now required for both full and final pages before pagination metadata is trusted.
+  - Response `page` and `pageSize` mismatches retain parsed items, return the requested coordinates, and report unknown coverage.
+- concerns: none.

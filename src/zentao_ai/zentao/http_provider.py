@@ -467,13 +467,13 @@ class HttpZentaoProvider:
             and response_page == page
             and response_page_size == page_size
             and pages == (total + page_size - 1) // page_size
-            and count <= page_size
-            and total >= (page - 1) * page_size + count
+            and count
+            == min(page_size, max(total - (page - 1) * page_size, 0))
             and (pages == 0 or page <= pages)
         )
         return Coverage(
-            page=response_page if valid_page else page,
-            pageSize=response_page_size if valid_page_size else page_size,
+            page=page,
+            pageSize=page_size,
             total=total if metadata_valid else -1,
             pages=pages if metadata_valid else None,
         )
