@@ -1134,6 +1134,28 @@ def test_different_or_unknown_authenticated_account_uses_user_specific_route(
     assert "browseType" not in requests[0].url.params
 
 
+def test_custom_user_bugs_endpoint_is_preserved_with_requested_user_and_scopes() -> None:
+    requests: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={"items": []})
+
+    endpoints = ZentaoEndpoints(userBugs="/custom/users/{user}/assigned")
+    instance = provider(
+        httpx.MockTransport(handle),
+        endpoints=endpoints,
+        auth=ZentaoAuth(username="alice", apiToken="token"),
+    )
+    instance.query_user_bugs("bob", scope_names=("Site", "API"), page=2)
+
+    assert requests[0].url.path == "/custom/users/bob/assigned"
+    assert requests[0].url.params.get_list("scopeNames") == ["Site", "API"]
+    assert requests[0].url.params["page"] == "2"
+    assert requests[0].url.params["pageSize"] == "20"
+    assert "browseType" not in requests[0].url.params
+
+
 def test_query_user_bugs_rejects_unknown_envelope() -> None:
     transport = httpx.MockTransport(
         lambda request: httpx.Response(200, json={"results": []})

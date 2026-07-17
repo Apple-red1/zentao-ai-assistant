@@ -74,3 +74,10 @@
 - A matching-account regression proves `GET /api.php/v2/bugs` with `browseType=assigntome`, `page`, and `limit`.
 - Personal workflow documentation again names `mcp__zentao__query_my_bugs` as the primary personal tool, with configured-account resolution internal to that capability. `query_user_bugs` is documented only for team/explicit-user reads.
 - Live evidence, verification totals, and the follow-up commit are recorded in the handoff. All live calls were read-only; no Zentao write endpoint or tool was called.
+
+## Final custom-endpoint follow-up (2026-07-17)
+
+- RED: a custom `userBugs=/custom/users/{user}/assigned` regression observed the incorrect hardcoded `/api/bugs/user/{user}` path.
+- GREEN: endpoint selection now has three explicit cases: matching authenticated account on configured official route uses official `assigntome`; different/unknown identity on configured official route uses the legacy explicit-user fallback; any custom configured endpoint is formatted and used exactly as configured.
+- Custom and legacy explicit-user routes retain `page`, `pageSize`, and nonempty `scopeNames`; official matching-account calls retain `browseType`, `page`, and `limit`.
+- Final verification totals, sanitized live IDs/pagination, and commit hash are recorded in the handoff. No Zentao write endpoint or tool was called.
