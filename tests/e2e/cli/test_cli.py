@@ -42,9 +42,23 @@ class Store:
         return None
 
 
-class ReadyStore(Store):
-    def get(self, name: CredentialName) -> SecretStr:
-        return SecretStr("doctor-secret")
+class TokenOnlyStore(Store):
+    def __init__(self) -> None:
+        super().__init__()
+        self.reads: list[CredentialName] = []
+
+    def get(self, name: CredentialName) -> SecretStr | None:
+        self.reads.append(name)
+        if name is CredentialName.API_TOKEN:
+            return SecretStr("doctor-token-secret")
+        return None
+
+
+class PasswordOnlyStore(Store):
+    def get(self, name: CredentialName) -> SecretStr | None:
+        if name is CredentialName.PASSWORD:
+            return SecretStr("doctor-password-secret")
+        return None
 
 
 class Provider:
@@ -201,14 +215,41 @@ def test_auth_cancel_exits_130_without_store_write(
 
 
 def test_doctor_json_passes_with_injected_dependencies_and_redacts_secret() -> None:
+    store = TokenOnlyStore()
     result = CliRunner().invoke(
         app,
         ["doctor", "--json", "--project", str(Path.cwd())],
-        obj=factory(Path.cwd(), store=ReadyStore()),
+        obj=factory(Path.cwd(), store=store),
     )
     assert result.exit_code == 0
     assert json.loads(result.stdout)["ok"] is True
-    assert "doctor-secret" not in result.stdout
+    assert "doctor-token-secret" not in result.stdout
+    assert store.reads == [CredentialName.API_TOKEN]
+
+
+def test_doctor_passes_with_password_only_and_redacts_secret() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["doctor", "--project", str(Path.cwd())],
+        obj=factory(Path.cwd(), store=PasswordOnlyStore()),
+    )
+    assert result.exit_code == 0
+    assert "PASS credentials" in result.stdout
+    assert "doctor-password-secret" not in result.stdout
+
+
+def test_doctor_fails_when_credentials_are_missing() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["doctor", "--json", "--project", str(Path.cwd())],
+        obj=factory(Path.cwd(), store=Store()),
+    )
+    assert result.exit_code == 2
+    payload = json.loads(result.stdout)
+    credential_check = next(
+        check for check in payload["data"]["checks"] if check["name"] == "credentials"
+    )
+    assert credential_check["status"] == "FAIL"
 
 
 def test_mcp_serve_dispatches_project_and_injected_factory(

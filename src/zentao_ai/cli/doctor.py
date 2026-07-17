@@ -14,6 +14,14 @@ from zentao_ai.credentials.store import CredentialName
 from .runtime import failure, get_factory, success
 
 
+def _has_stored_credential(store: Any) -> bool:
+    for name in (CredentialName.API_TOKEN, CredentialName.PASSWORD):
+        credential = store.get(name)
+        if credential is not None and credential.get_secret_value().strip():
+            return True
+    return False
+
+
 def doctor_command(
     ctx: typer.Context,
     project: Path = typer.Option(Path.cwd(), "--project"),
@@ -60,7 +68,7 @@ def doctor_command(
     check(
         "credentials",
         lambda: (
-            require(runtime.store.get(CredentialName.API_TOKEN))
+            require(_has_stored_credential(runtime.store))
             if runtime and runtime.store
             else require(None)
         ),

@@ -113,11 +113,15 @@ class ZentaoAuth(FrozenModel):
 
 
 class ZentaoEndpoints(FrozenModel):
-    login: str = Field("/api.php/v2/users/login", alias="login")
+    login: str = "/api.php/v2/users/login"
+    products: str = "/api.php/v2/products"
+    product_bugs: str = Field(
+        "/api.php/v2/products/{product_id}/bugs", alias="productBugs"
+    )
     my_bugs: str = Field("/api/bugs/mine", alias="myBugs")
     user_bugs: str = Field("/api/bugs/user/{user}", alias="userBugs")
-    bug_detail: str = Field("/api/bugs/{bug_id}", alias="bugDetail")
-    bug_history: str = Field("/api/bugs/{bug_id}/history", alias="bugHistory")
+    bug_detail: str = Field("/api.php/v2/bugs/{bug_id}", alias="bugDetail")
+    bug_history: str | None = Field(None, alias="bugHistory")
     statistics: str = "/api/bugs/statistics"
     add_comment: str = Field("/api/bugs/{bug_id}/comments", alias="addComment")
     update_steps: str = Field("/api/bugs/{bug_id}/steps", alias="updateSteps")
