@@ -175,6 +175,37 @@ def test_bugs_mine_uses_configured_user_endpoint_and_filters(
     assert provider.calls == [("user", "weiwenting", (), 1, 20)]
 
 
+def test_bugs_mine_distrusts_multi_page_total_when_visible_items_all_pass(
+    tmp_path: Path,
+) -> None:
+    class MultiPageProvider(Provider):
+        def query_user_bugs(
+            self, user: str, *, scope_names: tuple[str, ...], page: int, page_size: int
+        ) -> BugPage:
+            source = super().query_user_bugs(
+                user, scope_names=scope_names, page=page, page_size=page_size
+            )
+            return source.model_copy(
+                update={"coverage": Coverage(page=1, pageSize=20, total=40, pages=2)}
+            )
+
+    provider = MultiPageProvider()
+    result = CliRunner().invoke(
+        app,
+        ["bugs", "mine", "--status", "unclosed", "--json"],
+        obj=factory(tmp_path, provider=provider),
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)["data"]
+    assert [item["id"] for item in payload["items"]] == [2537, 3397]
+    assert payload["coverage"] == {
+        "page": 1,
+        "pageSize": 20,
+        "total": -1,
+        "pages": None,
+    }
+
+
 def test_run_dry_run_only_prints_ordered_plan(tmp_path: Path) -> None:
     calls = 0
 

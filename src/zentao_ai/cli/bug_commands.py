@@ -107,18 +107,18 @@ def mine(
         )
         items = filter_assignee_bugs(source.items, title_tag=title_tag, status=status)
         coverage = source.coverage
-        if len(items) != len(source.items):
-            complete = (
-                coverage.pages == 1
-                and coverage.page == 1
-                and coverage.total == len(source.items)
-            )
-            coverage = Coverage(
-                page=1,
-                pageSize=20,
-                total=len(items) if complete else -1,
-                pages=1 if complete else None,
-            )
+        complete = (
+            coverage.pages is not None
+            and coverage.pages <= 1
+            and coverage.page == 1
+            and coverage.total == len(source.items)
+        )
+        coverage = Coverage(
+            page=1,
+            pageSize=20,
+            total=len(items) if complete else -1,
+            pages=(0 if not items else 1) if complete else None,
+        )
         page = BugPage(items=items, coverage=coverage)
         _emit(page, json_output)
 

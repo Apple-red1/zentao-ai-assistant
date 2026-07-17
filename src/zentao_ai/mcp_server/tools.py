@@ -131,19 +131,18 @@ class ZentaoTools:
                 source.items, title_tag=value.titleTag, status=value.status
             )
             coverage = source.coverage
-            if len(items) != len(source.items):
-                complete = (
-                    coverage.pages is not None
-                    and coverage.page == 1
-                    and coverage.pages <= 1
-                    and coverage.total == len(source.items)
-                )
-                coverage = Coverage(
-                    page=value.page,
-                    pageSize=value.pageSize,
-                    total=len(items) if complete else -1,
-                    pages=1 if complete else None,
-                )
+            complete = (
+                coverage.page == 1
+                and coverage.pages is not None
+                and coverage.pages <= 1
+                and coverage.total == len(source.items)
+            )
+            coverage = Coverage(
+                page=value.page,
+                pageSize=value.pageSize,
+                total=len(items) if complete else -1,
+                pages=(0 if not items else 1) if complete else None,
+            )
             data = BugPage(items=items, coverage=coverage)
         elif name == "query_user_bugs":
             assert isinstance(value, QueryUserBugsInput)

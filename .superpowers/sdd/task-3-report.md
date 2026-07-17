@@ -22,11 +22,21 @@ Focused tests initially produced 10 expected failures: MCP rejected `titleTag`/`
 - `pytest -q`: 537 passed, 2 skipped, 26 subtests passed.
 - `ruff check src tests`: passed.
 - `git diff --check`: passed.
-- `mypy src`: Task 3-owned files pass; command remains nonzero due to three pre-existing errors at `src/zentao_ai/zentao/http_provider.py:469`, `:471`, and `:477` in an unchanged, out-of-scope file.
+- `mypy src` initially exposed three pagination-metadata narrowing errors later fixed separately by `88ee460`.
+
+### Review-fix verification
+
+- RED: two new multi-page regressions failed because MCP and CLI preserved source totals (`4/2` and `40/2`) when every visible item passed the default `unclosed` filter.
+- `pytest tests/contract/test_mcp_tools.py tests/e2e/cli/test_cli.py -vv`: 44 passed in 2.02s.
+- `mypy src`: success, no issues found in 57 source files.
+- `ruff check src/zentao_ai/mcp_server/tools.py src/zentao_ai/cli/bug_commands.py tests/contract/test_mcp_tools.py tests/e2e/cli/test_cli.py`: all checks passed.
+- `git diff --check`: passed.
 
 ## Commit hash
 
-The commit containing this report is the worktree `HEAD` with subject `fix: query personal bugs by configured assignee`.
+- Task 3 implementation: `22e3236d0e2a39167e15fc735ec1dfe4d2e93ac9` (`fix: query personal bugs by configured assignee`).
+- Pagination metadata narrowing prerequisite: `88ee460` (`fix: narrow assignee pagination metadata`). This separate commit also made the full mypy check pass.
+- Review fix: the commit containing this updated report is the worktree `HEAD`.
 
 ## Self-review
 
@@ -38,4 +48,4 @@ The commit containing this report is the worktree `HEAD` with subject `fix: quer
 
 ## Concerns
 
-The repository baseline has three mypy narrowing errors in unchanged `src/zentao_ai/zentao/http_provider.py`; Task 3 did not modify that file because the brief restricts its file scope.
+None. Full mypy, focused tests, changed-file Ruff checks, and diff integrity checks pass.

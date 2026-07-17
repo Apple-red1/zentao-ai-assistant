@@ -282,6 +282,20 @@ def test_query_my_bugs_keeps_filtered_candidates_with_unknown_incomplete_coverag
     assert data["coverage"] == {"page": 1, "pageSize": 20, "total": -1, "pages": None}
 
 
+def test_query_my_bugs_distrusts_multi_page_total_when_visible_items_all_pass() -> None:
+    provider = AssigneeProvider()
+    provider.query_user_bugs = lambda user, **kwargs: BugPage(  # type: ignore[method-assign]
+        items=(
+            BugSnapshot(id=2537, title="【AI建站】 first", status="active", version="v1", snapshotVersion="s1"),
+            BugSnapshot(id=3397, title="【站点后台】 second", status="open", version="v1", snapshotVersion="s2"),
+        ),
+        coverage=Coverage(page=1, pageSize=2, total=4, pages=2),
+    )
+    data = ZentaoTools(runtime(provider)).call("query_my_bugs", {"status": "unclosed", "pageSize": 2})["data"]
+    assert [item["id"] for item in data["items"]] == [2537, 3397]
+    assert data["coverage"] == {"page": 1, "pageSize": 2, "total": -1, "pages": None}
+
+
 @pytest.mark.parametrize("status", ["CREATED", "ALREADY_EXISTS", "UNKNOWN"])
 def test_comment_uses_shared_gated_writer_and_preserves_trimmed_key(
     status: str,
