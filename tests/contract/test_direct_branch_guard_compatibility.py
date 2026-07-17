@@ -31,7 +31,12 @@ def setup(tmp_path: Path) -> tuple[Path, Path]:
 
 
 def run(config: Path, scope: object):
-    return subprocess.run([sys.executable, str(SCRIPT), "preflight", "--config", str(config), "--scope-json", json.dumps(scope)], text=True, capture_output=True)
+    return subprocess.run(
+        [sys.executable, str(SCRIPT), "preflight", "--config", str(config), "--scope-json", json.dumps(scope)],
+        text=True,
+        encoding="utf-8",
+        capture_output=True,
+    )
 
 
 def test_golden_success_reads_config_and_selects_unique_repository(tmp_path: Path):

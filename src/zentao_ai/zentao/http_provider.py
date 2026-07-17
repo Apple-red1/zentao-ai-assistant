@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import base64
 import hashlib
 import re
 import time
+import unicodedata
 from collections.abc import Mapping
 from email.utils import parsedate_to_datetime
 from typing import Any
@@ -33,6 +33,10 @@ from .models import (
 
 
 class HttpZentaoProvider:
+    _CATALOG_PAGE_SIZE = 100
+    _MAX_CATALOG_PAGES = 100
+    _MAX_BUG_PAGES_PER_PRODUCT = 100
+
     def __init__(
         self,
         *,
@@ -45,10 +49,10 @@ class HttpZentaoProvider:
         retry_after_cap: float = 2.0,
     ) -> None:
         self._auth = auth or ZentaoAuth(apiToken=None, webCookie=None)
-        self._password_token: str | None = None
         self._endpoints = endpoints
         self._max_get_retries = max(0, max_get_retries)
         self._retry_after_cap = max(0.0, retry_after_cap)
+        self._password_token: str | None = None
         self._client = httpx.Client(
             base_url=base_url,
             transport=transport,
@@ -70,9 +74,328 @@ class HttpZentaoProvider:
     def query_my_bugs(
         self, *, scope_names: tuple[str, ...] = (), page: int = 1, page_size: int = 20
     ) -> BugPage:
-        return self._bug_page(
-            "query_my_bugs", self._endpoints.my_bugs, page, page_size, scope_names
+        if (
+            isinstance(page, bool)
+            or not isinstance(page, int)
+            or page < 1
+            or isinstance(page_size, bool)
+            or not isinstance(page_size, int)
+            or not 1 <= page_size <= 1000
+        ):
+            raise ValueError("invalid pagination")
+        requested_page = page
+        requested_page_size = page_size
+        catalog, catalog_complete = self._load_complete_product_catalog()
+        products, incomplete = self._resolve_products(catalog, scope_names)
+        incomplete = incomplete or not catalog_complete
+        if not catalog_complete:
+            products = ()
+        snapshots: list[BugSnapshot] = []
+        seen_ids: set[str] = set()
+        start = (requested_page - 1) * requested_page_size
+        end = start + requested_page_size
+        all_products_complete = True
+        for product_index, product_id in enumerate(products):
+            product_complete, metadata_trustworthy = self._read_product_bugs(
+                product_id,
+                requested_page_size,
+                snapshots,
+                seen_ids,
+                stop_after=end,
+            )
+            if not product_complete or not metadata_trustworthy:
+                incomplete = True
+            if not product_complete:
+                all_products_complete = False
+                break
+            if len(snapshots) >= end and product_index + 1 < len(products):
+                all_products_complete = False
+                break
+        complete = not incomplete and all_products_complete
+        total = len(snapshots) if complete else -1
+        return BugPage(
+            items=tuple(snapshots[start:end]),
+            coverage=Coverage(
+                page=requested_page,
+                pageSize=requested_page_size,
+                total=total,
+                pages=(total + requested_page_size - 1) // requested_page_size
+                if complete
+                else None,
+            ),
         )
+
+    def _load_complete_product_catalog(
+        self,
+    ) -> tuple[tuple[tuple[str, str], ...], bool]:
+        catalog: list[tuple[str, str]] = []
+        seen_pages: set[tuple[tuple[str, str], ...]] = set()
+        fetched = 0
+        expected_total: int | None = None
+        expected_pages: int | None = None
+        metadata_trustworthy = True
+        invalid_metadata_seen = False
+        for page in range(1, self._MAX_CATALOG_PAGES + 1):
+            products, raw_count, total, pages, metadata_invalid = (
+                self._load_product_catalog_page(
+                    page=page, page_size=self._CATALOG_PAGE_SIZE
+                )
+            )
+            invalid_metadata_seen = invalid_metadata_seen or metadata_invalid
+            if raw_count == 0:
+                if invalid_metadata_seen:
+                    return tuple(catalog), False
+                if not metadata_trustworthy and (
+                    expected_total is not None or expected_pages is not None
+                ):
+                    return tuple(catalog), False
+                if expected_total is not None and fetched < expected_total:
+                    return tuple(catalog), False
+                if expected_pages is not None and page < expected_pages:
+                    return tuple(catalog), False
+                return tuple(catalog), True
+            if products in seen_pages:
+                return tuple(catalog), False
+            seen_pages.add(products)
+            catalog.extend(products)
+            fetched += raw_count
+            if total is None or pages is None:
+                metadata_trustworthy = False
+            elif expected_total is None and expected_pages is None:
+                expected_total, expected_pages = total, pages
+            elif total != expected_total or pages != expected_pages:
+                metadata_trustworthy = False
+            if (
+                metadata_trustworthy
+                and expected_total is not None
+                and expected_pages is not None
+                and fetched == expected_total
+                and page >= expected_pages
+            ):
+                return tuple(catalog), True
+            if expected_total is not None and fetched > expected_total:
+                metadata_trustworthy = False
+        return tuple(catalog), False
+
+    def _read_product_bugs(
+        self,
+        product_id: str,
+        page_size: int,
+        snapshots: list[BugSnapshot],
+        seen_ids: set[str],
+        *,
+        stop_after: int,
+    ) -> tuple[bool, bool]:
+        seen_pages: set[tuple[str, ...]] = set()
+        fetched = 0
+        expected_total: int | None = None
+        expected_pages: int | None = None
+        metadata_trustworthy = True
+        invalid_metadata_seen = False
+        for product_page in range(1, self._MAX_BUG_PAGES_PER_PRODUCT + 1):
+            data = self._request(
+                "GET",
+                self._endpoints.product_bugs.format(
+                    product_id=self._segment(product_id)
+                ),
+                "query_my_bugs",
+                params={
+                    "browseType": "assignedtome",
+                    "recPerPage": page_size,
+                    "pageID": product_page,
+                },
+            )
+            bugs = data.get("bugs")
+            if not isinstance(bugs, list) or any(
+                not isinstance(bug, Mapping) for bug in bugs
+            ):
+                raise ContractError("query_my_bugs: invalid bugs contract")
+            if not bugs:
+                if invalid_metadata_seen:
+                    return False, False
+                if not metadata_trustworthy and (
+                    expected_total is not None or expected_pages is not None
+                ):
+                    return False, False
+                if expected_total is not None and fetched < expected_total:
+                    return False, False
+                if expected_pages is not None and product_page < expected_pages:
+                    return False, False
+                return True, True
+            page_ids = tuple(self._normalized_text(bug.get("id")) for bug in bugs)
+            if page_ids in seen_pages:
+                return False, False
+            seen_pages.add(page_ids)
+            total = data.get("total")
+            invalid_metadata_seen = invalid_metadata_seen or (
+                "total" in data
+                and (isinstance(total, bool) or not isinstance(total, int) or total < 0)
+            )
+            if isinstance(total, bool) or not isinstance(total, int) or total < 0:
+                metadata_trustworthy = False
+            elif expected_total is None:
+                expected_total = total
+            elif total != expected_total:
+                metadata_trustworthy = False
+            pages = data.get("pages")
+            invalid_metadata_seen = invalid_metadata_seen or (
+                "pages" in data
+                and (isinstance(pages, bool) or not isinstance(pages, int) or pages < 0)
+            )
+            if pages is None:
+                metadata_trustworthy = False
+            elif (
+                isinstance(pages, bool)
+                or not isinstance(pages, int)
+                or pages < 0
+                or (
+                    expected_total is not None
+                    and pages != (expected_total + page_size - 1) // page_size
+                )
+            ):
+                metadata_trustworthy = False
+            elif expected_pages is None:
+                expected_pages = pages
+            elif pages != expected_pages:
+                metadata_trustworthy = False
+            fetched += len(bugs)
+            for bug in bugs:
+                snapshot = self._official_snapshot(bug)
+                normalized_id = self._normalized_text(snapshot.id)
+                if normalized_id in seen_ids:
+                    continue
+                seen_ids.add(normalized_id)
+                snapshots.append(snapshot)
+            if expected_total is not None and fetched > expected_total:
+                metadata_trustworthy = False
+            if (
+                metadata_trustworthy
+                and expected_total is not None
+                and expected_pages is not None
+                and fetched == expected_total
+                and product_page >= expected_pages
+            ):
+                return True, metadata_trustworthy
+            if len(snapshots) >= stop_after:
+                return False, metadata_trustworthy
+        return False, False
+
+    @classmethod
+    def _resolve_products(
+        cls,
+        catalog: tuple[tuple[str, str], ...],
+        scope_names: tuple[str, ...],
+    ) -> tuple[tuple[str, ...], bool]:
+        by_name: dict[str, list[str]] = {}
+        for product_id, name in catalog:
+            ids = by_name.setdefault(cls._normalized_text(name), [])
+            if product_id not in ids:
+                ids.append(product_id)
+        resolved: list[str] = []
+        seen: set[str] = set()
+        incomplete = False
+        for scope_name in scope_names:
+            matches = by_name.get(cls._normalized_text(scope_name), [])
+            if len(matches) != 1:
+                incomplete = True
+                continue
+            product_id = matches[0]
+            if product_id not in seen:
+                seen.add(product_id)
+                resolved.append(product_id)
+        return tuple(resolved), incomplete
+
+    @staticmethod
+    def _normalized_text(value: object) -> str:
+        return unicodedata.normalize("NFKC", str(value).strip()).casefold()
+
+    @classmethod
+    def _official_snapshot(
+        cls, data: Mapping[str, Any], operation: str = "query_my_bugs"
+    ) -> BugSnapshot:
+        last_edited = data.get("lastEditedDate")
+        version = (
+            last_edited
+            if isinstance(last_edited, (str, int)) and str(last_edited).strip()
+            else data.get("version")
+        )
+        if (
+            isinstance(version, bool)
+            or not isinstance(version, (str, int))
+            or not str(version).strip()
+        ):
+            raise ContractError(f"{operation}: missing stable version")
+        normalized = {
+            "id": data.get("id"),
+            "status": data.get("status"),
+            "title": data.get("title", ""),
+            "steps": data.get("steps", ""),
+            "creator": data.get("openedBy"),
+            "assignee": data.get("assignedTo"),
+            "version": str(version).strip(),
+            "snapshotVersion": str(version).strip(),
+            "raw": cls._sanitize(data),
+        }
+        try:
+            return BugSnapshot.model_validate(normalized)
+        except Exception:
+            raise ContractError(f"{operation}: invalid bug contract") from None
+
+    def _load_product_catalog(
+        self, *, page: int = 1, page_size: int = 100
+    ) -> tuple[tuple[str, str], ...]:
+        products, _, _, _, _ = self._load_product_catalog_page(
+            page=page, page_size=page_size
+        )
+        return products
+
+    def _load_product_catalog_page(
+        self, *, page: int, page_size: int
+    ) -> tuple[tuple[tuple[str, str], ...], int, int | None, int | None, bool]:
+        data = self._request(
+            "GET",
+            self._endpoints.products,
+            "product_catalog",
+            params={
+                "browseType": "all",
+                "recPerPage": min(max(page_size, 1), 100),
+                "pageID": max(page, 1),
+            },
+        )
+        products = data.get("products")
+        if not isinstance(products, list):
+            raise ContractError("product_catalog: invalid response contract")
+        result: list[tuple[str, str]] = []
+        for product in products:
+            if not isinstance(product, Mapping):
+                continue
+            product_id = self._catalog_text(product.get("id"))
+            name = self._catalog_text(product.get("name"))
+            if product_id is not None and name is not None:
+                result.append((product_id, name))
+        total = data.get("total")
+        pages = data.get("pages")
+        valid_total = (
+            total
+            if isinstance(total, int) and not isinstance(total, bool) and total >= 0
+            else None
+        )
+        valid_pages = (
+            pages
+            if isinstance(pages, int) and not isinstance(pages, bool) and pages >= 0
+            else None
+        )
+        metadata_invalid = ("total" in data and valid_total is None) or (
+            "pages" in data and valid_pages is None
+        )
+        return tuple(result), len(products), valid_total, valid_pages, metadata_invalid
+
+    @staticmethod
+    def _catalog_text(value: Any) -> str | None:
+        if isinstance(value, bool) or not isinstance(value, (str, int)):
+            return None
+        normalized = str(value).strip()
+        return normalized or None
 
     def query_user_bugs(
         self,
@@ -96,11 +419,18 @@ class HttpZentaoProvider:
             self._endpoints.bug_detail.format(bug_id=self._segment(bug_id)),
             "query_bug_detail",
         )
+        if self._endpoints.bug_detail == "/api.php/v2/bugs/{bug_id}":
+            bug = data.get("bug")
+            if not isinstance(bug, Mapping):
+                raise ContractError("query_bug_detail: invalid bug contract")
+            return self._official_snapshot(bug, operation="query_bug_detail")
         return self._snapshot(data, "query_bug_detail")
 
     def query_bug_history(
         self, bug_id: int | str, *, page: int = 1, page_size: int = 20
     ) -> HistoryPage:
+        if self._endpoints.bug_history is None:
+            raise ContractError("query_bug_history: unsupported by official contract")
         data = self._request(
             "GET",
             self._endpoints.bug_history.format(bug_id=self._segment(bug_id)),
@@ -116,13 +446,10 @@ class HttpZentaoProvider:
         )
 
     def bug_statistics(self) -> BugStatistics:
-        data = self._request("GET", self._endpoints.statistics, "bug_statistics")
-        source = data.get("values", data.get("statistics", data))
-        if not isinstance(source, Mapping) or any(
-            not isinstance(v, int) for v in source.values()
-        ):
-            raise ContractError("bug_statistics: invalid response contract")
-        return BugStatistics(values=dict(source), raw=self._sanitize(data))
+        products = self._load_product_catalog(page=1, page_size=1)
+        return BugStatistics(
+            values={"validatedProducts": len(products), "complete": 0}, raw={}
+        )
 
     def add_bug_comment(
         self, bug_id: int | str, comment: str, confirm: bool, idempotency_key: str
@@ -247,22 +574,44 @@ class HttpZentaoProvider:
     def _headers(self, *, write: bool) -> dict[str, str]:
         result: dict[str, str] = {}
         mode = self._auth_mode()
-        if self._password_token is not None:
-            result["Authorization"] = f"Bearer {self._password_token}"
-            return result
-        if mode == "password" and not write and self._auth.password is not None:
-            username = self._auth.username or ""
-            token = base64.b64encode(
-                f"{username}:{self._auth.password.get_secret_value()}".encode()
-            ).decode("ascii")
-            result["Authorization"] = f"Basic {token}"
-        elif mode == "token" and (self._auth.api_token is not None or self._password_token is not None):
+        if mode == "password" and self._auth.password is not None:
+            result["Authorization"] = f"Bearer {self._ensure_password_token()}"
+        elif mode == "token" and self._auth.api_token is not None:
             result["Authorization"] = (
-                f"Bearer {self._auth.api_token.get_secret_value() if self._auth.api_token is not None else self._password_token}"
+                f"Bearer {self._auth.api_token.get_secret_value()}"
             )
         elif mode == "cookie" and self._auth.web_cookie is not None:
             result["Cookie"] = self._auth.web_cookie.get_secret_value()
         return result
+
+    @staticmethod
+    def _extract_login_token(payload: Mapping[str, Any]) -> str:
+        candidates: list[Any] = [payload.get("token")]
+        data = payload.get("data")
+        if isinstance(data, Mapping):
+            candidates.append(data.get("token"))
+        for candidate in candidates:
+            if isinstance(candidate, str) and candidate.strip():
+                return candidate
+        raise ContractError("login: missing token")
+
+    def _ensure_password_token(self) -> str:
+        if self._password_token is None:
+            assert self._auth.password is not None
+            try:
+                response = self._client.request(
+                    "POST",
+                    self._endpoints.login,
+                    json={
+                        "account": self._auth.username or "",
+                        "password": self._auth.password.get_secret_value(),
+                    },
+                )
+            except httpx.TransportError:
+                raise TransportError("login: transport failure") from None
+            payload = self._decode(response, "login")
+            self._password_token = self._extract_login_token(payload)
+        return self._password_token
 
     def _request(
         self,
@@ -273,12 +622,12 @@ class HttpZentaoProvider:
         write: bool = False,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        mode = self._auth_mode()
-        if mode == "password":
-            self._ensure_password_token()
-        kwargs["headers"] = {**self._headers(write=write), **kwargs.get("headers", {})}
+        supplied_headers = dict(kwargs.get("headers", {}))
+        kwargs["headers"] = {**self._headers(write=write), **supplied_headers}
         attempts = 1 if method != "GET" else self._max_get_retries + 1
-        for attempt in range(attempts):
+        reauthenticated = False
+        attempt = 0
+        while attempt < attempts:
             try:
                 response = self._client.request(method, path, **kwargs)
             except httpx.TransportError as exc:
@@ -290,32 +639,36 @@ class HttpZentaoProvider:
                     isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout))
                     and attempt + 1 < attempts
                 ):
+                    attempt += 1
                     continue
                 raise TransportError(f"{operation}: transport failure") from None
+            if (
+                response.status_code in (401, 407)
+                and self._auth_mode() == "password"
+                and not reauthenticated
+            ):
+                self._password_token = None
+                refreshed_headers = {
+                    key: value
+                    for key, value in supplied_headers.items()
+                    if key.lower() != "authorization"
+                }
+                kwargs["headers"] = {
+                    **refreshed_headers,
+                    **self._headers(write=write),
+                }
+                reauthenticated = True
+                continue
             if (
                 method == "GET"
                 and response.status_code in (502, 503, 504)
                 and attempt + 1 < attempts
             ):
                 self._sleep_retry_after(response.headers.get("Retry-After"))
+                attempt += 1
                 continue
-            if response.status_code in (401, 407) and self._auth.password is not None and self._password_token is not None:
-                self._password_token = None
-                self._ensure_password_token()
-                kwargs["headers"] = {**self._headers(write=write), **kwargs.get("headers", {})}
-                response = self._client.request(method, path, **kwargs)
             return self._decode(response, operation)
         raise TransportError(f"{operation}: transport failure")
-
-    def _ensure_password_token(self) -> None:
-        if self._password_token is not None or self._auth.password is None or not self._auth.username:
-            return
-        response = self._client.post(self._endpoints.login, json={"account": self._auth.username, "password": self._auth.password.get_secret_value()})
-        data = self._decode(response, "login")
-        token = data.get("token")
-        if not isinstance(token, str) or not token.strip():
-            raise ContractError("login: missing token")
-        self._password_token = token
 
     def _decode(self, response: httpx.Response, operation: str) -> dict[str, Any]:
         request_id = response.headers.get("X-Request-Id")
