@@ -23,6 +23,7 @@
 ## 执行流程
 
 1. 用 `query_my_bugs` 查询 `status=unclosed`、有界 `limit` 的个人 Bug 池，并确认负责人等于 `personal.queryIdentity`。若登录身份无法可靠确认，可按显式配置用 `query_user_bugs` 只读查询本人，不得扩大到其他人。只保留结构化范围或 routing 候选落在 `personal.scopeNames` 的 Bug，保存总数、分页、截断和完整性。
+   - Personal discovery is configured-assignee-first and must not call the product catalog. Optional business filtering matches only an exact leading full-width title tag such as `【AI建站】`; product-catalog incompleteness must not erase assignee candidates. Preserve candidates when pagination metadata is missing or contradictory, report pagination completeness truthfully, and keep the existing versioned structured-content envelope.
 2. 对每个 Bug 取得 `(jobKey, bugId)` 租约，调用 `query_bug_detail` 和 `query_bug_history`。只使用 `structuredContent`；把详情的 `version` 映射为 `snapshotVersion`，并保存状态、负责人、创建人、范围和历史快照。
 3. 加载 `bug-analysis.md` 运行纯 `BugRepairPrecheck`：
    - `NEEDS_REPORTER_INFO`：只请求与当前问题有关的真实缺失项。

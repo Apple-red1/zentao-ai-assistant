@@ -40,6 +40,17 @@ EVIDENCE = {
 
 
 class LegacyFeatureInventoryTests(unittest.TestCase):
+    def test_personal_bug_discovery_documents_assignee_first_contract(self):
+        text = (SKILL_ROOT / "personal-bug-agent.md").read_text(encoding="utf-8")
+        for phrase in (
+            "configured-assignee-first",
+            "exact leading full-width title tag",
+            "product-catalog incompleteness must not erase assignee candidates",
+            "pagination completeness truthfully",
+            "versioned structured-content envelope",
+        ):
+            self.assertIn(phrase, text)
+
     def test_every_legacy_feature_has_concrete_contract_evidence(self):
         self.assertEqual(set(EVIDENCE), set(LEGACY_FEATURES))
         for feature, (filename, phrases) in EVIDENCE.items():
