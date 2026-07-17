@@ -16,6 +16,8 @@ from zentao_ai.workflows.steps import (
     replace_steps,
     replace_steps_with_image,
 )
+from zentao_ai.zentao.models import BugPage, Coverage
+from zentao_ai.zentao.query_filters import filter_assignee_bugs
 
 from .schemas import (
     INPUT_MODELS,
@@ -113,13 +115,36 @@ class ZentaoTools:
             raise ValueError("unknown tool")
         value = model.model_validate(arguments)
         provider = self.runtime.provider
+        data: object
         if name == "query_my_bugs":
             assert isinstance(value, QueryMyBugsInput)
-            data = provider.query_my_bugs(
-                scope_names=tuple(self.runtime.config.personal.scopeNames),
+            account = self.runtime.config.zentao.account
+            if account is None or not account.strip():
+                raise RuntimeError("configuration error")
+            source = provider.query_user_bugs(
+                account.strip(),
+                scope_names=(),
                 page=value.page,
                 page_size=value.pageSize,
             )
+            items = filter_assignee_bugs(
+                source.items, title_tag=value.titleTag, status=value.status
+            )
+            coverage = source.coverage
+            if len(items) != len(source.items):
+                complete = (
+                    coverage.pages is not None
+                    and coverage.page == 1
+                    and coverage.pages <= 1
+                    and coverage.total == len(source.items)
+                )
+                coverage = Coverage(
+                    page=value.page,
+                    pageSize=value.pageSize,
+                    total=len(items) if complete else -1,
+                    pages=1 if complete else None,
+                )
+            data = BugPage(items=items, coverage=coverage)
         elif name == "query_user_bugs":
             assert isinstance(value, QueryUserBugsInput)
             data = provider.query_user_bugs(

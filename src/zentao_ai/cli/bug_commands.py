@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import typer
 from collections.abc import Mapping
@@ -17,7 +17,8 @@ from zentao_ai.workflows.steps import (
     replace_steps,
     replace_steps_with_image,
 )
-from zentao_ai.zentao.models import BugSnapshot
+from zentao_ai.zentao.models import BugPage, BugSnapshot, Coverage
+from zentao_ai.zentao.query_filters import filter_assignee_bugs
 
 from .runtime import AppRuntime, emit, get_factory, guarded
 
@@ -94,12 +95,31 @@ def mine(
     ctx: typer.Context,
     project: Path = typer.Option(Path.cwd()),
     json_output: bool = typer.Option(False, "--json"),
+    title_tag: str | None = typer.Option(None, "--title-tag"),
+    status: Literal["all", "unclosed"] = typer.Option("unclosed", "--status"),
 ) -> None:
     with _runtime(ctx, project) as runtime:
-        request = _request(runtime, _placeholder())
-        page = runtime.provider.query_my_bugs(
-            scope_names=request.scope_names, page=1, page_size=20
+        account = runtime.config.zentao.account
+        if account is None or not account.strip():
+            raise RuntimeError("configuration error")
+        source = runtime.provider.query_user_bugs(
+            account.strip(), scope_names=(), page=1, page_size=20
         )
+        items = filter_assignee_bugs(source.items, title_tag=title_tag, status=status)
+        coverage = source.coverage
+        if len(items) != len(source.items):
+            complete = (
+                coverage.pages == 1
+                and coverage.page == 1
+                and coverage.total == len(source.items)
+            )
+            coverage = Coverage(
+                page=1,
+                pageSize=20,
+                total=len(items) if complete else -1,
+                pages=1 if complete else None,
+            )
+        page = BugPage(items=items, coverage=coverage)
         _emit(page, json_output)
 
 
