@@ -453,29 +453,33 @@ class HttpZentaoProvider:
             and not isinstance(response_page_size, bool)
             and response_page_size >= 1
         )
-        valid_total = (
-            isinstance(total, int) and not isinstance(total, bool) and total >= 0
-        )
-        valid_pages = (
-            isinstance(pages, int) and not isinstance(pages, bool) and pages >= 0
-        )
+        valid_total: int | None = None
+        if isinstance(total, int) and not isinstance(total, bool) and total >= 0:
+            valid_total = total
+        valid_pages: int | None = None
+        if isinstance(pages, int) and not isinstance(pages, bool) and pages >= 0:
+            valid_pages = pages
         metadata_valid = (
             valid_page
             and valid_page_size
-            and valid_total
-            and valid_pages
+            and valid_total is not None
+            and valid_pages is not None
             and response_page == page
             and response_page_size == page_size
-            and pages == (total + page_size - 1) // page_size
+            and valid_pages == (valid_total + page_size - 1) // page_size
             and count
-            == min(page_size, max(total - (page - 1) * page_size, 0))
-            and (pages == 0 or page <= pages)
+            == min(page_size, max(valid_total - (page - 1) * page_size, 0))
+            and (valid_pages == 0 or page <= valid_pages)
         )
         return Coverage(
             page=page,
             pageSize=page_size,
-            total=total if metadata_valid else -1,
-            pages=pages if metadata_valid else None,
+            total=(
+                valid_total
+                if metadata_valid and valid_total is not None
+                else -1
+            ),
+            pages=valid_pages if metadata_valid else None,
         )
 
     def query_bug_detail(self, bug_id: int | str) -> BugSnapshot:

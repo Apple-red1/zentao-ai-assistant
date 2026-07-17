@@ -34,3 +34,15 @@
   - Exact expected item counts are now required for both full and final pages before pagination metadata is trusted.
   - Response `page` and `pageSize` mismatches retain parsed items, return the requested coordinates, and report unknown coverage.
 - concerns: none.
+
+## Mypy Gate Fix
+
+- status: DONE
+- initial command: `uv run --extra dev mypy src`
+  - Result: 3 errors in `http_provider.py` from arithmetic and `Coverage.total` using values typed as `Any | None`.
+- change: normalize validated `total` and `pages` metadata into explicit `int | None` locals and explicitly narrow `Coverage.total`; runtime behavior is unchanged.
+- verification command: `uv run --extra dev mypy src`
+  - Exact result: `Success: no issues found in 57 source files`
+- regression command: `uv run --extra dev pytest tests/integration/zentao/test_http_provider.py -vv`
+  - Exact result: `84 passed in 0.49s`
+- concerns: none.
