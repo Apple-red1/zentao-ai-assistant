@@ -66,3 +66,11 @@
 ### Concerns
 
 - The official assignee-list selector is authenticated-user based (`assigntome`); the provider retains its public `user` parameter and scoped API contract, but the live server route itself determines the authenticated assignee.
+
+## Final identity-semantics follow-up (2026-07-17)
+
+- RED: two parameterized regressions showed a different requested user and an absent authenticated identity were both silently routed to authenticated-user `assigntome`.
+- GREEN: the official assignee route is now selected only when the requested user exactly matches the provider's authenticated username. Different-user or unknown-identity calls retain `GET /api/bugs/user/{user}` with `page`, `pageSize`, and any nonempty `scopeNames`.
+- A matching-account regression proves `GET /api.php/v2/bugs` with `browseType=assigntome`, `page`, and `limit`.
+- Personal workflow documentation again names `mcp__zentao__query_my_bugs` as the primary personal tool, with configured-account resolution internal to that capability. `query_user_bugs` is documented only for team/explicit-user reads.
+- Live evidence, verification totals, and the follow-up commit are recorded in the handoff. All live calls were read-only; no Zentao write endpoint or tool was called.

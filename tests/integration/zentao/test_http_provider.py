@@ -1054,9 +1054,11 @@ def test_query_user_bugs_adapts_observed_assignee_map_and_pager() -> None:
         )
 
     endpoints = ZentaoEndpoints(userBugs="/api.php/v2/bugs")
-    result = provider(httpx.MockTransport(handle), endpoints=endpoints).query_user_bugs(
-        "alice", page=2
-    )
+    result = provider(
+        httpx.MockTransport(handle),
+        endpoints=endpoints,
+        auth=ZentaoAuth(username="alice", apiToken="token"),
+    ).query_user_bugs("alice", page=2)
 
     assert [item.id for item in result.items] == [2537, 3397]
     assert result.coverage.page == 2
@@ -1073,12 +1075,63 @@ def test_query_user_bugs_transmits_only_nonempty_scope_names() -> None:
         return httpx.Response(200, json={"bugs": [], "pager": {}})
 
     endpoints = ZentaoEndpoints(userBugs="/api.php/v2/bugs")
-    instance = provider(httpx.MockTransport(handle), endpoints=endpoints)
+    instance = provider(
+        httpx.MockTransport(handle),
+        endpoints=endpoints,
+        auth=ZentaoAuth(username="alice", apiToken="token"),
+    )
     instance.query_user_bugs("alice", scope_names=())
     instance.query_user_bugs("alice", scope_names=("Site", "API"))
 
     assert "scopeNames" not in requests[0].url.params
     assert requests[1].url.params.get_list("scopeNames") == ["Site", "API"]
+
+
+def test_official_assignee_route_is_used_only_for_authenticated_account() -> None:
+    requests: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={"bugs": [], "pager": {}})
+
+    endpoints = ZentaoEndpoints(userBugs="/api.php/v2/bugs")
+    instance = provider(
+        httpx.MockTransport(handle),
+        endpoints=endpoints,
+        auth=ZentaoAuth(username="alice", apiToken="token"),
+    )
+    instance.query_user_bugs("alice", scope_names=())
+
+    assert requests[0].url.path == "/api.php/v2/bugs"
+    assert dict(requests[0].url.params) == {
+        "browseType": "assigntome",
+        "page": "1",
+        "limit": "20",
+    }
+
+
+@pytest.mark.parametrize("username", ["alice", None])
+def test_different_or_unknown_authenticated_account_uses_user_specific_route(
+    username: str | None,
+) -> None:
+    requests: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={"items": []})
+
+    endpoints = ZentaoEndpoints(userBugs="/api.php/v2/bugs")
+    instance = provider(
+        httpx.MockTransport(handle),
+        endpoints=endpoints,
+        auth=ZentaoAuth(username=username, apiToken="token"),
+    )
+    instance.query_user_bugs("bob", scope_names=("Site",))
+
+    assert requests[0].url.path == "/api/bugs/user/bob"
+    assert requests[0].url.params.get_list("scopeNames") == ["Site"]
+    assert requests[0].url.params["pageSize"] == "20"
+    assert "browseType" not in requests[0].url.params
 
 
 def test_query_user_bugs_rejects_unknown_envelope() -> None:

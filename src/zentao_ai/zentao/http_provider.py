@@ -406,7 +406,12 @@ class HttpZentaoProvider:
         page_size: int = 20,
     ) -> BugPage:
         operation = "query_user_bugs"
-        official_assignee_list = self._endpoints.user_bugs == "/api.php/v2/bugs"
+        authenticated_user = self._auth.username
+        official_assignee_list = (
+            self._endpoints.user_bugs == "/api.php/v2/bugs"
+            and isinstance(authenticated_user, str)
+            and authenticated_user.strip() == user.strip()
+        )
         params: dict[str, Any] = (
             {"browseType": "assigntome", "page": page, "limit": page_size}
             if official_assignee_list
@@ -416,7 +421,11 @@ class HttpZentaoProvider:
             params["scopeNames"] = list(scope_names)
         data = self._request(
             "GET",
-            self._endpoints.user_bugs.format(user=self._segment(user)),
+            (
+                self._endpoints.user_bugs
+                if official_assignee_list
+                else "/api/bugs/user/{user}"
+            ).format(user=self._segment(user)),
             operation,
             params=params,
         )
