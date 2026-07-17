@@ -958,12 +958,127 @@ def test_query_normalizes_version_and_pagination() -> None:
                 "page": 2,
                 "pageSize": 20,
                 "total": 21,
+                "pages": 2,
             },
         )
 
     result = provider(httpx.MockTransport(handle)).query_user_bugs("alice", page=2)
     assert result.items[0].snapshot_version == "3"
     assert result.coverage.total == 21
+
+
+def test_query_user_bugs_adapts_official_bugs_envelope() -> None:
+    requests: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "bugs": [
+                    {
+                        "id": 2537,
+                        "title": "【AI建站】First",
+                        "status": "active",
+                        "openedBy": "alice",
+                        "assignedTo": "alice",
+                        "lastEditedDate": "2026-07-17 09:30:00",
+                    },
+                    {
+                        "id": 3397,
+                        "title": "【AI建站】Second",
+                        "status": "active",
+                        "openedBy": "bob",
+                        "assignedTo": "alice",
+                        "lastEditedDate": "2026-07-17 10:30:00",
+                    },
+                ],
+                "page": 1,
+                "pageSize": 20,
+                "total": 2,
+                "pages": 1,
+            },
+        )
+
+    result = provider(httpx.MockTransport(handle)).query_user_bugs("alice")
+
+    assert [item.id for item in result.items] == [2537, 3397]
+    assert [item.title for item in result.items] == ["【AI建站】First", "【AI建站】Second"]
+    assert [item.assignee for item in result.items] == ["alice", "alice"]
+    assert [item.snapshot_version for item in result.items] == [
+        "2026-07-17 09:30:00",
+        "2026-07-17 10:30:00",
+    ]
+    assert result.coverage.page == 1
+    assert result.coverage.page_size == 20
+    assert result.coverage.total == 2
+    assert result.coverage.pages == 1
+    assert len(requests) == 1
+    assert requests[0].url.path == "/api/bugs/user/alice"
+    assert dict(requests[0].url.params) == {"page": "1", "pageSize": "20"}
+
+
+def test_query_user_bugs_rejects_unknown_envelope() -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(200, json={"results": []})
+    )
+
+    with pytest.raises(ContractError, match="^query_user_bugs: invalid items$"):
+        provider(transport).query_user_bugs("alice")
+
+
+def test_query_user_bugs_rejects_official_bug_without_stable_version() -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            json={
+                "bugs": [
+                    {
+                        "id": 2537,
+                        "title": "【AI建站】Missing version",
+                        "status": "active",
+                        "assignedTo": "alice",
+                    }
+                ]
+            },
+        )
+    )
+
+    with pytest.raises(
+        ContractError, match="^query_user_bugs: missing stable version$"
+    ):
+        provider(transport).query_user_bugs("alice")
+
+
+def test_query_user_bugs_retains_items_when_pagination_is_contradictory() -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            json={
+                "bugs": [
+                    {
+                        "id": 2537,
+                        "title": "【AI建站】Retained",
+                        "status": "active",
+                        "assignedTo": "alice",
+                        "lastEditedDate": "2026-07-17 09:30:00",
+                    }
+                ],
+                "page": 1,
+                "pageSize": 20,
+                "total": 1,
+                "pages": 0,
+            },
+        )
+    )
+
+    result = provider(transport).query_user_bugs("alice")
+
+    assert [item.id for item in result.items] == [2537]
+    assert result.coverage.page == 1
+    assert result.coverage.page_size == 20
+    assert result.coverage.total == -1
+    assert result.coverage.pages is None
 
 
 def test_missing_version_is_contract_error() -> None:
