@@ -22,7 +22,7 @@
 
 ## 执行流程
 
-1. 用 `query_my_bugs` 查询 `status=unclosed`、有界 `limit` 的个人 Bug 池，并确认负责人等于 `personal.queryIdentity`。若登录身份无法可靠确认，可按显式配置用 `query_user_bugs` 只读查询本人，不得扩大到其他人。只保留结构化范围或 routing 候选落在 `personal.scopeNames` 的 Bug，保存总数、分页、截断和完整性。
+1. 个人发现以配置的负责人身份调用 `query_user_bugs`，默认 `status=unclosed`，不得扩大到其他人，也不得依赖产品目录。可选业务过滤只匹配标题开头精确的全角标签（例如 `【AI建站】`）；必须如实保存总数、分页、截断和完整性。`personal.scopeNames` 不用于扩大或裁剪个人候选；团队流程仍按配置传递 `team.scopeNames`。
    - Personal discovery is configured-assignee-first and must not call the product catalog. Optional business filtering matches only an exact leading full-width title tag such as `【AI建站】`; product-catalog incompleteness must not erase assignee candidates. Preserve candidates when pagination metadata is missing or contradictory, report pagination completeness truthfully, and keep the existing versioned structured-content envelope.
 2. 对每个 Bug 取得 `(jobKey, bugId)` 租约，调用 `query_bug_detail` 和 `query_bug_history`。只使用 `structuredContent`；把详情的 `version` 映射为 `snapshotVersion`，并保存状态、负责人、创建人、范围和历史快照。
 3. 加载 `bug-analysis.md` 运行纯 `BugRepairPrecheck`：
@@ -59,8 +59,8 @@
 
 ## 调用的 MCP Tool
 
-- `mcp__zentao__query_my_bugs`：发现当前登录用户未关闭 Bug。
-- `mcp__zentao__query_user_bugs`：仅当配置明确本人身份且登录身份无法确认时，只读查询本人。
+- `mcp__zentao__query_my_bugs`：保留兼容的当前登录用户只读查询能力，不是个人主发现路径。
+- `mcp__zentao__query_user_bugs`：个人主发现路径按配置负责人只读查询本人；团队查询仍按配置成员与团队范围执行。
 - `mcp__zentao__query_bug_detail`：初始快照和副作用前复核。
 - `mcp__zentao__query_bug_history`：历史、冷却和未知评论对账。
 - `mcp__zentao__bug_statistics`：可作同范围交叉核对，不替代逐项快照。

@@ -1018,6 +1018,69 @@ def test_query_user_bugs_adapts_official_bugs_envelope() -> None:
     assert dict(requests[0].url.params) == {"page": "1", "pageSize": "20"}
 
 
+def test_query_user_bugs_adapts_observed_assignee_map_and_pager() -> None:
+    def handle(request: httpx.Request) -> httpx.Response:
+        assert dict(request.url.params) == {
+            "browseType": "assigntome",
+            "page": "2",
+            "limit": "20",
+        }
+        return httpx.Response(
+            200,
+            json={
+                "bugs": {
+                    "3397": {
+                        "id": 3397,
+                        "title": "銆愮珯鐐瑰悗鍙般€慡econd",
+                        "status": "active",
+                        "assignedTo": "alice",
+                        "lastEditedDate": "2026-07-17 10:30:00",
+                    },
+                    "2537": {
+                        "id": 2537,
+                        "title": "銆怉I寤虹珯銆慏irst",
+                        "status": "active",
+                        "assignedTo": "alice",
+                        "lastEditedDate": "2026-07-17 09:30:00",
+                    }
+                },
+                "pager": {
+                    "pageID": 2,
+                    "recPerPage": 20,
+                    "recTotal": 22,
+                    "pageTotal": 2,
+                },
+            },
+        )
+
+    endpoints = ZentaoEndpoints(userBugs="/api.php/v2/bugs")
+    result = provider(httpx.MockTransport(handle), endpoints=endpoints).query_user_bugs(
+        "alice", page=2
+    )
+
+    assert [item.id for item in result.items] == [2537, 3397]
+    assert result.coverage.page == 2
+    assert result.coverage.page_size == 20
+    assert result.coverage.total == 22
+    assert result.coverage.pages == 2
+
+
+def test_query_user_bugs_transmits_only_nonempty_scope_names() -> None:
+    requests: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={"bugs": [], "pager": {}})
+
+    endpoints = ZentaoEndpoints(userBugs="/api.php/v2/bugs")
+    instance = provider(httpx.MockTransport(handle), endpoints=endpoints)
+    instance.query_user_bugs("alice", scope_names=())
+    instance.query_user_bugs("alice", scope_names=("Site", "API"))
+
+    assert "scopeNames" not in requests[0].url.params
+    assert requests[1].url.params.get_list("scopeNames") == ["Site", "API"]
+
+
 def test_query_user_bugs_rejects_unknown_envelope() -> None:
     transport = httpx.MockTransport(
         lambda request: httpx.Response(200, json={"results": []})

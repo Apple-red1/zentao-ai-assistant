@@ -406,11 +406,19 @@ class HttpZentaoProvider:
         page_size: int = 20,
     ) -> BugPage:
         operation = "query_user_bugs"
+        official_assignee_list = self._endpoints.user_bugs == "/api.php/v2/bugs"
+        params: dict[str, Any] = (
+            {"browseType": "assigntome", "page": page, "limit": page_size}
+            if official_assignee_list
+            else {"page": page, "pageSize": page_size}
+        )
+        if scope_names:
+            params["scopeNames"] = list(scope_names)
         data = self._request(
             "GET",
             self._endpoints.user_bugs.format(user=self._segment(user)),
             operation,
-            params={"page": page, "pageSize": page_size},
+            params=params,
         )
         if "items" in data:
             items = tuple(
@@ -419,6 +427,11 @@ class HttpZentaoProvider:
             )
         elif "bugs" in data:
             bugs = data.get("bugs")
+            if isinstance(bugs, Mapping):
+                bugs = [
+                    value
+                    for _, value in sorted(bugs.items(), key=lambda x: str(x[0]))
+                ]
             if not isinstance(bugs, list) or any(
                 not isinstance(item, Mapping) for item in bugs
             ):
@@ -428,10 +441,20 @@ class HttpZentaoProvider:
             )
         else:
             raise ContractError(f"{operation}: invalid items")
+        pager = data.get("pager")
+        coverage_data = data
+        if isinstance(pager, Mapping):
+            coverage_data = {
+                **data,
+                "page": pager.get("pageID"),
+                "pageSize": pager.get("recPerPage"),
+                "total": pager.get("recTotal"),
+                "pages": pager.get("pageTotal"),
+            }
         return BugPage(
             items=items,
             coverage=self._safe_query_coverage(
-                data, page, page_size, len(items)
+                coverage_data, page, page_size, len(items)
             ),
         )
 
