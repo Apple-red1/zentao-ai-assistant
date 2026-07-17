@@ -32,6 +32,15 @@ Focused tests initially produced 10 expected failures: MCP rejected `titleTag`/`
 - `ruff check src/zentao_ai/mcp_server/tools.py src/zentao_ai/cli/bug_commands.py tests/contract/test_mcp_tools.py tests/e2e/cli/test_cli.py`: all checks passed.
 - `git diff --check`: passed.
 
+### Contradictory zero-page review fix
+
+- RED: two focused regressions failed because nonempty source items with `total=len(items), pages=0` were incorrectly promoted to complete filtered coverage.
+- Completeness now requires source `pages == 0` only for an empty source, otherwise exactly `pages == 1`.
+- `pytest tests/contract/test_mcp_tools.py tests/e2e/cli/test_cli.py -vv`: 46 passed in 2.14s.
+- `mypy src`: success, no issues found in 57 source files.
+- `ruff check src/zentao_ai/mcp_server/tools.py src/zentao_ai/cli/bug_commands.py tests/contract/test_mcp_tools.py tests/e2e/cli/test_cli.py`: all checks passed.
+- `git diff --check`: passed.
+
 ## Commit hash
 
 - Task 3 implementation: `22e3236d0e2a39167e15fc735ec1dfe4d2e93ac9` (`fix: query personal bugs by configured assignee`).

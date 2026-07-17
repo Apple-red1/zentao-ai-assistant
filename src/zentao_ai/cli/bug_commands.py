@@ -109,7 +109,7 @@ def mine(
         coverage = source.coverage
         complete = (
             coverage.pages is not None
-            and coverage.pages <= 1
+            and coverage.pages == (0 if not source.items else 1)
             and coverage.page == 1
             and coverage.total == len(source.items)
         )

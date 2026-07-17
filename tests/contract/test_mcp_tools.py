@@ -296,6 +296,17 @@ def test_query_my_bugs_distrusts_multi_page_total_when_visible_items_all_pass() 
     assert data["coverage"] == {"page": 1, "pageSize": 2, "total": -1, "pages": None}
 
 
+def test_query_my_bugs_distrusts_zero_pages_with_nonempty_items() -> None:
+    provider = AssigneeProvider()
+    provider.query_user_bugs = lambda user, **kwargs: BugPage(  # type: ignore[method-assign]
+        items=(BugSnapshot(id=2537, title="【AI建站】 first", status="active", version="v1", snapshotVersion="s1"),),
+        coverage=Coverage(page=1, pageSize=20, total=1, pages=0),
+    )
+    data = ZentaoTools(runtime(provider)).call("query_my_bugs", {})["data"]
+    assert [item["id"] for item in data["items"]] == [2537]
+    assert data["coverage"] == {"page": 1, "pageSize": 20, "total": -1, "pages": None}
+
+
 @pytest.mark.parametrize("status", ["CREATED", "ALREADY_EXISTS", "UNKNOWN"])
 def test_comment_uses_shared_gated_writer_and_preserves_trimmed_key(
     status: str,
