@@ -181,7 +181,7 @@ def execute_read_workflow(
                             detail, history, AnalysisPhase.FINAL, signal=signal
                         ).decision
                         routing_status = "ROUTED" if selected_repository else "UNKNOWN"
-                        if selected_repository is None or history_failed:
+                        if history_failed or (kind == "personal" and selected_repository is None):
                             routing_incomplete = True
                             decision = Decision.NEEDS_ENGINEER_REVIEW
                         results.append(
