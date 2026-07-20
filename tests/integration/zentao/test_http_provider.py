@@ -90,20 +90,150 @@ def test_custom_bug_detail_endpoint_preserves_flat_envelope() -> None:
     assert instance.query_bug_detail(8).snapshot_version == "custom-v1"
 
 
-def test_default_bug_history_fails_closed_without_network_request() -> None:
+def test_official_bug_history_adapts_actions_and_paginates_locally() -> None:
+    requests: list[tuple[str, str]] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requests.append((request.url.path, request.url.query.decode()))
+        return httpx.Response(
+            200,
+            json={
+                "bug": {"id": 7, "status": "active"},
+                "actions": {
+                    "9": {
+                        "id": "9",
+                        "action": "opened",
+                        "actor": "qa",
+                        "apiToken": "discard",
+                    },
+                    "10": {
+                        "id": "10",
+                        "action": "edited",
+                        "actor": "dev",
+                        "idempotencyKey": "key-10",
+                        "contentHash": "hash-10",
+                    },
+                    "11": {
+                        "id": "11",
+                        "action": "commented",
+                        "actor": "qa",
+                        "apiToken": "discard",
+                    },
+                },
+            },
+        )
+
+    instance = provider(
+        httpx.MockTransport(handle),
+        endpoints=ZentaoEndpoints(bugHistory="/api.php/v2/bugs/{bug_id}"),
+    )
+    result = instance.query_bug_history(7, page=2, page_size=2)
+
+    assert requests == [("/api.php/v2/bugs/7", "")]
+    assert [(item.id, item.action, item.actor) for item in result.items] == [
+        ("11", "commented", "qa")
+    ]
+    assert result.coverage.model_dump(by_alias=True) == {
+        "page": 2,
+        "pageSize": 2,
+        "total": 3,
+        "pages": 2,
+    }
+    assert "apiToken" not in result.items[0].raw
+
+
+def test_official_bug_history_accepts_actions_list() -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            json={
+                "bug": {"id": 7},
+                "actions": [
+                    {
+                        "id": 9,
+                        "action": "commented",
+                        "actor": "qa",
+                        "idempotencyKey": "key-9",
+                        "contentHash": "hash-9",
+                    }
+                ],
+            },
+        )
+    )
+    instance = provider(
+        transport,
+        endpoints=ZentaoEndpoints(bugHistory="/api.php/v2/bugs/{bug_id}"),
+    )
+
+    result = instance.query_bug_history(7)
+
+    assert result.items[0].id == 9
+    assert result.items[0].action == "commented"
+    assert result.items[0].actor == "qa"
+    assert result.items[0].idempotency_key == "key-9"
+    assert result.items[0].content_hash == "hash-9"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"bug": {"id": 7}},
+        {"bug": {"id": 7}, "actions": "invalid"},
+        {"bug": {"id": 7}, "actions": ["invalid"]},
+        {"bug": {"id": 7}, "actions": {"9": "invalid"}},
+    ],
+)
+def test_official_bug_history_rejects_missing_or_invalid_actions(
+    payload: dict[str, object],
+) -> None:
+    instance = provider(
+        httpx.MockTransport(lambda request: httpx.Response(200, json=payload)),
+        endpoints=ZentaoEndpoints(bugHistory="/api.php/v2/bugs/{bug_id}"),
+    )
+
+    with pytest.raises(ContractError, match="^query_bug_history: invalid actions$"):
+        instance.query_bug_history(7)
+
+
+@pytest.mark.parametrize(
+    "page,page_size",
+    [(0, 20), (-1, 20), (1, 0), (1, -1), (1, 1001), (True, 20), (1, False)],
+)
+def test_query_bug_history_rejects_invalid_pagination_before_network(
+    page: object, page_size: object
+) -> None:
     requests = 0
 
     def handle(request: httpx.Request) -> httpx.Response:
         nonlocal requests
         requests += 1
-        return httpx.Response(200, json={"items": []})
+        return httpx.Response(200, json={"actions": []})
 
-    with pytest.raises(
-        ContractError, match="^query_bug_history: unsupported by official contract$"
-    ):
-        provider(httpx.MockTransport(handle)).query_bug_history(7)
+    instance = provider(
+        httpx.MockTransport(handle),
+        endpoints=ZentaoEndpoints(bugHistory="/api.php/v2/bugs/{bug_id}"),
+    )
+    with pytest.raises(ValueError, match="^invalid pagination$"):
+        instance.query_bug_history(  # type: ignore[arg-type]
+            7, page=page, page_size=page_size
+        )
 
     assert requests == 0
+
+
+@pytest.mark.parametrize(
+    "status,error", [(401, AuthenticationError), (403, PermissionDeniedError)]
+)
+def test_official_bug_history_preserves_auth_and_permission_failures(
+    status: int, error: type[Exception]
+) -> None:
+    instance = provider(
+        httpx.MockTransport(lambda request: httpx.Response(status)),
+        endpoints=ZentaoEndpoints(bugHistory="/api.php/v2/bugs/{bug_id}"),
+    )
+
+    with pytest.raises(error):
+        instance.query_bug_history(7)
 
 
 def test_custom_bug_history_endpoint_remains_supported() -> None:

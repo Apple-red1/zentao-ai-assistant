@@ -546,11 +546,30 @@ class HttpZentaoProvider:
     def query_bug_history(
         self, bug_id: int | str, *, page: int = 1, page_size: int = 20
     ) -> HistoryPage:
+        self._validate_pagination(page, page_size)
         if self._endpoints.bug_history is None:
             raise ContractError("query_bug_history: unsupported by official contract")
+        path = self._endpoints.bug_history.format(bug_id=self._segment(bug_id))
+        if self._endpoints.bug_history == "/api.php/v2/bugs/{bug_id}":
+            data = self._request("GET", path, "query_bug_history")
+            all_items = tuple(
+                self._history(item, "query_bug_history")
+                for item in self._actions(data, "query_bug_history")
+            )
+            start = (page - 1) * page_size
+            total = len(all_items)
+            return HistoryPage(
+                items=all_items[start : start + page_size],
+                coverage=Coverage(
+                    page=page,
+                    pageSize=page_size,
+                    total=total,
+                    pages=(total + page_size - 1) // page_size,
+                ),
+            )
         data = self._request(
             "GET",
-            self._endpoints.bug_history.format(bug_id=self._segment(bug_id)),
+            path,
             "query_bug_history",
             params={"page": page, "pageSize": page_size},
         )
@@ -843,6 +862,31 @@ class HttpZentaoProvider:
         ):
             raise ContractError(f"{operation}: invalid items")
         return items
+
+    @staticmethod
+    def _actions(data: Mapping[str, Any], operation: str) -> list[Mapping[str, Any]]:
+        actions = data.get("actions")
+        if isinstance(actions, Mapping):
+            items = list(actions.values())
+        elif isinstance(actions, list):
+            items = actions
+        else:
+            raise ContractError(f"{operation}: invalid actions")
+        if any(not isinstance(item, Mapping) for item in items):
+            raise ContractError(f"{operation}: invalid actions")
+        return items
+
+    @staticmethod
+    def _validate_pagination(page: int, page_size: int) -> None:
+        if (
+            isinstance(page, bool)
+            or not isinstance(page, int)
+            or page < 1
+            or isinstance(page_size, bool)
+            or not isinstance(page_size, int)
+            or not 1 <= page_size <= 1000
+        ):
+            raise ValueError("invalid pagination")
 
     @classmethod
     def _snapshot(cls, data: Mapping[str, Any], operation: str) -> BugSnapshot:

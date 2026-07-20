@@ -88,13 +88,25 @@ def _query_bug_history(
     return page, _page_evidence("query_bug_history", page.items), None
 
 
+def _history_bug_id(provider: ZentaoProvider) -> int | str | None:
+    configured = os.environ.get("ZENTAO_PRODUCTION_HISTORY_BUG_ID")
+    if configured is not None:
+        configured = configured.strip()
+        if not configured:
+            raise ValueError("ZENTAO_PRODUCTION_HISTORY_BUG_ID must be nonempty")
+        return configured
+    page = provider.query_my_bugs(page=1, page_size=20)
+    return page.items[0].id if page.items else None
+
+
 def test_production_query_contracts_for_weiwenting() -> None:
     runtime = DependencyFactory._production(Path(r"F:\每日工作"))
     try:
         bugs, bug_evidence, bug_error = _query_user_bugs(runtime.provider)
-        if bugs is not None and bugs.items:
+        history_bug_id = _history_bug_id(runtime.provider)
+        if history_bug_id is not None:
             history, history_evidence, history_error = _query_bug_history(
-                runtime.provider, bugs.items[0].id
+                runtime.provider, history_bug_id
             )
         else:
             history, history_error = None, None
@@ -111,7 +123,12 @@ def test_production_query_contracts_for_weiwenting() -> None:
             if error is not None:
                 raise error
 
-        assert bugs is not None and bugs.items, evidence
+        assert bugs is not None, evidence
+        assert history_bug_id is not None, (
+            "set ZENTAO_PRODUCTION_HISTORY_BUG_ID or ensure query_my_bugs discovers "
+            "a read-only Bug",
+            evidence,
+        )
         assert history is not None and history.coverage.total >= 0, evidence
     finally:
         runtime.close()
