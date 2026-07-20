@@ -21,6 +21,9 @@ dependencies = [
 
 [project.scripts]
 zentao-ai = "zentao_ai.cli.app:main"
+zentao-ai-state = "zentao_ai.state.cli:main"
+zentao-ai-repository = "zentao_ai.repository.cli:main"
+zentao-ai-render-report = "zentao_ai.reporting.cli:main"
 
 [project.optional-dependencies]
 dev = [

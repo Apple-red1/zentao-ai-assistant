@@ -6,6 +6,7 @@ import marshal
 import re
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 
@@ -20,6 +21,15 @@ TEXT_SUFFIXES = {".json", ".md", ".py", ".rst", ".toml", ".txt", ".yaml", ".yml"
 
 def load_json(path: Path) -> dict[str, object]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def test_package_exposes_plugin_companion_commands() -> None:
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    scripts = project["project"]["scripts"]
+    assert scripts["zentao-ai"] == "zentao_ai.cli.app:main"
+    assert scripts["zentao-ai-state"] == "zentao_ai.state.cli:main"
+    assert scripts["zentao-ai-repository"] == "zentao_ai.repository.cli:main"
+    assert scripts["zentao-ai-render-report"] == "zentao_ai.reporting.cli:main"
 
 
 def test_manifest_is_complete_and_references_real_components() -> None:
