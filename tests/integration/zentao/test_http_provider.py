@@ -177,6 +177,28 @@ def test_official_bug_history_accepts_actions_list() -> None:
 @pytest.mark.parametrize(
     "payload",
     [
+        {"actions": []},
+        {"bug": [], "actions": []},
+        {"bug": {"id": 8}, "actions": []},
+    ],
+)
+def test_official_bug_history_rejects_missing_or_wrong_bug_identity(
+    payload: dict[str, object],
+) -> None:
+    instance = provider(
+        httpx.MockTransport(lambda request: httpx.Response(200, json=payload)),
+        endpoints=ZentaoEndpoints(bugHistory="/api.php/v2/bugs/{bug_id}"),
+    )
+
+    with pytest.raises(
+        ContractError, match="^query_bug_history: invalid bug contract$"
+    ):
+        instance.query_bug_history(7)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
         {"bug": {"id": 7}},
         {"bug": {"id": 7}, "actions": "invalid"},
         {"bug": {"id": 7}, "actions": ["invalid"]},
@@ -213,7 +235,9 @@ def test_official_bug_history_rejects_semantically_invalid_action_mappings(
 ) -> None:
     instance = provider(
         httpx.MockTransport(
-            lambda request: httpx.Response(200, json={"actions": [action]})
+            lambda request: httpx.Response(
+                200, json={"bug": {"id": 7}, "actions": [action]}
+            )
         ),
         endpoints=ZentaoEndpoints(bugHistory="/api.php/v2/bugs/{bug_id}"),
     )
@@ -228,7 +252,11 @@ def test_official_bug_history_allows_missing_actor() -> None:
     instance = provider(
         httpx.MockTransport(
             lambda request: httpx.Response(
-                200, json={"actions": [{"id": 9, "action": "opened"}]}
+                200,
+                json={
+                    "bug": {"id": 7},
+                    "actions": [{"id": 9, "action": "opened"}],
+                },
             )
         ),
         endpoints=ZentaoEndpoints(bugHistory="/api.php/v2/bugs/{bug_id}"),
@@ -1546,6 +1574,76 @@ def test_query_user_bugs_marks_contradictory_official_pager_incomplete() -> None
 
     assert requested_pages == [1, 2]
     assert [item.id for item in result.items] == [2]
+    assert result.coverage.total == -1
+    assert result.coverage.pages is None
+
+
+def test_query_user_bugs_does_not_fallback_from_malformed_present_pager() -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            json={
+                "bugs": [
+                    {
+                        "id": 1,
+                        "status": "active",
+                        "assignedTo": "xuli",
+                        "lastEditedDate": "v1",
+                    }
+                ],
+                "pager": None,
+                "page": 1,
+                "limit": 20,
+                "total": 1,
+            },
+        )
+    )
+
+    result = provider(
+        transport,
+        endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs"),
+    ).query_user_bugs("xuli")
+
+    assert [item.id for item in result.items] == [1]
+    assert result.coverage.total == -1
+    assert result.coverage.pages is None
+
+
+def test_query_user_bugs_marks_cross_page_id_overlap_incomplete() -> None:
+    requested_pages: list[int] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requested_page = int(request.url.params["page"])
+        requested_pages.append(requested_page)
+        ids = [1, 2] if requested_page == 1 else [2, 3]
+        return httpx.Response(
+            200,
+            json={
+                "bugs": [
+                    {
+                        "id": bug_id,
+                        "status": "active",
+                        "assignedTo": "xuli",
+                        "lastEditedDate": f"v{bug_id}",
+                    }
+                    for bug_id in ids
+                ],
+                "pager": {
+                    "pageID": requested_page,
+                    "recPerPage": 2,
+                    "recTotal": 4,
+                    "pageTotal": 2,
+                },
+            },
+        )
+
+    result = provider(
+        httpx.MockTransport(handle),
+        endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs"),
+    ).query_user_bugs("xuli", page=2, page_size=2)
+
+    assert requested_pages == [1, 2]
+    assert [item.id for item in result.items] == [3]
     assert result.coverage.total == -1
     assert result.coverage.pages is None
 

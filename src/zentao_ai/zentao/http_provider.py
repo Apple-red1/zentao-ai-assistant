@@ -485,7 +485,8 @@ class HttpZentaoProvider:
         requested_account = self._normalized_text(user)
         snapshots: list[BugSnapshot] = []
         seen_ids: set[str] = set()
-        seen_pages: set[tuple[str, ...]] = set()
+        upstream_seen_ids: set[str] = set()
+        seen_pages: set[tuple[str | None, ...]] = set()
         expected_total: int | None = None
         expected_pages: int | None = None
         fetched = 0
@@ -503,11 +504,18 @@ class HttpZentaoProvider:
             )
             bugs = self._official_bug_rows(data, operation)
             page_ids = tuple(
-                self._normalized_bug_id(item.get("id")) or "<missing>"
-                for item in bugs
+                self._normalized_bug_id(item.get("id")) for item in bugs
             )
             repeated = page_ids in seen_pages
             seen_pages.add(page_ids)
+            overlaps_prior_page = any(
+                bug_id in upstream_seen_ids
+                for bug_id in page_ids
+                if bug_id is not None
+            )
+            upstream_seen_ids.update(
+                bug_id for bug_id in page_ids if bug_id is not None
+            )
 
             for item in bugs:
                 assignee = self._account(item.get("assignedTo"))
@@ -541,7 +549,7 @@ class HttpZentaoProvider:
                 count=len(bugs),
             )
             fetched += len(bugs)
-            if repeated or metadata is None:
+            if repeated or overlaps_prior_page or metadata is None:
                 break
             total, pages = metadata
             if expected_total is None and expected_pages is None:
@@ -640,7 +648,9 @@ class HttpZentaoProvider:
         count: int,
     ) -> tuple[int, int] | None:
         pager = data.get("pager")
-        if isinstance(pager, Mapping):
+        if "pager" in data:
+            if not isinstance(pager, Mapping):
+                return None
             response_page = pager.get("pageID")
             response_page_size = pager.get("recPerPage")
             total = pager.get("recTotal")
@@ -750,6 +760,14 @@ class HttpZentaoProvider:
         path = self._endpoints.bug_history.format(bug_id=self._segment(bug_id))
         if self._endpoints.bug_history == "/api.php/v2/bugs/{bug_id}":
             data = self._request("GET", path, "query_bug_history")
+            bug = data.get("bug")
+            requested_id = self._normalized_bug_id(bug_id)
+            if (
+                requested_id is None
+                or not isinstance(bug, Mapping)
+                or self._normalized_bug_id(bug.get("id")) != requested_id
+            ):
+                raise ContractError("query_bug_history: invalid bug contract")
             all_items = tuple(
                 self._official_history(item, "query_bug_history")
                 for item in self._actions(data, "query_bug_history")
