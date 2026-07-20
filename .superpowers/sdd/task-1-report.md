@@ -46,3 +46,23 @@
 - regression command: `uv run --extra dev pytest tests/integration/zentao/test_http_provider.py -vv`
   - Exact result: `84 passed in 0.49s`
 - concerns: none.
+
+## Production Contract Diagnostic Review Fix
+
+- status: DONE_WITH_CONCERNS
+- commits: `59d53699c077e9023f55f71da1e8c621ec530b23` (initial opt-in reproduction); `9e0de5aab979388eb05837174a911f3b437faecc` (independent operation classification).
+- fixes:
+  - The opt-in diagnostic now captures each public operation separately and executes `query_bug_history` even if `query_user_bugs` fails, using a harmless fallback identifier only for the fail-closed call.
+  - Assertions are deferred until both operations are captured. Failure output contains only boolean checks and `OperationEvidence`, never Bug objects or response bodies.
+  - The report distinguishes the probe-local JSON `ValueError` from the provider's pre-request `ContractError` and labels the Bug-detail observation as unverified.
+- sanitized evidence:
+  - `query_user_bugs`: exception_class=none, status_category=2xx, top_level_keys=(blockID, branch, branchTagOption, browseType, bugs, builds, currentModuleID, executions, from, idList, memberPairs, modulePairs, modules, orderBy, pager, param, plans, product, products, projectPairs, status, stories, tasks, title, users), bugs=dict, items=NoneType, actions=NoneType, pager=dict.
+  - `query_bug_history`: exception_class=ContractError, status_category=not_requested, top_level_keys=(), bugs=NoneType, items=NoneType, actions=NoneType, pager=NoneType. The provider fails closed before making an HTTP request because no history endpoint is configured.
+  - A prior temporary direct probe received HTTP 404 (4xx) on an assumed standalone history route. Its `ValueError` came only from attempting to decode that non-JSON body; it was not raised by `query_bug_history` and is not a production contract classification.
+  - A separate read-only Bug-detail response had top_level_keys=(actions, bug, status) and actions=list. This is unverified as an official history contract and is neither asserted by the diagnostic nor wired into production code.
+- commands and results:
+  - `$env:ZENTAO_PRODUCTION_CONTRACT_TEST='1'; .superpowers\\venv\\Scripts\\python.exe -m pytest -q tests\\integration\\zentao\\test_production_contract_shapes.py` -> `1 failed`; sanitized evidence showed `query_user_bugs` passed and `query_bug_history` failed closed as `ContractError`/`not_requested`.
+  - `.superpowers\\venv\\Scripts\\python.exe -m pytest -q tests\\integration\\zentao\\test_production_contract_shapes.py` -> `1 skipped`.
+  - `.superpowers\\venv\\Scripts\\python.exe -m ruff check tests\\integration\\zentao\\test_production_contract_shapes.py` -> `All checks passed!`.
+  - `.superpowers\\venv\\Scripts\\python.exe -m pytest -q` -> `560 passed, 3 skipped, 26 subtests passed`.
+- concerns: History remains deliberately unavailable until a verified contract is implemented in a later task; no production code or configuration changed here.
