@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import pytest
 from pydantic import SecretStr
 
 from typer.testing import CliRunner
@@ -17,6 +18,7 @@ from zentao_ai.zentao.models import BugPage, BugSnapshot, Coverage
 CONFIG = AppConfig.model_validate(
     {
         "configVersion": 1,
+        "zentao": {"account": "weiwenting"},
         "personal": {"scopeNames": ["demo"]},
         "team": {"scopeNames": ["demo"], "members": ["alice"]},
         "repositories": {
@@ -71,6 +73,18 @@ class Provider:
         self.calls.append(("mine", scope_names, page, page_size))
         bug = BugSnapshot(id=7, status="active", version="v1", snapshotVersion="v1")
         return BugPage(items=(bug,), coverage=Coverage(total=1))
+
+    def query_user_bugs(
+        self, user: str, *, scope_names: tuple[str, ...], page: int, page_size: int
+    ) -> BugPage:
+        self.calls.append(("user", user, scope_names, page, page_size))
+        return BugPage(
+            items=(
+                BugSnapshot(id=2537, title="【AI建站】 first", status="active", version="v1", snapshotVersion="s1"),
+                BugSnapshot(id=3397, title="【站点后台】 second", status="open", version="v1", snapshotVersion="s2"),
+            ),
+            coverage=Coverage(page=1, pageSize=20, total=2, pages=1),
+        )
 
     def bug_statistics(self) -> dict[str, int]:
         return {"active": 1}
@@ -141,14 +155,84 @@ def test_auth_login_hides_and_stores_secret(tmp_path: Path) -> None:
     assert store.values[CredentialName.API_TOKEN] == "top-secret"
 
 
-def test_bugs_mine_uses_injected_provider_scope_and_json(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("options", "expected"),
+    [
+        (["--title-tag", "AI建站", "--status", "all"], [2537]),
+        (["--title-tag", "站点后台", "--status", "unclosed"], [3397]),
+        (["--status", "unclosed"], [2537, 3397]),
+    ],
+)
+def test_bugs_mine_uses_configured_user_endpoint_and_filters(
+    tmp_path: Path, options: list[str], expected: list[int]
+) -> None:
     provider = Provider()
     result = CliRunner().invoke(
-        app, ["bugs", "mine", "--json"], obj=factory(tmp_path, provider=provider)
+        app, ["bugs", "mine", *options, "--json"], obj=factory(tmp_path, provider=provider)
     )
     assert result.exit_code == 0
-    assert json.loads(result.stdout)["data"]["items"][0]["id"] == 7
-    assert provider.calls == [("mine", ("demo",), 1, 20)]
+    assert [item["id"] for item in json.loads(result.stdout)["data"]["items"]] == expected
+    assert provider.calls == [("user", "weiwenting", (), 1, 20)]
+
+
+def test_bugs_mine_distrusts_multi_page_total_when_visible_items_all_pass(
+    tmp_path: Path,
+) -> None:
+    class MultiPageProvider(Provider):
+        def query_user_bugs(
+            self, user: str, *, scope_names: tuple[str, ...], page: int, page_size: int
+        ) -> BugPage:
+            source = super().query_user_bugs(
+                user, scope_names=scope_names, page=page, page_size=page_size
+            )
+            return source.model_copy(
+                update={"coverage": Coverage(page=1, pageSize=20, total=40, pages=2)}
+            )
+
+    provider = MultiPageProvider()
+    result = CliRunner().invoke(
+        app,
+        ["bugs", "mine", "--status", "unclosed", "--json"],
+        obj=factory(tmp_path, provider=provider),
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)["data"]
+    assert [item["id"] for item in payload["items"]] == [2537, 3397]
+    assert payload["coverage"] == {
+        "page": 1,
+        "pageSize": 20,
+        "total": -1,
+        "pages": None,
+    }
+
+
+def test_bugs_mine_distrusts_zero_pages_with_nonempty_items(tmp_path: Path) -> None:
+    class ContradictoryProvider(Provider):
+        def query_user_bugs(
+            self, user: str, *, scope_names: tuple[str, ...], page: int, page_size: int
+        ) -> BugPage:
+            source = super().query_user_bugs(
+                user, scope_names=scope_names, page=page, page_size=page_size
+            )
+            return BugPage(
+                items=source.items[:1],
+                coverage=Coverage(page=1, pageSize=20, total=1, pages=0),
+            )
+
+    result = CliRunner().invoke(
+        app,
+        ["bugs", "mine", "--json"],
+        obj=factory(tmp_path, provider=ContradictoryProvider()),
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)["data"]
+    assert [item["id"] for item in payload["items"]] == [2537]
+    assert payload["coverage"] == {
+        "page": 1,
+        "pageSize": 20,
+        "total": -1,
+        "pages": None,
+    }
 
 
 def test_run_dry_run_only_prints_ordered_plan(tmp_path: Path) -> None:
@@ -176,7 +260,7 @@ def test_run_dry_run_only_prints_ordered_plan(tmp_path: Path) -> None:
 
 def test_provider_exception_is_redacted_and_business_exit_three(tmp_path: Path) -> None:
     class FailingProvider(Provider):
-        def query_my_bugs(self, **_kwargs: object) -> BugPage:
+        def query_user_bugs(self, *_args: object, **_kwargs: object) -> BugPage:
             raise RuntimeError("token=top-secret")
 
     result = CliRunner().invoke(

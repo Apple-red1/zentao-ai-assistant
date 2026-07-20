@@ -958,12 +958,330 @@ def test_query_normalizes_version_and_pagination() -> None:
                 "page": 2,
                 "pageSize": 20,
                 "total": 21,
+                "pages": 2,
             },
         )
 
     result = provider(httpx.MockTransport(handle)).query_user_bugs("alice", page=2)
     assert result.items[0].snapshot_version == "3"
     assert result.coverage.total == 21
+
+
+def test_query_user_bugs_adapts_official_bugs_envelope() -> None:
+    requests: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "bugs": [
+                    {
+                        "id": 2537,
+                        "title": "【AI建站】First",
+                        "status": "active",
+                        "openedBy": "alice",
+                        "assignedTo": "alice",
+                        "lastEditedDate": "2026-07-17 09:30:00",
+                    },
+                    {
+                        "id": 3397,
+                        "title": "【AI建站】Second",
+                        "status": "active",
+                        "openedBy": "bob",
+                        "assignedTo": "alice",
+                        "lastEditedDate": "2026-07-17 10:30:00",
+                    },
+                ],
+                "page": 1,
+                "pageSize": 20,
+                "total": 2,
+                "pages": 1,
+            },
+        )
+
+    result = provider(httpx.MockTransport(handle)).query_user_bugs("alice")
+
+    assert [item.id for item in result.items] == [2537, 3397]
+    assert [item.title for item in result.items] == ["【AI建站】First", "【AI建站】Second"]
+    assert [item.assignee for item in result.items] == ["alice", "alice"]
+    assert [item.snapshot_version for item in result.items] == [
+        "2026-07-17 09:30:00",
+        "2026-07-17 10:30:00",
+    ]
+    assert result.coverage.page == 1
+    assert result.coverage.page_size == 20
+    assert result.coverage.total == 2
+    assert result.coverage.pages == 1
+    assert len(requests) == 1
+    assert requests[0].url.path == "/api/bugs/user/alice"
+    assert dict(requests[0].url.params) == {"page": "1", "pageSize": "20"}
+
+
+def test_query_user_bugs_adapts_observed_assignee_map_and_pager() -> None:
+    def handle(request: httpx.Request) -> httpx.Response:
+        assert dict(request.url.params) == {
+            "browseType": "assigntome",
+            "page": "2",
+            "limit": "20",
+        }
+        return httpx.Response(
+            200,
+            json={
+                "bugs": {
+                    "3397": {
+                        "id": 3397,
+                        "title": "銆愮珯鐐瑰悗鍙般€慡econd",
+                        "status": "active",
+                        "assignedTo": "alice",
+                        "lastEditedDate": "2026-07-17 10:30:00",
+                    },
+                    "2537": {
+                        "id": 2537,
+                        "title": "銆怉I寤虹珯銆慏irst",
+                        "status": "active",
+                        "assignedTo": "alice",
+                        "lastEditedDate": "2026-07-17 09:30:00",
+                    }
+                },
+                "pager": {
+                    "pageID": 2,
+                    "recPerPage": 20,
+                    "recTotal": 22,
+                    "pageTotal": 2,
+                },
+            },
+        )
+
+    endpoints = ZentaoEndpoints(userBugs="/api.php/v2/bugs")
+    result = provider(
+        httpx.MockTransport(handle),
+        endpoints=endpoints,
+        auth=ZentaoAuth(username="alice", apiToken="token"),
+    ).query_user_bugs("alice", page=2)
+
+    assert [item.id for item in result.items] == [2537, 3397]
+    assert result.coverage.page == 2
+    assert result.coverage.page_size == 20
+    assert result.coverage.total == 22
+    assert result.coverage.pages == 2
+
+
+def test_query_user_bugs_transmits_only_nonempty_scope_names() -> None:
+    requests: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={"bugs": [], "pager": {}})
+
+    endpoints = ZentaoEndpoints(userBugs="/api.php/v2/bugs")
+    instance = provider(
+        httpx.MockTransport(handle),
+        endpoints=endpoints,
+        auth=ZentaoAuth(username="alice", apiToken="token"),
+    )
+    instance.query_user_bugs("alice", scope_names=())
+    instance.query_user_bugs("alice", scope_names=("Site", "API"))
+
+    assert "scopeNames" not in requests[0].url.params
+    assert requests[1].url.params.get_list("scopeNames") == ["Site", "API"]
+
+
+def test_official_assignee_route_is_used_only_for_authenticated_account() -> None:
+    requests: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={"bugs": [], "pager": {}})
+
+    endpoints = ZentaoEndpoints(userBugs="/api.php/v2/bugs")
+    instance = provider(
+        httpx.MockTransport(handle),
+        endpoints=endpoints,
+        auth=ZentaoAuth(username="alice", apiToken="token"),
+    )
+    instance.query_user_bugs("alice", scope_names=())
+
+    assert requests[0].url.path == "/api.php/v2/bugs"
+    assert dict(requests[0].url.params) == {
+        "browseType": "assigntome",
+        "page": "1",
+        "limit": "20",
+    }
+
+
+@pytest.mark.parametrize("username", ["alice", None])
+def test_different_or_unknown_authenticated_account_uses_user_specific_route(
+    username: str | None,
+) -> None:
+    requests: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={"items": []})
+
+    endpoints = ZentaoEndpoints(userBugs="/api.php/v2/bugs")
+    instance = provider(
+        httpx.MockTransport(handle),
+        endpoints=endpoints,
+        auth=ZentaoAuth(username=username, apiToken="token"),
+    )
+    instance.query_user_bugs("bob", scope_names=("Site",))
+
+    assert requests[0].url.path == "/api/bugs/user/bob"
+    assert requests[0].url.params.get_list("scopeNames") == ["Site"]
+    assert requests[0].url.params["pageSize"] == "20"
+    assert "browseType" not in requests[0].url.params
+
+
+def test_custom_user_bugs_endpoint_is_preserved_with_requested_user_and_scopes() -> None:
+    requests: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={"items": []})
+
+    endpoints = ZentaoEndpoints(userBugs="/custom/users/{user}/assigned")
+    instance = provider(
+        httpx.MockTransport(handle),
+        endpoints=endpoints,
+        auth=ZentaoAuth(username="alice", apiToken="token"),
+    )
+    instance.query_user_bugs("bob", scope_names=("Site", "API"), page=2)
+
+    assert requests[0].url.path == "/custom/users/bob/assigned"
+    assert requests[0].url.params.get_list("scopeNames") == ["Site", "API"]
+    assert requests[0].url.params["page"] == "2"
+    assert requests[0].url.params["pageSize"] == "20"
+    assert "browseType" not in requests[0].url.params
+
+
+def test_query_user_bugs_rejects_unknown_envelope() -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(200, json={"results": []})
+    )
+
+    with pytest.raises(ContractError, match="^query_user_bugs: invalid items$"):
+        provider(transport).query_user_bugs("alice")
+
+
+def test_query_user_bugs_rejects_official_bug_without_stable_version() -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            json={
+                "bugs": [
+                    {
+                        "id": 2537,
+                        "title": "【AI建站】Missing version",
+                        "status": "active",
+                        "assignedTo": "alice",
+                    }
+                ]
+            },
+        )
+    )
+
+    with pytest.raises(
+        ContractError, match="^query_user_bugs: missing stable version$"
+    ):
+        provider(transport).query_user_bugs("alice")
+
+
+def test_query_user_bugs_retains_items_when_pagination_is_contradictory() -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            json={
+                "bugs": [
+                    {
+                        "id": 2537,
+                        "title": "【AI建站】Retained",
+                        "status": "active",
+                        "assignedTo": "alice",
+                        "lastEditedDate": "2026-07-17 09:30:00",
+                    }
+                ],
+                "page": 1,
+                "pageSize": 20,
+                "total": 1,
+                "pages": 0,
+            },
+        )
+    )
+
+    result = provider(transport).query_user_bugs("alice")
+
+    assert [item.id for item in result.items] == [2537]
+    assert result.coverage.page == 1
+    assert result.coverage.page_size == 20
+    assert result.coverage.total == -1
+    assert result.coverage.pages is None
+
+
+@pytest.mark.parametrize(
+    ("page", "total", "pages", "returned_ids"),
+    [
+        (1, 2, 1, [2537]),
+        (2, 22, 2, [3397]),
+    ],
+)
+def test_query_user_bugs_marks_underfilled_nonempty_pages_incomplete(
+    page: int, total: int, pages: int, returned_ids: list[int]
+) -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            json={
+                "items": [
+                    {
+                        "id": bug_id,
+                        "status": "open",
+                        "version": f"v-{bug_id}",
+                    }
+                    for bug_id in returned_ids
+                ],
+                "page": page,
+                "pageSize": 20,
+                "total": total,
+                "pages": pages,
+            },
+        )
+    )
+
+    result = provider(transport).query_user_bugs("alice", page=page)
+
+    assert [item.id for item in result.items] == returned_ids
+    assert result.coverage.total == -1
+    assert result.coverage.pages is None
+
+
+@pytest.mark.parametrize(
+    ("response_page", "response_page_size"), [(3, 20), (2, 10)]
+)
+def test_query_user_bugs_falls_back_when_response_pagination_mismatches_request(
+    response_page: int, response_page_size: int
+) -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            json={
+                "items": [{"id": 2537, "status": "open", "version": "v1"}],
+                "page": response_page,
+                "pageSize": response_page_size,
+                "total": 21,
+                "pages": 2,
+            },
+        )
+    )
+
+    result = provider(transport).query_user_bugs("alice", page=2, page_size=20)
+
+    assert [item.id for item in result.items] == [2537]
+    assert result.coverage.page == 2
+    assert result.coverage.page_size == 20
+    assert result.coverage.total == -1
+    assert result.coverage.pages is None
 
 
 def test_missing_version_is_contract_error() -> None:

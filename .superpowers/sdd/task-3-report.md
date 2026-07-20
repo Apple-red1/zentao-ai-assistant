@@ -1,35 +1,60 @@
-# Task 3 Report: Bounded Reauthentication and Auth Precedence
+# Task 3 report
 
-## RED
+## Status
 
-- Command: `python -m pytest tests/integration/zentao/test_http_provider.py -k "reauthenticates_only_once or refreshed_bearer" -vv`
-- Result: 2 failed, 34 deselected.
-- Expected failures: only one login occurred after repeated 401, and the first 401 raised immediately instead of refreshing the bearer token.
+Implemented personal MCP and CLI bug queries through the configured Zentao assignee, with exact title-tag/status filtering, fail-closed account validation, and conservative filtered coverage.
 
-## GREEN
+## Changed files
 
-- Focused command: `python -m pytest tests/integration/zentao/test_http_provider.py -k "password or mixed_auth" -q`
-- Result: 14 passed, 22 deselected.
-- Full provider command: `python -m pytest tests/integration/zentao/test_http_provider.py -q`
-- Result: 36 passed.
+- `src/zentao_ai/mcp_server/schemas.py`
+- `src/zentao_ai/mcp_server/tools.py`
+- `src/zentao_ai/cli/bug_commands.py`
+- `tests/contract/test_mcp_tools.py`
+- `tests/e2e/cli/test_cli.py`
 
-## Lint and Formatting
+## RED evidence
 
-- `python -m ruff check src/zentao_ai/zentao/http_provider.py tests/integration/zentao/test_http_provider.py`: all checks passed.
-- `python -m ruff format --check src/zentao_ai/zentao/http_provider.py tests/integration/zentao/test_http_provider.py`: 2 files already formatted.
+Focused tests initially produced 10 expected failures: MCP rejected `titleTag`/`status`, still called `query_my_bugs`, did not fail closed for blank accounts, and CLI rejected the new options.
+
+## GREEN commands/results
+
+- `pytest tests/contract/test_mcp_tools.py tests/e2e/cli/test_cli.py -vv`: 42 passed.
+- `pytest -q`: 537 passed, 2 skipped, 26 subtests passed.
+- `ruff check src tests`: passed.
+- `git diff --check`: passed.
+- `mypy src` initially exposed three pagination-metadata narrowing errors later fixed separately by `88ee460`.
+
+### Review-fix verification
+
+- RED: two new multi-page regressions failed because MCP and CLI preserved source totals (`4/2` and `40/2`) when every visible item passed the default `unclosed` filter.
+- `pytest tests/contract/test_mcp_tools.py tests/e2e/cli/test_cli.py -vv`: 44 passed in 2.02s.
+- `mypy src`: success, no issues found in 57 source files.
+- `ruff check src/zentao_ai/mcp_server/tools.py src/zentao_ai/cli/bug_commands.py tests/contract/test_mcp_tools.py tests/e2e/cli/test_cli.py`: all checks passed.
 - `git diff --check`: passed.
 
-## Implementation and Security Review
+### Contradictory zero-page review fix
 
-- Reauthentication is gated on password mode and only the first 401/407.
-- The cached password-derived token is cleared, login is performed once, and the original request is retried with a rebuilt bearer header.
-- Any caller-provided stale Authorization header is removed during refresh.
-- A second 401/407 follows the existing sanitized `AuthenticationError` path without looping.
-- Explicit API-token precedence remains unchanged and existing mixed-auth coverage proves password login is not used.
-- Login transport failures are not retried by the original-request retry loop.
-- Existing GET retry accounting and write outcome safety remain intact.
-- Tests assert secrets, acquired tokens, and raw response markers do not appear in the terminal authentication error.
+- RED: two focused regressions failed because nonempty source items with `total=len(items), pages=0` were incorrectly promoted to complete filtered coverage.
+- Completeness now requires source `pages == 0` only for an empty source, otherwise exactly `pages == 1`.
+- `pytest tests/contract/test_mcp_tools.py tests/e2e/cli/test_cli.py -vv`: 46 passed in 2.14s.
+- `mypy src`: success, no issues found in 57 source files.
+- `ruff check src/zentao_ai/mcp_server/tools.py src/zentao_ai/cli/bug_commands.py tests/contract/test_mcp_tools.py tests/e2e/cli/test_cli.py`: all checks passed.
+- `git diff --check`: passed.
 
-## Commit
+## Commit hash
 
-- Subject: `fix: bound password token reauthentication`
+- Task 3 implementation: `22e3236d0e2a39167e15fc735ec1dfe4d2e93ac9` (`fix: query personal bugs by configured assignee`).
+- Pagination metadata narrowing prerequisite: `88ee460` (`fix: narrow assignee pagination metadata`). This separate commit also made the full mypy check pass.
+- Review fix: the commit containing this updated report is the worktree `HEAD`.
+
+## Self-review
+
+- MCP and CLI call only `query_user_bugs(account, scope_names=(), page=1, page_size=20)` for personal queries.
+- Blank/missing account fails before any provider call.
+- Exact full-width leading title tags and unclosed status filtering use the existing shared filter.
+- Incomplete coverage with changed visible results retains candidates and emits `total=-1`, `pages=None`.
+- No write tools or permissions were changed or invoked.
+
+## Concerns
+
+None. Full mypy, focused tests, changed-file Ruff checks, and diff integrity checks pass.

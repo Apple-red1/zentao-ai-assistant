@@ -405,12 +405,115 @@ class HttpZentaoProvider:
         page: int = 1,
         page_size: int = 20,
     ) -> BugPage:
-        return self._bug_page(
-            "query_user_bugs",
-            self._endpoints.user_bugs.format(user=self._segment(user)),
-            page,
-            page_size,
-            scope_names,
+        operation = "query_user_bugs"
+        authenticated_user = self._auth.username
+        configured_official = self._endpoints.user_bugs == "/api.php/v2/bugs"
+        official_assignee_list = (
+            configured_official
+            and isinstance(authenticated_user, str)
+            and authenticated_user.strip() == user.strip()
+        )
+        path = (
+            "/api/bugs/user/{user}"
+            if configured_official and not official_assignee_list
+            else self._endpoints.user_bugs
+        )
+        params: dict[str, Any] = (
+            {"browseType": "assigntome", "page": page, "limit": page_size}
+            if official_assignee_list
+            else {"page": page, "pageSize": page_size}
+        )
+        if scope_names:
+            params["scopeNames"] = list(scope_names)
+        data = self._request(
+            "GET",
+            path.format(user=self._segment(user)),
+            operation,
+            params=params,
+        )
+        if "items" in data:
+            items = tuple(
+                self._snapshot(item, operation)
+                for item in self._items(data, operation)
+            )
+        elif "bugs" in data:
+            bugs = data.get("bugs")
+            if isinstance(bugs, Mapping):
+                bugs = [
+                    value
+                    for _, value in sorted(bugs.items(), key=lambda x: str(x[0]))
+                ]
+            if not isinstance(bugs, list) or any(
+                not isinstance(item, Mapping) for item in bugs
+            ):
+                raise ContractError(f"{operation}: invalid items")
+            items = tuple(
+                self._official_snapshot(item, operation=operation) for item in bugs
+            )
+        else:
+            raise ContractError(f"{operation}: invalid items")
+        pager = data.get("pager")
+        coverage_data = data
+        if isinstance(pager, Mapping):
+            coverage_data = {
+                **data,
+                "page": pager.get("pageID"),
+                "pageSize": pager.get("recPerPage"),
+                "total": pager.get("recTotal"),
+                "pages": pager.get("pageTotal"),
+            }
+        return BugPage(
+            items=items,
+            coverage=self._safe_query_coverage(
+                coverage_data, page, page_size, len(items)
+            ),
+        )
+
+    @staticmethod
+    def _safe_query_coverage(
+        data: Mapping[str, Any], page: int, page_size: int, count: int
+    ) -> Coverage:
+        response_page = data.get("page")
+        response_page_size = data.get("pageSize")
+        total = data.get("total")
+        pages = data.get("pages")
+        valid_page = (
+            isinstance(response_page, int)
+            and not isinstance(response_page, bool)
+            and response_page >= 1
+        )
+        valid_page_size = (
+            isinstance(response_page_size, int)
+            and not isinstance(response_page_size, bool)
+            and response_page_size >= 1
+        )
+        valid_total: int | None = None
+        if isinstance(total, int) and not isinstance(total, bool) and total >= 0:
+            valid_total = total
+        valid_pages: int | None = None
+        if isinstance(pages, int) and not isinstance(pages, bool) and pages >= 0:
+            valid_pages = pages
+        metadata_valid = (
+            valid_page
+            and valid_page_size
+            and valid_total is not None
+            and valid_pages is not None
+            and response_page == page
+            and response_page_size == page_size
+            and valid_pages == (valid_total + page_size - 1) // page_size
+            and count
+            == min(page_size, max(valid_total - (page - 1) * page_size, 0))
+            and (valid_pages == 0 or page <= valid_pages)
+        )
+        return Coverage(
+            page=page,
+            pageSize=page_size,
+            total=(
+                valid_total
+                if metadata_valid and valid_total is not None
+                else -1
+            ),
+            pages=valid_pages if metadata_valid else None,
         )
 
     def query_bug_detail(self, bug_id: int | str) -> BugSnapshot:

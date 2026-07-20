@@ -26,7 +26,8 @@ class PagingInput(StrictInput):
 
 
 class QueryMyBugsInput(PagingInput):
-    pass
+    titleTag: NonEmpty | None = None
+    status: Literal["all", "unclosed"] = "unclosed"
 
 
 class QueryUserBugsInput(PagingInput):
