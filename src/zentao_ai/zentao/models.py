@@ -30,6 +30,8 @@ class FrozenModel(BaseModel):
 class RoutingData(FrozenModel):
     repositories: tuple[str, ...] = ()
     selected_repository: str | None = Field(None, alias="selectedRepository")
+    layer: str | None = None
+    matched_keywords: tuple[str, ...] = Field((), alias="matchedKeywords")
     confidence: float | None = None
 
 

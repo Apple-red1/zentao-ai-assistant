@@ -156,6 +156,11 @@ class BugRunResult:
     bugId: str
     snapshotVersion: str
     decision: Decision
+    selectedRepository: str | None = None
+    layer: str | None = None
+    candidates: tuple[str, ...] = ()
+    matchedKeywords: tuple[str, ...] = ()
+    routingStatus: str = "UNKNOWN"
 
 
 @dataclass(frozen=True)

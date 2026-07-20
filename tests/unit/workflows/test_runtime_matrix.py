@@ -10,7 +10,7 @@ from zentao_ai.state.models import LeaseResult, RunStatus
 from zentao_ai.workflows.models import AnalysisSignal, RunContext
 from zentao_ai.workflows.personal import run_personal
 from zentao_ai.workflows.team_report import run_team_report
-from zentao_ai.zentao.models import BugPage, BugSnapshot, Coverage, HistoryPage
+from zentao_ai.zentao.models import BugPage, BugSnapshot, Coverage, HistoryPage, RoutingData
 
 
 def bug(value: int) -> BugSnapshot:
@@ -135,10 +135,33 @@ def test_lease_unavailable_skips_work_and_success_releases() -> None:
     assert result.completeness == "FAILED" and result.failures[0].category == "LEASE_UNAVAILABLE"
     assert provider.list_calls == [] and unavailable.releases == []
     class CompleteProvider(RecordingProvider):
+        def routed_bug(self, value: int) -> BugSnapshot:
+            return BugSnapshot(
+                id=value,
+                status="active",
+                version="v1",
+                snapshotVersion="v1",
+                routing=RoutingData(
+                    repositories=("example-repo",),
+                    selectedRepository="example-repo",
+                    layer="frontend",
+                    confidence=1.0,
+                ),
+            )
+
         def query_my_bugs(self, *, scope_names: tuple[str, ...], page: int = 1, page_size: int = 20) -> BugPage:
             self.list_calls.append(("personal", scope_names, page, page_size))
             values = {1: (1, 2), 2: (3, 4)}
-            return BugPage(items=tuple(bug(x) for x in values.get(page, ())), coverage=Coverage(page=page, pageSize=2, total=4))
+            return BugPage(
+                items=tuple(
+                    self.routed_bug(x)
+                    for x in values.get(page, ())
+                ),
+                coverage=Coverage(page=page, pageSize=2, total=4),
+            )
+
+        def query_bug_detail(self, bug_id: int | str) -> BugSnapshot:
+            return self.routed_bug(int(bug_id))
 
     provider, ledger = CompleteProvider(), RecordingLedger()
     run_personal(make_context(provider, ledger))
@@ -183,3 +206,51 @@ def test_unknown_or_inconsistent_provider_coverage_is_partial(total: int) -> Non
 
     result = run_personal(make_context(InconsistentProvider(), RecordingLedger()))
     assert result.coverageTotal is None and result.truncated and result.completeness == "PARTIAL"
+
+
+def test_personal_enriches_missing_routing_and_retains_ambiguous_bug() -> None:
+    class TitleProvider(RecordingProvider):
+        def query_my_bugs(self, *, scope_names: tuple[str, ...], page: int = 1, page_size: int = 20) -> BugPage:
+            self.list_calls.append(("personal", scope_names, page, page_size))
+            return BugPage(
+                items=(
+                    BugSnapshot(id=10, status="active", version="v1", snapshotVersion="v1", title="【Synthetic Area】 button cannot click"),
+                    BugSnapshot(id=11, status="active", version="v1", snapshotVersion="v1", title="【Synthetic Area】 unclear failure"),
+                ),
+                coverage=Coverage(page=1, pageSize=20, total=2, pages=1),
+            )
+
+        def query_bug_detail(self, bug_id: int | str) -> BugSnapshot:
+            return next(item for item in self.query_my_bugs(scope_names=("mine",)).items if str(item.id) == str(bug_id))
+
+    config = AppConfig.model_validate({
+        "personal": {"scopeNames": ["area-web", "area-api"]},
+        "team": {"scopeNames": ["area-web"], "members": []},
+        "repositories": {
+            "area-web": {"repository": "area-web", "path": "repos/web", "targetBranch": "feature/fix", "testCommands": ["pytest"]},
+            "area-api": {"repository": "area-api", "path": "repos/api", "targetBranch": "feature/fix", "testCommands": ["pytest"]},
+        },
+        "titleRouting": [{
+            "marker": "【Synthetic Area】",
+            "frontendRepository": "area-web",
+            "backendRepository": "area-api",
+        }],
+    })
+    provider, ledger = TitleProvider(), RecordingLedger()
+    context = RunContext(
+        config,
+        provider,
+        ledger,
+        lambda: datetime(2026, 7, 20, 9, 0),
+        "owner",
+        analysis=lambda *_: AnalysisSignal(evidenceComplete=True, fixCandidate=True),
+    )
+    result = run_personal(context)
+    assert [item.bugId for item in result.bugResults] == ["10", "11"]
+    assert result.bugResults[0].selectedRepository == "area-web"
+    assert result.bugResults[0].layer == "frontend"
+    assert result.bugResults[0].routingStatus == "ROUTED"
+    assert result.bugResults[1].selectedRepository is None
+    assert result.bugResults[1].decision.value == "NEEDS_ENGINEER_REVIEW"
+    assert result.bugResults[1].routingStatus == "UNKNOWN"
+    assert result.completeness == "PARTIAL"

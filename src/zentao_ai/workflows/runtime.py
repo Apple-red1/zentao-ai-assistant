@@ -1,12 +1,15 @@
 from __future__ import annotations
 from collections.abc import Callable, Iterator
 from typing import Any
+from zentao_ai.routing.models import BugSnapshot as RoutingSnapshot
+from zentao_ai.routing.router import route_bug
 from zentao_ai.zentao.models import BugPage, HistoryPage
 from zentao_ai.state.models import RunStatus
 from .analysis import analyze_bug
 from .models import (
     AnalysisPhase,
     BugRunResult,
+    Decision,
     Failure,
     RunContext,
     RunResult,
@@ -74,6 +77,7 @@ def execute_read_workflow(
     failures: list[Failure] = []
     seen: set[str] = set()
     discovered = 0
+    routing_incomplete = False
     try:
 
         def personal_source(page: int, page_size: int) -> BugPage:
@@ -136,13 +140,45 @@ def execute_read_workflow(
                             if context.analysis
                             else None
                         )
+                        provider_routing = detail.routing
+                        if (
+                            provider_routing is not None
+                            and provider_routing.selected_repository is not None
+                        ):
+                            selected_repository = provider_routing.selected_repository
+                            layer = provider_routing.layer
+                            candidates = provider_routing.repositories
+                            matched_keywords = provider_routing.matched_keywords
+                        else:
+                            routing = route_bug(
+                                RoutingSnapshot(
+                                    identifier=key,
+                                    title=detail.title,
+                                    description=detail.steps,
+                                ),
+                                context.config,
+                            )
+                            selected_repository = routing.selectedRepository
+                            layer = routing.layer
+                            candidates = tuple(routing.candidates)
+                            matched_keywords = tuple(routing.matchedKeywords)
+                        decision = analyze_bug(
+                            detail, history, AnalysisPhase.FINAL, signal=signal
+                        ).decision
+                        routing_status = "ROUTED" if selected_repository else "UNKNOWN"
+                        if selected_repository is None:
+                            routing_incomplete = True
+                            decision = Decision.NEEDS_ENGINEER_REVIEW
                         results.append(
                             BugRunResult(
                                 key,
                                 detail.snapshot_version,
-                                analyze_bug(
-                                    detail, history, AnalysisPhase.FINAL, signal=signal
-                                ).decision,
+                                decision,
+                                selectedRepository=selected_repository,
+                                layer=layer,
+                                candidates=candidates,
+                                matchedKeywords=matched_keywords,
+                                routingStatus=routing_status,
                             )
                         )
                     except (KeyboardInterrupt, SystemExit):
@@ -154,7 +190,7 @@ def execute_read_workflow(
                     break
                 page = source(page_number, min(100, limit - discovered))
         truncated = (not total_known) or total > discovered
-        completeness = "COMPLETE" if not failures and not truncated else "PARTIAL"
+        completeness = "COMPLETE" if not failures and not truncated and not routing_incomplete else "PARTIAL"
         result = RunResult(
             str(business),
             cutoff,
