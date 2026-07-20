@@ -1386,6 +1386,43 @@ def test_query_user_bugs_scans_complete_official_collection_before_filtering() -
     assert result.coverage.pages == 1
 
 
+def test_query_user_bugs_scans_until_empty_when_official_metadata_is_missing() -> None:
+    requested_pages: list[int] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requested_page = int(request.url.params["page"])
+        requested_pages.append(requested_page)
+        rows = {
+            1: [
+                {
+                    "id": 1,
+                    "status": "active",
+                    "assignedTo": "other",
+                    "lastEditedDate": "v1",
+                }
+            ],
+            2: [
+                {
+                    "id": 2,
+                    "status": "active",
+                    "assignedTo": "xuli",
+                    "lastEditedDate": "v2",
+                }
+            ],
+        }.get(requested_page, [])
+        return httpx.Response(200, json={"bugs": rows})
+
+    result = provider(
+        httpx.MockTransport(handle),
+        endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs"),
+    ).query_user_bugs("xuli", page_size=1)
+
+    assert requested_pages == [1, 2, 3]
+    assert [item.id for item in result.items] == [2]
+    assert result.coverage.total == -1
+    assert result.coverage.pages is None
+
+
 def test_query_user_bugs_enriches_matching_row_from_verified_detail() -> None:
     requested_paths: list[str] = []
 

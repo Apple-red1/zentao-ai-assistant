@@ -549,8 +549,12 @@ class HttpZentaoProvider:
                 count=len(bugs),
             )
             fetched += len(bugs)
-            if repeated or overlaps_prior_page or metadata is None:
+            if repeated or overlaps_prior_page:
                 break
+            if metadata is None:
+                if expected_total is not None or expected_pages is not None or not bugs:
+                    break
+                continue
             total, pages = metadata
             if expected_total is None and expected_pages is None:
                 expected_total, expected_pages = total, pages
