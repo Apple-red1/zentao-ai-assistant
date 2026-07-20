@@ -218,9 +218,9 @@ class DependencyFactory:
             endpoints=ZentaoEndpoints(
                 login="/api.php/v2/users/login",
                 myBugs="/api/bugs/mine",
-                userBugs="/api/bugs/user/{user}",
-                bugDetail="/api/bugs/{bug_id}",
-                bugHistory="/api/bugs/{bug_id}/history",
+                userBugs="/api.php/v2/bugs",
+                bugDetail="/api.php/v2/bugs/{bug_id}",
+                bugHistory="/api.php/v2/bugs/{bug_id}",
                 statistics="/api/bugs/statistics",
                 addComment="/api/bugs/{bug_id}/comments",
                 updateSteps="/api/bugs/{bug_id}/steps",

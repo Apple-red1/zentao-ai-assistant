@@ -326,6 +326,238 @@ def test_user_history_and_statistics_contracts() -> None:
     assert stats.values["open"] == 4 and "Secret-Key" not in stats.raw
 
 
+def test_query_user_bugs_accepts_official_bug_envelope() -> None:
+    seen: list[tuple[str, dict[str, str]]] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        seen.append((request.url.path, dict(request.url.params)))
+        return httpx.Response(
+            200,
+            json={
+                "bugs": [
+                    {
+                        "id": 2537,
+                        "status": "active",
+                        "title": "【AI建站】页脚链接无法点击",
+                        "openedBy": "reporter",
+                        "assignedTo": "weiwenting",
+                        "lastEditedDate": "2026-07-20 09:00:00",
+                    },
+                    {
+                        "id": 3397,
+                        "status": "active",
+                        "title": "【站点后台】登录按钮颜色错误",
+                        "openedBy": "reporter",
+                        "assignedTo": "weiwenting",
+                        "version": "fallback-version",
+                    },
+                ],
+                "page": 1,
+                "pageSize": 20,
+                "total": 2,
+                "pages": 1,
+            },
+        )
+
+    result = provider(httpx.MockTransport(handle)).query_user_bugs(
+        "weiwenting", scope_names=("ignored-by-official-endpoint",), page=1, page_size=20
+    )
+    assert [item.id for item in result.items] == [2537, 3397]
+    assert result.items[0].snapshot_version == "2026-07-20 09:00:00"
+    assert result.items[1].snapshot_version == "fallback-version"
+    assert result.items[0].creator and result.items[0].creator.account == "reporter"
+    assert result.items[0].assignee == "weiwenting"
+    assert result.coverage.total == 2 and result.coverage.pages == 1
+    assert seen == [("/api/bugs/user/weiwenting", {"page": "1", "pageSize": "20"})]
+
+
+def test_query_user_bugs_keeps_items_when_pagination_is_untrusted() -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            json={
+                "bugs": [
+                    {
+                        "id": 2537,
+                        "status": "active",
+                        "openedBy": "reporter",
+                        "assignedTo": "weiwenting",
+                        "lastEditedDate": "2026-07-20 09:00:00",
+                    }
+                ],
+                "total": "unknown",
+                "pages": False,
+            },
+        )
+    )
+
+    result = provider(transport).query_user_bugs("weiwenting")
+    assert [item.id for item in result.items] == [2537]
+    assert result.coverage.total == -1 and result.coverage.pages is None
+
+
+def test_query_user_bugs_rejects_unknown_envelope() -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(200, json={"unexpected": []})
+    )
+    with pytest.raises(ContractError, match="query_user_bugs: invalid items"):
+        provider(transport).query_user_bugs("weiwenting")
+
+
+def test_query_user_bugs_uses_assigned_to_when_endpoint_has_no_user_segment() -> None:
+    seen: list[tuple[str, dict[str, str]]] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        seen.append((request.url.path, dict(request.url.params)))
+        return httpx.Response(200, json={"bugs": [], "total": 0, "pages": 0})
+
+    instance = HttpZentaoProvider(
+        base_url="https://zentao.invalid",
+        endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs"),
+        transport=httpx.MockTransport(handle),
+    )
+    result = instance.query_user_bugs("weiwenting", page=2, page_size=50)
+    assert result.items == ()
+    assert seen == [
+        (
+            "/api.php/v2/bugs",
+            {
+                "assignedTo": "weiwenting",
+                "page": "1",
+                "pageID": "1",
+                "pageSize": "100",
+                "recPerPage": "100",
+            },
+        )
+    ]
+
+
+def test_query_user_bugs_filters_official_pages_by_account_or_display_name() -> None:
+    pages = {
+        1: {
+            "bugs": {
+                "1": {
+                    "id": 1,
+                    "status": "active",
+                    "openedBy": "reporter",
+                    "assignedTo": "other",
+                    "lastEditedDate": "2026-07-20 08:00:00",
+                },
+                "2": {
+                    "id": 2,
+                    "status": "active",
+                    "openedBy": "reporter",
+                    "assignedTo": "linwentao",
+                    "lastEditedDate": "2026-07-20 08:01:00",
+                },
+            },
+            "users": {"linwentao": "林文韬", "other": "其他人"},
+            "pager": {"recTotal": 3, "recPerPage": 2, "pageTotal": 2, "pageID": 1},
+        },
+        2: {
+            "bugs": {
+                "3": {
+                    "id": 3,
+                    "status": "active",
+                    "openedBy": "reporter",
+                    "assignedTo": "linwentao",
+                    "lastEditedDate": "2026-07-20 08:02:00",
+                }
+            },
+            "users": {"linwentao": "林文韬"},
+            "pager": {"recTotal": 3, "recPerPage": 2, "pageTotal": 2, "pageID": 2},
+        },
+    }
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=pages[int(request.url.params["pageID"])])
+
+    instance = HttpZentaoProvider(
+        base_url="https://zentao.invalid",
+        endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs"),
+        transport=httpx.MockTransport(handle),
+    )
+    result = instance.query_user_bugs("林文韬", page=1, page_size=20)
+    assert [item.id for item in result.items] == [2, 3]
+    assert result.coverage.total == 2 and result.coverage.pages == 1
+
+
+def test_query_my_bugs_uses_configured_username_when_available() -> None:
+    seen: list[dict[str, str]] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        seen.append(dict(request.url.params))
+        return httpx.Response(
+            200,
+            json={
+                "bugs": {
+                    "7": {
+                        "id": 7,
+                        "status": "active",
+                        "openedBy": "reporter",
+                        "assignedTo": "weiwenting",
+                        "lastEditedDate": "2026-07-20 10:00:00",
+                    }
+                },
+                "users": {"weiwenting": "魏文婷"},
+                "pager": {"recTotal": 1, "recPerPage": 100, "pageTotal": 1, "pageID": 1},
+            },
+        )
+
+    instance = HttpZentaoProvider(
+        base_url="https://zentao.invalid",
+        endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs"),
+        auth=ZentaoAuth(username="weiwenting"),
+        transport=httpx.MockTransport(handle),
+    )
+    result = instance.query_my_bugs()
+    assert [item.id for item in result.items] == [7]
+    assert seen[0]["assignedTo"] == "weiwenting"
+
+
+def test_query_bug_detail_accepts_official_bug_envelope() -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            json={
+                "bug": {
+                    "id": 3397,
+                    "status": "active",
+                    "openedBy": "reporter",
+                    "assignedTo": "weiwenting",
+                    "lastEditedDate": "2026-07-20 10:00:00",
+                }
+            },
+        )
+    )
+
+    result = provider(transport).query_bug_detail(3397)
+    assert result.id == 3397
+    assert result.snapshot_version == "2026-07-20 10:00:00"
+
+
+def test_query_bug_history_accepts_official_actions_envelope() -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            json={
+                "actions": [
+                    {
+                        "id": "a1",
+                        "action": "opened",
+                        "actor": "reporter",
+                    }
+                ]
+            },
+        )
+    )
+
+    result = provider(transport).query_bug_history(3397)
+    assert result.items[0].id == "a1"
+    assert result.items[0].action == "opened"
+    assert result.coverage.total == 1
+
+
 def test_get_does_not_retry_non_transient_and_caps_retry_after(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -462,7 +694,11 @@ def test_password_auth_logs_in_once_and_caches_token() -> None:
     )
     instance.query_my_bugs()
     instance.query_my_bugs()
-    assert calls == ["/api.php/v2/users/login", "/api/bugs/mine", "/api/bugs/mine"]
+    assert calls == [
+        "/api.php/v2/users/login",
+        "/api/bugs/user/alice",
+        "/api/bugs/user/alice",
+    ]
 
 
 def test_post_remote_protocol_error_is_unknown_without_retry() -> None:

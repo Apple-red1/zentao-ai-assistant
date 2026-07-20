@@ -4,6 +4,7 @@ import base64
 import hashlib
 import re
 import time
+import unicodedata
 from collections.abc import Mapping
 from email.utils import parsedate_to_datetime
 from typing import Any
@@ -70,6 +71,13 @@ class HttpZentaoProvider:
     def query_my_bugs(
         self, *, scope_names: tuple[str, ...] = (), page: int = 1, page_size: int = 20
     ) -> BugPage:
+        if self._auth.username:
+            return self.query_user_bugs(
+                self._auth.username,
+                scope_names=scope_names,
+                page=page,
+                page_size=page_size,
+            )
         return self._bug_page(
             "query_my_bugs", self._endpoints.my_bugs, page, page_size, scope_names
         )
@@ -82,13 +90,110 @@ class HttpZentaoProvider:
         page: int = 1,
         page_size: int = 20,
     ) -> BugPage:
-        return self._bug_page(
-            "query_user_bugs",
-            self._endpoints.user_bugs.format(user=self._segment(user)),
-            page,
-            page_size,
-            scope_names,
+        path = self._endpoints.user_bugs
+        if "{user}" in path:
+            path = path.format(user=self._segment(user))
+            data = self._request(
+                "GET",
+                path,
+                "query_user_bugs",
+                params={"page": page, "pageSize": page_size},
+            )
+            items = tuple(
+                self._snapshot(item, "query_user_bugs")
+                if "items" in data
+                else self._official_snapshot(item, "query_user_bugs")
+                for item in self._bug_items(data, "query_user_bugs")
+            )
+            return BugPage(
+                items=items,
+                coverage=self._trusted_coverage(data, page, page_size, len(items)),
+            )
+        return self._official_user_bug_page(path, user, page, page_size)
+
+    def _official_user_bug_page(
+        self, path: str, user: str, page: int, page_size: int
+    ) -> BugPage:
+        raw_page_size = 100
+        start = (page - 1) * page_size
+        end = start + page_size
+        matched: list[BugSnapshot] = []
+        total_known = True
+        raw_page = 1
+        raw_pages: int | None = None
+        while raw_pages is None or raw_page <= raw_pages:
+            data = self._request(
+                "GET",
+                path,
+                "query_user_bugs",
+                params={
+                    "assignedTo": user,
+                    "page": raw_page,
+                    "pageSize": raw_page_size,
+                    "recPerPage": raw_page_size,
+                    "pageID": raw_page,
+                },
+            )
+            raw_items = self._bug_items(data, "query_user_bugs")
+            for item in raw_items:
+                if self._assignee_matches(data, item, user):
+                    matched.append(self._official_snapshot(item, "query_user_bugs"))
+            raw_pages = self._official_page_total(data)
+            if raw_pages is None:
+                total_known = False
+            if not raw_items or (len(matched) >= end and raw_pages is None):
+                break
+            if raw_pages is not None and raw_page >= raw_pages:
+                break
+            raw_page += 1
+            if raw_page > 100:
+                total_known = False
+                break
+        total = len(matched) if total_known else -1
+        pages = (
+            (total + page_size - 1) // page_size
+            if total_known and page_size > 0
+            else None
         )
+        return BugPage(
+            items=tuple(matched[start:end]),
+            coverage=Coverage(page=page, pageSize=page_size, total=total, pages=pages),
+        )
+
+    @classmethod
+    def _assignee_matches(
+        cls, data: Mapping[str, Any], bug: Mapping[str, Any], user: str
+    ) -> bool:
+        assignee = bug.get("assignedTo")
+        if not isinstance(assignee, str) or not assignee.strip():
+            return False
+        target = cls._normalized_text(user)
+        if cls._normalized_text(assignee) == target:
+            return True
+        for key in ("users", "memberPairs"):
+            pairs = data.get(key)
+            if isinstance(pairs, Mapping):
+                display = pairs.get(assignee)
+                if isinstance(display, str) and cls._normalized_text(display) == target:
+                    return True
+        return False
+
+    @staticmethod
+    def _official_page_total(data: Mapping[str, Any]) -> int | None:
+        pager = data.get("pager")
+        if isinstance(pager, Mapping):
+            pages = pager.get("pageTotal")
+            if isinstance(pages, int) and not isinstance(pages, bool) and pages >= 0:
+                return pages
+            return None
+        pages = data.get("pages")
+        if isinstance(pages, int) and not isinstance(pages, bool) and pages >= 0:
+            return pages
+        return None
+
+    @staticmethod
+    def _normalized_text(value: object) -> str:
+        return unicodedata.normalize("NFKC", str(value).strip()).casefold()
 
     def query_bug_detail(self, bug_id: int | str) -> BugSnapshot:
         data = self._request(
@@ -96,6 +201,9 @@ class HttpZentaoProvider:
             self._endpoints.bug_detail.format(bug_id=self._segment(bug_id)),
             "query_bug_detail",
         )
+        bug = data.get("bug")
+        if isinstance(bug, Mapping):
+            return self._official_snapshot(bug, "query_bug_detail")
         return self._snapshot(data, "query_bug_detail")
 
     def query_bug_history(
@@ -109,7 +217,7 @@ class HttpZentaoProvider:
         )
         items = tuple(
             self._history(x, "query_bug_history")
-            for x in self._items(data, "query_bug_history")
+            for x in self._history_items(data, "query_bug_history")
         )
         return HistoryPage(
             items=items, coverage=self._coverage(data, page, page_size, len(items))
@@ -374,6 +482,36 @@ class HttpZentaoProvider:
             raise ContractError(f"{operation}: invalid items")
         return items
 
+    @staticmethod
+    def _bug_items(data: Mapping[str, Any], operation: str) -> list[Mapping[str, Any]]:
+        items = data.get("items")
+        bugs = data.get("bugs")
+        if items is None and bugs is None:
+            raise ContractError(f"{operation}: invalid items")
+        selected = items if items is not None else bugs
+        if isinstance(selected, Mapping):
+            selected = list(selected.values())
+        if not isinstance(selected, list) or any(
+            not isinstance(item, Mapping) for item in selected
+        ):
+            raise ContractError(f"{operation}: invalid items")
+        return selected
+
+    @staticmethod
+    def _history_items(
+        data: Mapping[str, Any], operation: str
+    ) -> list[Mapping[str, Any]]:
+        items = data.get("items")
+        actions = data.get("actions")
+        if items is None and actions is None:
+            raise ContractError(f"{operation}: invalid items")
+        selected = items if items is not None else actions
+        if not isinstance(selected, list) or any(
+            not isinstance(item, Mapping) for item in selected
+        ):
+            raise ContractError(f"{operation}: invalid items")
+        return selected
+
     @classmethod
     def _snapshot(cls, data: Mapping[str, Any], operation: str) -> BugSnapshot:
         version = data.get("version")
@@ -385,6 +523,29 @@ class HttpZentaoProvider:
             "version": str(version).strip(),
             "snapshotVersion": str(version).strip(),
             "raw": safe,
+        }
+        try:
+            return BugSnapshot.model_validate(normalized)
+        except Exception:
+            raise ContractError(f"{operation}: invalid bug contract") from None
+
+    @classmethod
+    def _official_snapshot(
+        cls, data: Mapping[str, Any], operation: str
+    ) -> BugSnapshot:
+        version = data.get("lastEditedDate") or data.get("version")
+        if version is None or not str(version).strip():
+            raise ContractError(f"{operation}: missing stable version")
+        normalized = {
+            "id": data.get("id"),
+            "status": data.get("status"),
+            "title": data.get("title", ""),
+            "steps": data.get("steps", ""),
+            "creator": data.get("openedBy"),
+            "assignee": data.get("assignedTo"),
+            "version": str(version).strip(),
+            "snapshotVersion": str(version).strip(),
+            "raw": cls._sanitize(data),
         }
         try:
             return BugSnapshot.model_validate(normalized)
@@ -407,6 +568,50 @@ class HttpZentaoProvider:
             pageSize=data.get("pageSize", page_size),
             total=data.get("total", count),
             pages=data.get("pages"),
+        )
+
+    @staticmethod
+    def _trusted_coverage(
+        data: Mapping[str, Any], page: int, page_size: int, count: int
+    ) -> Coverage:
+        reported_page = data.get("page", page)
+        reported_page_size = data.get("pageSize", page_size)
+        total = data.get("total", count)
+        pages = data.get("pages")
+        if (
+            isinstance(reported_page, bool)
+            or not isinstance(reported_page, int)
+            or reported_page < 1
+        ):
+            reported_page = page
+        if (
+            isinstance(reported_page_size, bool)
+            or not isinstance(reported_page_size, int)
+            or reported_page_size < 1
+        ):
+            reported_page_size = page_size
+        if isinstance(total, bool) or not isinstance(total, int) or total < count:
+            total = -1
+            pages = None
+        elif (
+            pages is not None
+            and (
+                isinstance(pages, bool)
+                or not isinstance(pages, int)
+                or pages < 0
+                or (
+                    reported_page_size > 0
+                    and pages != (total + reported_page_size - 1) // reported_page_size
+                )
+            )
+        ):
+            total = -1
+            pages = None
+        return Coverage(
+            page=reported_page,
+            pageSize=reported_page_size,
+            total=total,
+            pages=pages,
         )
 
     @staticmethod

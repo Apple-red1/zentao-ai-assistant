@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 from pydantic import SecretStr
 
@@ -11,6 +12,7 @@ from zentao_ai.cli.runtime import AppRuntime, DependencyFactory, RunPlan
 from zentao_ai.config.models import AppConfig
 from zentao_ai.config.loader import load_config
 from zentao_ai.credentials.store import CredentialName
+from zentao_ai.state.models import LeaseResult
 from zentao_ai.zentao.models import BugPage, BugSnapshot, Coverage
 
 
@@ -47,6 +49,22 @@ class ReadyStore(Store):
         return SecretStr("doctor-secret")
 
 
+class Ledger:
+    def __init__(self) -> None:
+        self.checkpoints: list[tuple[object, ...]] = []
+
+    def acquire_lease(
+        self, _business_date: object, _kind: str, _owner: str, _ttl: int
+    ) -> LeaseResult:
+        return LeaseResult(True, "lease", "test", "later")
+
+    def release_lease(self, _lease_id: str, _status: object) -> None:
+        return None
+
+    def put_checkpoint(self, *args: object) -> None:
+        self.checkpoints.append(args)
+
+
 class Provider:
     def __init__(self) -> None:
         self.calls: list[tuple[object, ...]] = []
@@ -58,6 +76,18 @@ class Provider:
         bug = BugSnapshot(id=7, status="active", version="v1", snapshotVersion="v1")
         return BugPage(items=(bug,), coverage=Coverage(total=1))
 
+    def query_bug_detail(self, bug_id: int | str) -> BugSnapshot:
+        self.calls.append(("detail", bug_id))
+        return BugSnapshot(id=bug_id, status="active", version="v1", snapshotVersion="v1")
+
+    def query_bug_history(
+        self, bug_id: int | str, *, page: int, page_size: int
+    ):
+        from zentao_ai.zentao.models import HistoryPage
+
+        self.calls.append(("history", bug_id, page, page_size))
+        return HistoryPage(items=(), coverage=Coverage(total=0, pageSize=page_size))
+
     def bug_statistics(self) -> dict[str, int]:
         return {"active": 1}
 
@@ -68,8 +98,8 @@ def factory(
     runtime = AppRuntime(
         CONFIG,
         provider or Provider(),
-        object(),
-        lambda: None,
+        Ledger(),
+        lambda: datetime(2026, 7, 20, 9),
         "test",
         store=store or Store(),
     )
@@ -229,3 +259,22 @@ def test_mcp_serve_dispatches_project_and_injected_factory(
     )
     assert result.exit_code == 0
     assert calls == [(tmp_path, dependencies)]
+
+
+def test_partial_report_json_keeps_success_exit_code(tmp_path: Path) -> None:
+    class PartialProvider(Provider):
+        def query_my_bugs(
+            self, *, scope_names: tuple[str, ...], page: int, page_size: int
+        ) -> BugPage:
+            self.calls.append(("mine", scope_names, page, page_size))
+            return BugPage(items=(), coverage=Coverage(total=-1, pages=None))
+
+    result = CliRunner().invoke(
+        app,
+        ["report", "personal", "--json"],
+        obj=factory(tmp_path, provider=PartialProvider()),
+    )
+    payload = json.loads(result.stdout)
+    assert result.exit_code == 0
+    assert payload["ok"] is True
+    assert payload["data"]["completeness"] == "PARTIAL"
