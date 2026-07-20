@@ -310,6 +310,15 @@ class HttpZentaoProvider:
         return unicodedata.normalize("NFKC", str(value).strip()).casefold()
 
     @classmethod
+    def _account(cls, value: Any) -> str | None:
+        if isinstance(value, Mapping):
+            value = value.get("account")
+        if isinstance(value, bool) or not isinstance(value, (str, int)):
+            return None
+        account = str(value).strip()
+        return account or None
+
+    @classmethod
     def _official_snapshot(
         cls, data: Mapping[str, Any], operation: str = "query_my_bugs"
     ) -> BugSnapshot:
@@ -330,8 +339,8 @@ class HttpZentaoProvider:
             "status": data.get("status"),
             "title": data.get("title", ""),
             "steps": data.get("steps", ""),
-            "creator": data.get("openedBy"),
-            "assignee": data.get("assignedTo"),
+            "creator": cls._account(data.get("openedBy")),
+            "assignee": cls._account(data.get("assignedTo")),
             "version": str(version).strip(),
             "snapshotVersion": str(version).strip(),
             "raw": cls._sanitize(data),
@@ -406,21 +415,12 @@ class HttpZentaoProvider:
         page_size: int = 20,
     ) -> BugPage:
         operation = "query_user_bugs"
-        authenticated_user = self._auth.username
         configured_official = self._endpoints.user_bugs == "/api.php/v2/bugs"
-        official_assignee_list = (
-            configured_official
-            and isinstance(authenticated_user, str)
-            and authenticated_user.strip() == user.strip()
-        )
-        path = (
-            "/api/bugs/user/{user}"
-            if configured_official and not official_assignee_list
-            else self._endpoints.user_bugs
-        )
+        requested_account = self._normalized_text(user)
+        path = self._endpoints.user_bugs
         params: dict[str, Any] = (
-            {"browseType": "assigntome", "page": page, "limit": page_size}
-            if official_assignee_list
+            {"page": page, "limit": page_size}
+            if configured_official
             else {"page": page, "pageSize": page_size}
         )
         if scope_names:
@@ -431,7 +431,7 @@ class HttpZentaoProvider:
             operation,
             params=params,
         )
-        if "items" in data:
+        if not configured_official and "items" in data:
             items = tuple(
                 self._snapshot(item, operation)
                 for item in self._items(data, operation)
@@ -447,11 +447,25 @@ class HttpZentaoProvider:
                 not isinstance(item, Mapping) for item in bugs
             ):
                 raise ContractError(f"{operation}: invalid items")
+            if configured_official:
+                bugs = [
+                    item
+                    for item in bugs
+                    if (assignee := self._account(item.get("assignedTo"))) is not None
+                    and self._normalized_text(assignee) == requested_account
+                ]
             items = tuple(
                 self._official_snapshot(item, operation=operation) for item in bugs
             )
         else:
             raise ContractError(f"{operation}: invalid items")
+        if configured_official:
+            return BugPage(
+                items=items,
+                coverage=Coverage(
+                    page=page, pageSize=page_size, total=-1, pages=None
+                ),
+            )
         pager = data.get("pager")
         coverage_data = data
         if isinstance(pager, Mapping):

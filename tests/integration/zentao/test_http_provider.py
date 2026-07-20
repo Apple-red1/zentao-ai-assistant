@@ -1021,7 +1021,6 @@ def test_query_user_bugs_adapts_official_bugs_envelope() -> None:
 def test_query_user_bugs_adapts_observed_assignee_map_and_pager() -> None:
     def handle(request: httpx.Request) -> httpx.Response:
         assert dict(request.url.params) == {
-            "browseType": "assigntome",
             "page": "2",
             "limit": "20",
         }
@@ -1033,14 +1032,16 @@ def test_query_user_bugs_adapts_observed_assignee_map_and_pager() -> None:
                         "id": 3397,
                         "title": "銆愮珯鐐瑰悗鍙般€慡econd",
                         "status": "active",
-                        "assignedTo": "alice",
+                        "openedBy": {"account": "qa"},
+                        "assignedTo": {"account": "alice"},
                         "lastEditedDate": "2026-07-17 10:30:00",
                     },
                     "2537": {
                         "id": 2537,
                         "title": "銆怉I寤虹珯銆慏irst",
                         "status": "active",
-                        "assignedTo": "alice",
+                        "openedBy": {"account": "qa"},
+                        "assignedTo": {"account": "alice"},
                         "lastEditedDate": "2026-07-17 09:30:00",
                     }
                 },
@@ -1061,10 +1062,124 @@ def test_query_user_bugs_adapts_observed_assignee_map_and_pager() -> None:
     ).query_user_bugs("alice", page=2)
 
     assert [item.id for item in result.items] == [2537, 3397]
+    assert [item.creator.account if item.creator else None for item in result.items] == [
+        "qa",
+        "qa",
+    ]
+    assert [item.assignee for item in result.items] == ["alice", "alice"]
     assert result.coverage.page == 2
     assert result.coverage.page_size == 20
-    assert result.coverage.total == 22
-    assert result.coverage.pages == 2
+    assert result.coverage.total == -1
+    assert result.coverage.pages is None
+
+
+def test_query_user_bugs_filters_official_collection_by_assignee_account() -> None:
+    def handle(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api.php/v2/bugs"
+        return httpx.Response(
+            200,
+            json={
+                "bugs": [
+                    {
+                        "id": 1,
+                        "status": "active",
+                        "title": "designer",
+                        "openedBy": {"account": "qa"},
+                        "assignedTo": {"account": "xuli"},
+                        "lastEditedDate": "2026-07-20 09:00:00",
+                    },
+                    {
+                        "id": 2,
+                        "status": "active",
+                        "title": "other",
+                        "openedBy": {"account": "qa"},
+                        "assignedTo": {"account": "other"},
+                        "lastEditedDate": "2026-07-20 09:01:00",
+                    },
+                ],
+                "page": 1,
+                "limit": 20,
+                "total": 2,
+            },
+        )
+
+    result = provider(
+        httpx.MockTransport(handle),
+        endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs"),
+        auth=ZentaoAuth(username="weiwenting", apiToken="token"),
+    ).query_user_bugs("xuli")
+
+    assert [item.id for item in result.items] == [1]
+    assert result.items[0].assignee == "xuli"
+    assert result.coverage.total == -1
+    assert result.coverage.pages is None
+
+
+def test_query_user_bugs_ignores_unmatched_bug_without_stable_version() -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            json={
+                "bugs": [
+                    {
+                        "id": 2,
+                        "status": "active",
+                        "assignedTo": {"account": "other"},
+                    },
+                    {
+                        "id": 1,
+                        "status": "active",
+                        "assignedTo": {"account": "xuli"},
+                        "lastEditedDate": "2026-07-20 09:00:00",
+                    },
+                ]
+            },
+        )
+    )
+
+    result = provider(
+        transport, endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs")
+    ).query_user_bugs("xuli")
+
+    assert [item.id for item in result.items] == [1]
+
+
+def test_query_user_bugs_keeps_filtered_items_with_contradictory_metadata() -> None:
+    def handle(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "bugs": {
+                    "1": {
+                        "id": 1,
+                        "status": "active",
+                        "assignedTo": {"account": "xuli"},
+                        "lastEditedDate": "2026-07-20 09:00:00",
+                    },
+                    "2": {
+                        "id": 2,
+                        "status": "active",
+                        "assignedTo": {"account": "other"},
+                        "lastEditedDate": "2026-07-20 09:01:00",
+                    },
+                },
+                "pager": {
+                    "pageID": 1,
+                    "recPerPage": 20,
+                    "recTotal": 1,
+                    "pageTotal": 0,
+                },
+            },
+        )
+
+    result = provider(
+        httpx.MockTransport(handle),
+        endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs"),
+    ).query_user_bugs("xuli")
+
+    assert [item.id for item in result.items] == [1]
+    assert result.coverage.total == -1
+    assert result.coverage.pages is None
 
 
 def test_query_user_bugs_transmits_only_nonempty_scope_names() -> None:
@@ -1087,7 +1202,7 @@ def test_query_user_bugs_transmits_only_nonempty_scope_names() -> None:
     assert requests[1].url.params.get_list("scopeNames") == ["Site", "API"]
 
 
-def test_official_assignee_route_is_used_only_for_authenticated_account() -> None:
+def test_official_collection_uses_collection_pagination() -> None:
     requests: list[httpx.Request] = []
 
     def handle(request: httpx.Request) -> httpx.Response:
@@ -1104,21 +1219,20 @@ def test_official_assignee_route_is_used_only_for_authenticated_account() -> Non
 
     assert requests[0].url.path == "/api.php/v2/bugs"
     assert dict(requests[0].url.params) == {
-        "browseType": "assigntome",
         "page": "1",
         "limit": "20",
     }
 
 
 @pytest.mark.parametrize("username", ["alice", None])
-def test_different_or_unknown_authenticated_account_uses_user_specific_route(
+def test_official_collection_is_used_for_any_requested_account(
     username: str | None,
 ) -> None:
     requests: list[httpx.Request] = []
 
     def handle(request: httpx.Request) -> httpx.Response:
         requests.append(request)
-        return httpx.Response(200, json={"items": []})
+        return httpx.Response(200, json={"bugs": []})
 
     endpoints = ZentaoEndpoints(userBugs="/api.php/v2/bugs")
     instance = provider(
@@ -1128,9 +1242,9 @@ def test_different_or_unknown_authenticated_account_uses_user_specific_route(
     )
     instance.query_user_bugs("bob", scope_names=("Site",))
 
-    assert requests[0].url.path == "/api/bugs/user/bob"
+    assert requests[0].url.path == "/api.php/v2/bugs"
     assert requests[0].url.params.get_list("scopeNames") == ["Site"]
-    assert requests[0].url.params["pageSize"] == "20"
+    assert requests[0].url.params["limit"] == "20"
     assert "browseType" not in requests[0].url.params
 
 
@@ -1158,11 +1272,13 @@ def test_custom_user_bugs_endpoint_is_preserved_with_requested_user_and_scopes()
 
 def test_query_user_bugs_rejects_unknown_envelope() -> None:
     transport = httpx.MockTransport(
-        lambda request: httpx.Response(200, json={"results": []})
+        lambda request: httpx.Response(200, json={"items": []})
     )
 
     with pytest.raises(ContractError, match="^query_user_bugs: invalid items$"):
-        provider(transport).query_user_bugs("alice")
+        provider(
+            transport, endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs")
+        ).query_user_bugs("alice")
 
 
 def test_query_user_bugs_rejects_official_bug_without_stable_version() -> None:
@@ -1185,7 +1301,9 @@ def test_query_user_bugs_rejects_official_bug_without_stable_version() -> None:
     with pytest.raises(
         ContractError, match="^query_user_bugs: missing stable version$"
     ):
-        provider(transport).query_user_bugs("alice")
+        provider(
+            transport, endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs")
+        ).query_user_bugs("alice")
 
 
 def test_query_user_bugs_retains_items_when_pagination_is_contradictory() -> None:
