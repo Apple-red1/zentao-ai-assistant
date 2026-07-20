@@ -3,7 +3,10 @@ import unicodedata
 from zentao_ai.config.models import AppConfig
 from .models import BugSnapshot, RoutingDecision
 
-FRONTEND = ("ui", "style", "page", "link", "页面", "样式", "链接", "前端")
+FRONTEND = (
+    "ui", "style", "page", "link", "button", "layout", "interaction", "click",
+    "页面", "样式", "链接", "按钮", "布局", "交互", "点击", "前端",
+)
 BACKEND = ("api", "service", "database", "permission", "接口", "服务", "数据库", "权限", "后端")
 
 
@@ -21,6 +24,60 @@ def route_bug(snapshot: BugSnapshot, config: AppConfig) -> RoutingDecision:
     candidates = [config.repositories[key].repository for key in exact_keys]
     if len(candidates) == 1:
         return RoutingDecision(candidates=candidates, layer=layer, selectedRepository=candidates[0], matchedKeywords=matches, confidence=1.0, reasons=["EXACT_CONFIGURED_SCOPE"])
+    title_matches = [
+        mapping
+        for mapping in config.titleRouting
+        if unicodedata.normalize("NFC", mapping.marker).casefold() in text
+    ]
+    if title_matches:
+        local_front = list(front)
+        local_back = list(back)
+        for mapping in title_matches:
+            local_front.extend(
+                keyword
+                for keyword in mapping.frontendKeywords
+                if keyword.casefold() in text
+            )
+            local_back.extend(
+                keyword
+                for keyword in mapping.backendKeywords
+                if keyword.casefold() in text
+            )
+        local_front = list(dict.fromkeys(local_front))
+        local_back = list(dict.fromkeys(local_back))
+        local_layer = (
+            "frontend"
+            if local_front and not local_back
+            else "backend"
+            if local_back and not local_front
+            else None
+        )
+        title_candidates = list(
+            dict.fromkeys(
+                repository
+                for mapping in title_matches
+                for repository in (
+                    config.repositories[mapping.frontendRepository].repository,
+                    config.repositories[mapping.backendRepository].repository,
+                )
+            )
+        )
+        selected = None
+        if len(title_matches) == 1 and local_layer is not None:
+            repository_key = (
+                title_matches[0].frontendRepository
+                if local_layer == "frontend"
+                else title_matches[0].backendRepository
+            )
+            selected = config.repositories[repository_key].repository
+        return RoutingDecision(
+            candidates=title_candidates,
+            layer=local_layer,
+            selectedRepository=selected,
+            matchedKeywords=local_front + local_back,
+            confidence=0.9 if selected else 0.0,
+            reasons=["LOCAL_TITLE_MARKER_AND_LAYER"] if selected else ["LOCAL_TITLE_ROUTING_AMBIGUOUS"],
+        )
     for scope, mapping in config.repositories.items():
         markers = {scope.casefold(), mapping.repository.casefold()}
         def present(marker: str) -> bool:
