@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import ast
 import json
 import marshal
 import re
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 
@@ -20,6 +20,15 @@ TEXT_SUFFIXES = {".json", ".md", ".py", ".rst", ".toml", ".txt", ".yaml", ".yml"
 
 def load_json(path: Path) -> dict[str, object]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def test_package_exposes_plugin_companion_commands() -> None:
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    scripts = project["project"]["scripts"]
+    assert scripts["zentao-ai"] == "zentao_ai.cli.app:main"
+    assert scripts["zentao-ai-state"] == "zentao_ai.state.cli:main"
+    assert scripts["zentao-ai-repository"] == "zentao_ai.repository.cli:main"
+    assert scripts["zentao-ai-render-report"] == "zentao_ai.reporting.cli:main"
 
 
 def test_manifest_is_complete_and_references_real_components() -> None:
@@ -96,20 +105,52 @@ def test_github_marketplace_keeps_repository_relative_plugin_path() -> None:
     assert entry["source"] == {"source": "local", "path": "./plugins/zentao-ai-bug"}
 
 
-def test_plugin_wrappers_are_thin_import_only_entrypoints() -> None:
+def test_plugin_wrappers_are_standard_library_dispatchers() -> None:
     expected = {
-        "run-ledger.py": "zentao_ai.state.cli",
-        "direct-branch-guard.py": "zentao_ai.repository.cli",
-        "render-report.py": "zentao_ai.reporting.cli",
-        "doctor.py": "zentao_ai.cli.app",
+        "run-ledger.py": ("zentao-ai-state",),
+        "direct-branch-guard.py": ("zentao-ai-repository",),
+        "render-report.py": ("zentao-ai-render-report",),
+        "doctor.py": ("zentao-ai", "doctor"),
     }
-    for filename, module in expected.items():
+    for filename, command in expected.items():
         path = PLUGIN / "scripts" / filename
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        imports = {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)}
-        assert module in imports
-        assert "sys.path" not in path.read_text(encoding="utf-8")
-        assert len(path.read_text(encoding="utf-8").splitlines()) <= 15
+        text = path.read_text(encoding="utf-8")
+        assert "zentao_ai" not in text
+        assert "sys.path" not in text
+        assert "shutil.which" in text
+        assert "subprocess.call" in text
+        probe = f'''import json, runpy, shutil, subprocess, sys
+seen = {{}}
+def which(name):
+    seen["which"] = name
+    return "C:/fake/" + name + ".exe"
+def call(argv):
+    seen["argv"] = argv
+    return 23
+shutil.which = which
+subprocess.call = call
+sys.argv = [{str(path)!r}, "alpha", "beta"]
+try:
+    runpy.run_path({str(path)!r}, run_name="__main__")
+except SystemExit as exc:
+    seen["exit"] = exc.code
+print(json.dumps(seen))
+'''
+        result = subprocess.run(
+            [sys.executable, "-I", "-S", "-c", probe],
+            text=True,
+            capture_output=True,
+            check=False,
+            env={**__import__("os").environ, "PATH": ""},
+        )
+        assert result.returncode == 0, result.stderr
+        seen = json.loads(result.stdout)
+        executable = f"C:/fake/{command[0]}.exe"
+        assert seen == {
+            "which": command[0],
+            "argv": [executable, *command[1:], "alpha", "beta"],
+            "exit": 23,
+        }
 
     index = subprocess.run(
         ["git", "ls-files", "--stage", "plugins/zentao-ai-bug/scripts"],
@@ -145,6 +186,7 @@ def test_wrappers_report_github_install_error_when_package_is_unavailable() -> N
             text=True,
             capture_output=True,
             check=False,
+            env={**__import__("os").environ, "PATH": ""},
         )
         assert isolated.returncode != 0
         assert github_install in isolated.stderr
