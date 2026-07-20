@@ -53,6 +53,23 @@ def _custom_errors(data: Mapping[str, Any]) -> list[ValidationError]:
             errors.append(ValidationError(field=f"repositories.{scope}", message="repository mapping is required"))
     for key in repository_keys - set(scopes):
         errors.append(ValidationError(field=f"repositories.{key}", message="repository does not match a scope"))
+    title_routing = data.get("titleRouting", [])
+    if isinstance(title_routing, list):
+        markers: set[str] = set()
+        for item in title_routing:
+            if not isinstance(item, Mapping):
+                continue
+            marker = unicodedata.normalize("NFC", str(item.get("marker", ""))).strip().casefold()
+            if marker in markers:
+                errors.append(ValidationError(field="titleRouting", message="markers must be unique after normalization"))
+            markers.add(marker)
+            frontend = item.get("frontendRepository")
+            backend = item.get("backendRepository")
+            if frontend == backend:
+                errors.append(ValidationError(field="titleRouting", message="frontend and backend repositories must differ"))
+            for repository in (frontend, backend):
+                if repository not in repository_keys:
+                    errors.append(ValidationError(field="titleRouting", message=f"unknown repository: {repository}"))
 
     def inspect(value: Any, path: tuple[str, ...] = ()) -> None:
         if isinstance(value, Mapping):
