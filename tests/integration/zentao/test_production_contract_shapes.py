@@ -3,11 +3,13 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, TypeVar
 
 import pytest
 
 from zentao_ai.cli.runtime import DependencyFactory
+from zentao_ai.zentao import ContractError
+from zentao_ai.zentao.models import BugPage, HistoryPage
+from zentao_ai.zentao.provider import ZentaoProvider
 
 
 pytestmark = pytest.mark.skipif(
@@ -16,110 +18,100 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-T = TypeVar("T")
 _COLLECTION_NAMES = ("bugs", "items", "actions", "pager")
+_PUBLIC_STATUS = "not_exposed_by_public_api"
 
 
 @dataclass(frozen=True)
 class OperationEvidence:
+    operation: str
+    outcome: str
     exception_class: str | None
     status_category: str
     top_level_keys: tuple[str, ...]
     collection_types: tuple[tuple[str, str], ...]
 
 
-def _response_evidence(response: Any) -> OperationEvidence:
-    status_category = f"{response.status_code // 100}xx"
-    try:
-        data = response.json()
-    except ValueError:
-        return OperationEvidence(
-            None,
-            status_category,
-            (),
-            tuple((name, "NoneType") for name in _COLLECTION_NAMES),
-        )
-    if not isinstance(data, dict):
-        return OperationEvidence(
-            None,
-            status_category,
-            (),
-            tuple((name, "NoneType") for name in _COLLECTION_NAMES),
-        )
+def _page_evidence(operation: str, items: tuple[object, ...]) -> OperationEvidence:
     return OperationEvidence(
+        operation,
+        "executed",
         None,
-        status_category,
-        tuple(sorted(str(name) for name in data)),
-        tuple((name, type(data.get(name)).__name__) for name in _COLLECTION_NAMES),
+        _PUBLIC_STATUS,
+        ("coverage", "items"),
+        tuple(
+            (name, type(items).__name__ if name == "items" else "not_exposed")
+            for name in _COLLECTION_NAMES
+        ),
     )
 
 
-def _capture_operation(
-    provider: Any, operation: Callable[[], T]
-) -> tuple[T | None, OperationEvidence]:
-    observed: list[OperationEvidence] = []
-    request = provider._client.request
+def _error_evidence(operation: str, error: Exception) -> OperationEvidence:
+    return OperationEvidence(
+        operation,
+        "executed",
+        type(error).__name__,
+        _PUBLIC_STATUS,
+        (),
+        tuple((name, "not_exposed") for name in _COLLECTION_NAMES),
+    )
 
-    def capture(*args: Any, **kwargs: Any) -> Any:
-        response = request(*args, **kwargs)
-        observed.append(_response_evidence(response))
-        return response
 
-    provider._client.request = capture
+def _not_executed_evidence(operation: str) -> OperationEvidence:
+    return OperationEvidence(
+        operation,
+        "not_executed/no_bug",
+        None,
+        "not_executed",
+        (),
+        tuple((name, "not_executed") for name in _COLLECTION_NAMES),
+    )
+
+
+def _query_user_bugs(
+    provider: ZentaoProvider,
+) -> tuple[BugPage | None, OperationEvidence, Exception | None]:
     try:
-        return operation(), observed[-1]
+        page = provider.query_user_bugs("weiwenting", page=1, page_size=20)
     except Exception as error:
-        evidence = observed[-1] if observed else OperationEvidence(
-            None,
-            "not_requested",
-            (),
-            tuple((name, "NoneType") for name in _COLLECTION_NAMES),
-        )
-        return None, OperationEvidence(
-            type(error).__name__,
-            evidence.status_category,
-            evidence.top_level_keys,
-            evidence.collection_types,
-        )
-    finally:
-        provider._client.request = request
+        return None, _error_evidence("query_user_bugs", error), error
+    return page, _page_evidence("query_user_bugs", page.items), None
+
+
+def _query_bug_history(
+    provider: ZentaoProvider, bug_id: int | str
+) -> tuple[HistoryPage | None, OperationEvidence, Exception | None]:
+    try:
+        page = provider.query_bug_history(bug_id)
+    except Exception as error:
+        return None, _error_evidence("query_bug_history", error), error
+    return page, _page_evidence("query_bug_history", page.items), None
 
 
 def test_production_query_contracts_for_weiwenting() -> None:
     runtime = DependencyFactory._production(Path(r"F:\每日工作"))
     try:
-        bugs, bug_evidence = _capture_operation(
-            runtime.provider,
-            lambda: runtime.provider.query_user_bugs(
-                "weiwenting", page=1, page_size=20
-            ),
-        )
-        history, history_evidence = _capture_operation(
-            runtime.provider,
-            lambda: runtime.provider.query_bug_history(
-                bugs.items[0].id if bugs and bugs.items else 0
-            ),
-        )
+        bugs, bug_evidence, bug_error = _query_user_bugs(runtime.provider)
+        if bugs is not None and bugs.items:
+            history, history_evidence, history_error = _query_bug_history(
+                runtime.provider, bugs.items[0].id
+            )
+        else:
+            history, history_error = None, None
+            history_evidence = _not_executed_evidence("query_bug_history")
 
         evidence = {
             "query_user_bugs": bug_evidence,
             "query_bug_history": history_evidence,
         }
-        checks = {
-            "query_user_bugs": (
-                bug_evidence.exception_class is None
-                and bug_evidence.status_category == "2xx"
-                and "bugs" in bug_evidence.top_level_keys
-                and dict(bug_evidence.collection_types)["bugs"] in {"list", "dict"}
-                and bool(bugs and bugs.items)
-            ),
-            "query_bug_history": (
-                history_evidence.exception_class is None
-                and history_evidence.status_category == "2xx"
-                and history is not None
-                and history.coverage.total >= 0
-            ),
-        }
-        assert all(checks.values()), {"checks": checks, "evidence": evidence}
+        for error in (history_error, bug_error):
+            if isinstance(error, ContractError):
+                raise error
+        for error in (history_error, bug_error):
+            if error is not None:
+                raise error
+
+        assert bugs is not None and bugs.items, evidence
+        assert history is not None and history.coverage.total >= 0, evidence
     finally:
         runtime.close()
