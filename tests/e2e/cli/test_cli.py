@@ -241,6 +241,26 @@ def test_doctor_json_passes_with_injected_dependencies_and_redacts_secret() -> N
     assert "doctor-secret" not in result.stdout
 
 
+def test_doctor_uses_query_probe_for_credentials_and_connection() -> None:
+    class QueryOnlyProvider(Provider):
+        def bug_statistics(self) -> dict[str, int]:
+            raise RuntimeError("legacy statistics endpoint is unavailable")
+
+    result = CliRunner().invoke(
+        app,
+        ["doctor", "--json", "--project", str(Path.cwd())],
+        obj=factory(Path.cwd(), provider=QueryOnlyProvider(), store=Store()),
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is True
+    checks = {item["name"]: item for item in payload["data"]["checks"]}
+    assert checks["credentials"]["status"] == "PASS"
+    assert checks["connection"]["status"] == "PASS"
+    assert checks["query-permission"]["status"] == "PASS"
+
+
 def test_mcp_serve_dispatches_project_and_injected_factory(
     tmp_path: Path,
     monkeypatch: object,

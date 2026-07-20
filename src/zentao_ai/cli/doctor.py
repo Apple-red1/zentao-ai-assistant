@@ -9,8 +9,6 @@ from typing import Any
 
 import typer
 
-from zentao_ai.credentials.store import CredentialName
-
 from .runtime import failure, get_factory, success
 
 
@@ -57,33 +55,33 @@ def doctor_command(
     box: list[Any] = []
     check("config", lambda: box.append(get_factory(ctx.obj)(project)))
     runtime = box[0] if box else None
+
+    query_probe_box: list[Any] = []
+
+    def query_probe() -> Any:
+        if runtime is None:
+            raise RuntimeError("runtime unavailable")
+        if not query_probe_box:
+            query_probe_box.append(
+                runtime.provider.query_my_bugs(
+                    scope_names=tuple(runtime.config.personal.scopeNames),
+                    page=1,
+                    page_size=1,
+                )
+            )
+        return query_probe_box[0]
+
     check(
         "credentials",
-        lambda: (
-            require(runtime.store.get(CredentialName.API_TOKEN))
-            if runtime and runtime.store
-            else require(None)
-        ),
+        lambda: (query_probe(), "query authentication accepted")[1],
     )
     check(
         "connection",
-        lambda: (
-            runtime.provider.bug_statistics()
-            if runtime
-            else (_ for _ in ()).throw(RuntimeError())
-        ),
+        lambda: (query_probe(), "bug query endpoint reachable")[1],
     )
     check(
         "query-permission",
-        lambda: (
-            runtime.provider.query_my_bugs(
-                scope_names=tuple(runtime.config.personal.scopeNames),
-                page=1,
-                page_size=1,
-            )
-            if runtime
-            else (_ for _ in ()).throw(RuntimeError())
-        ),
+        query_probe,
     )
     check(
         "repository",
