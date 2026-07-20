@@ -1203,7 +1203,10 @@ def test_query_user_bugs_adapts_official_bugs_envelope() -> None:
     result = provider(httpx.MockTransport(handle)).query_user_bugs("alice")
 
     assert [item.id for item in result.items] == [2537, 3397]
-    assert [item.title for item in result.items] == ["【AI建站】First", "【AI建站】Second"]
+    assert [item.title for item in result.items] == [
+        "【AI建站】First",
+        "【AI建站】Second",
+    ]
     assert [item.assignee for item in result.items] == ["alice", "alice"]
     assert [item.snapshot_version for item in result.items] == [
         "2026-07-17 09:30:00",
@@ -1243,7 +1246,7 @@ def test_query_user_bugs_adapts_observed_assignee_map_and_pager() -> None:
                         "openedBy": {"account": "qa"},
                         "assignedTo": {"account": "alice"},
                         "lastEditedDate": "2026-07-17 09:30:00",
-                    }
+                    },
                 },
                 "pager": {
                     "pageID": 1,
@@ -1262,7 +1265,9 @@ def test_query_user_bugs_adapts_observed_assignee_map_and_pager() -> None:
     ).query_user_bugs("alice")
 
     assert [item.id for item in result.items] == [2537, 3397]
-    assert [item.creator.account if item.creator else None for item in result.items] == [
+    assert [
+        item.creator.account if item.creator else None for item in result.items
+    ] == [
         "qa",
         "qa",
     ]
@@ -1344,17 +1349,13 @@ def test_query_user_bugs_ignores_unmatched_bug_without_stable_version() -> None:
     assert [item.id for item in result.items] == [1]
 
 
-def test_query_user_bugs_scans_complete_official_collection_before_filtering() -> (
-    None
-):
+def test_query_user_bugs_scans_complete_official_collection_before_filtering() -> None:
     requested_pages: list[int] = []
 
     def handle(request: httpx.Request) -> httpx.Response:
         requested_page = int(request.url.params["page"])
         requested_pages.append(requested_page)
-        bug_id, assignee = (
-            (1, "other") if requested_page == 1 else (2, "xuli")
-        )
+        bug_id, assignee = (1, "other") if requested_page == 1 else (2, "xuli")
         return httpx.Response(
             200,
             json={
@@ -1829,7 +1830,9 @@ def test_official_collection_is_used_for_any_requested_account(
     assert "browseType" not in requests[0].url.params
 
 
-def test_custom_user_bugs_endpoint_is_preserved_with_requested_user_and_scopes() -> None:
+def test_custom_user_bugs_endpoint_is_preserved_with_requested_user_and_scopes() -> (
+    None
+):
     requests: list[httpx.Request] = []
 
     def handle(request: httpx.Request) -> httpx.Response:
@@ -1967,9 +1970,7 @@ def test_query_user_bugs_marks_underfilled_nonempty_pages_incomplete(
     assert result.coverage.pages is None
 
 
-@pytest.mark.parametrize(
-    ("response_page", "response_page_size"), [(3, 20), (2, 10)]
-)
+@pytest.mark.parametrize(("response_page", "response_page_size"), [(3, 20), (2, 10)])
 def test_query_user_bugs_falls_back_when_response_pagination_mismatches_request(
     response_page: int, response_page_size: int
 ) -> None:

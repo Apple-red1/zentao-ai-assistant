@@ -436,15 +436,13 @@ class HttpZentaoProvider:
         )
         if "items" in data:
             items = tuple(
-                self._snapshot(item, operation)
-                for item in self._items(data, operation)
+                self._snapshot(item, operation) for item in self._items(data, operation)
             )
         elif "bugs" in data:
             bugs = data.get("bugs")
             if isinstance(bugs, Mapping):
                 bugs = [
-                    value
-                    for _, value in sorted(bugs.items(), key=lambda x: str(x[0]))
+                    value for _, value in sorted(bugs.items(), key=lambda x: str(x[0]))
                 ]
             if not isinstance(bugs, list) or any(
                 not isinstance(item, Mapping) for item in bugs
@@ -503,15 +501,11 @@ class HttpZentaoProvider:
                 params=params,
             )
             bugs = self._official_bug_rows(data, operation)
-            page_ids = tuple(
-                self._normalized_bug_id(item.get("id")) for item in bugs
-            )
+            page_ids = tuple(self._normalized_bug_id(item.get("id")) for item in bugs)
             repeated = page_ids in seen_pages
             seen_pages.add(page_ids)
             overlaps_prior_page = any(
-                bug_id in upstream_seen_ids
-                for bug_id in page_ids
-                if bug_id is not None
+                bug_id in upstream_seen_ids for bug_id in page_ids if bug_id is not None
             )
             upstream_seen_ids.update(
                 bug_id for bug_id in page_ids if bug_id is not None
@@ -527,9 +521,7 @@ class HttpZentaoProvider:
                 normalized_id = self._normalized_bug_id(item.get("id"))
                 if normalized_id is None:
                     if not self._has_stable_version(item):
-                        raise ContractError(
-                            f"{operation}: missing Bug id for detail"
-                        )
+                        raise ContractError(f"{operation}: missing Bug id for detail")
                     raise ContractError(f"{operation}: invalid bug contract")
                 if normalized_id in seen_ids:
                     continue
@@ -589,7 +581,8 @@ class HttpZentaoProvider:
         bugs = data.get("bugs")
         if isinstance(bugs, Mapping):
             bugs = [
-                value for _, value in sorted(bugs.items(), key=lambda item: str(item[0]))
+                value
+                for _, value in sorted(bugs.items(), key=lambda item: str(item[0]))
             ]
         if not isinstance(bugs, list) or any(
             not isinstance(item, Mapping) for item in bugs
@@ -727,18 +720,13 @@ class HttpZentaoProvider:
             and response_page == page
             and response_page_size == page_size
             and valid_pages == (valid_total + page_size - 1) // page_size
-            and count
-            == min(page_size, max(valid_total - (page - 1) * page_size, 0))
+            and count == min(page_size, max(valid_total - (page - 1) * page_size, 0))
             and (valid_pages == 0 or page <= valid_pages)
         )
         return Coverage(
             page=page,
             pageSize=page_size,
-            total=(
-                valid_total
-                if metadata_valid and valid_total is not None
-                else -1
-            ),
+            total=(valid_total if metadata_valid and valid_total is not None else -1),
             pages=valid_pages if metadata_valid else None,
         )
 
