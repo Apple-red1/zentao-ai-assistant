@@ -109,6 +109,19 @@ def test_local_title_marker_routes_frontend_and_backend(tmp_path):
     assert "worker" in backend.matchedKeywords
 
 
+def test_explicit_title_layer_wins_over_url_tokens_in_description(tmp_path):
+    result = route_bug(
+        BugSnapshot(
+            identifier="front-with-url",
+            title="【Synthetic Area】 footer link cannot click",
+            description="reproduce at https://example.invalid/api/preview",
+        ),
+        title_config(tmp_path),
+    )
+    assert result.selectedRepository == "area-web"
+    assert result.layer == "frontend"
+
+
 def test_local_title_marker_fails_closed_for_ambiguous_layer_or_marker(tmp_path):
     cfg = title_config(tmp_path)
     ambiguous_layer = route_bug(

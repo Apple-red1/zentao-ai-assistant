@@ -91,8 +91,9 @@ class RecordingProvider:
         return self._write("update_bug_steps_with_image")
 
 
-def make_context(provider: RecordingProvider, ledger: RecordingLedger, *, limit: int = 10, sink: RecordingSink | None = None, dry_run: bool = False, readonly: bool = False) -> RunContext:
+def make_context(provider: RecordingProvider, ledger: RecordingLedger, *, limit: int = 10, sink: RecordingSink | None = None, dry_run: bool = False, readonly: bool = False, account: str | None = None) -> RunContext:
     config = AppConfig.model_validate({
+        "zentao": {"account": account},
         "personal": {"scopeNames": ["mine"]},
         "team": {"scopeNames": ["squad"], "members": ["alice", "bob"]},
         "limits": {"maxBugsPerRun": limit},
@@ -101,12 +102,30 @@ def make_context(provider: RecordingProvider, ledger: RecordingLedger, *, limit:
     return RunContext(config, provider, ledger, lambda: datetime(2026, 7, 15, 0, 30), "owner", analysis=lambda *_: AnalysisSignal(evidenceComplete=True, fixCandidate=True), reportSink=sink, dryRun=dry_run, readonly=readonly)
 
 
-def test_personal_uses_only_personal_scopes_and_traverses_inferred_pages() -> None:
+def test_personal_without_configured_account_uses_personal_scopes() -> None:
     provider, ledger = RecordingProvider(), RecordingLedger()
     result = run_personal(make_context(provider, ledger))
-    assert provider.list_calls == [("personal", ("mine",), 1, 10), ("personal", ("mine",), 2, 8), ("personal", ("mine",), 3, 7)]
+    assert provider.list_calls == [("personal", ("mine",), 1, 10), ("personal", ("mine",), 2, 10), ("personal", ("mine",), 3, 10)]
     assert provider.detail_calls == ["1", "2", "3", "4"]
     assert result.scopeNames == ("mine",) and result.members == ()
+
+
+def test_personal_configured_account_discovers_assignee_without_remote_scope_filter() -> None:
+    provider, ledger = RecordingProvider(), RecordingLedger()
+    run_personal(make_context(provider, ledger, account="alice"))
+    assert provider.list_calls == [
+        ("alice", (), 1, 10),
+        ("alice", (), 2, 10),
+    ]
+
+
+def test_report_discovery_uses_stable_official_page_size() -> None:
+    provider, ledger = RecordingProvider(), RecordingLedger()
+    run_personal(make_context(provider, ledger, limit=50, account="alice"))
+    assert provider.list_calls == [
+        ("alice", (), 1, 20),
+        ("alice", (), 2, 20),
+    ]
 
 
 def test_team_deduplicates_across_members_and_applies_one_global_limit() -> None:
@@ -180,6 +199,23 @@ def test_per_bug_failure_continues_and_payload_records_partial_result() -> None:
     assert ledger.checkpoints[0][2] == sink.payloads[0] == result.to_v2_payload()
 
 
+def test_history_capability_gap_retains_discovered_bugs_for_walkthrough() -> None:
+    class NoHistoryProvider(RecordingProvider):
+        def query_bug_history(self, bug_id: int | str, *, page: int = 1, page_size: int = 20) -> HistoryPage:
+            raise RuntimeError("history unsupported")
+
+    result = run_personal(make_context(NoHistoryProvider(), RecordingLedger()))
+    assert [item.bugId for item in result.bugResults] == ["1", "2", "3", "4"]
+    assert all(item.decision.value == "NEEDS_ENGINEER_REVIEW" for item in result.bugResults)
+    assert [(item.bugId, item.category) for item in result.failures] == [
+        ("1", "RuntimeError"),
+        ("2", "RuntimeError"),
+        ("3", "RuntimeError"),
+        ("4", "RuntimeError"),
+    ]
+    assert result.completeness == "PARTIAL"
+
+
 @pytest.mark.parametrize("fatal", [KeyboardInterrupt(), SystemExit()])
 def test_control_flow_exceptions_propagate_and_release(fatal: BaseException) -> None:
     provider, ledger = RecordingProvider(), RecordingLedger()
@@ -250,6 +286,7 @@ def test_personal_enriches_missing_routing_and_retains_ambiguous_bug() -> None:
     assert result.bugResults[0].selectedRepository == "area-web"
     assert result.bugResults[0].layer == "frontend"
     assert result.bugResults[0].routingStatus == "ROUTED"
+    assert result.to_v2_payload()["bugResults"][0]["candidates"] == ["area-web", "area-api"]  # type: ignore[index]
     assert result.bugResults[1].selectedRepository is None
     assert result.bugResults[1].decision.value == "NEEDS_ENGINEER_REVIEW"
     assert result.bugResults[1].routingStatus == "UNKNOWN"

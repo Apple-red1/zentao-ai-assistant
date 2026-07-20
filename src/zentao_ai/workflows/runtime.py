@@ -81,6 +81,11 @@ def execute_read_workflow(
     try:
 
         def personal_source(page: int, page_size: int) -> BugPage:
+            account = context.config.zentao.account
+            if account:
+                return context.provider.query_user_bugs(
+                    account, scope_names=(), page=page, page_size=page_size
+                )
             return context.provider.query_my_bugs(
                 scope_names=scope_names, page=page, page_size=page_size
             )
@@ -101,8 +106,9 @@ def execute_read_workflow(
         total = 0
         total_known = True
         limit = context.config.limits.maxBugsPerRun
+        discovery_page_size = min(20, limit)
         for source in sources:
-            first_page = source(1, min(100, max(1, limit - discovered)))
+            first_page = source(1, discovery_page_size)
             if first_page.coverage.total < len(first_page.items):
                 total_known = False
             else:
@@ -134,7 +140,15 @@ def execute_read_workflow(
                     discovered += 1
                     try:
                         detail = context.provider.query_bug_detail(key)
-                        history = _history(context, key)
+                        history_failed = False
+                        try:
+                            history = _history(context, key)
+                        except (KeyboardInterrupt, SystemExit):
+                            raise
+                        except Exception as exc:
+                            history = ()
+                            history_failed = True
+                            failures.append(Failure(key, type(exc).__name__, str(exc)))
                         signal = (
                             context.analysis(detail, history, AnalysisPhase.FINAL)
                             if context.analysis
@@ -167,7 +181,7 @@ def execute_read_workflow(
                             detail, history, AnalysisPhase.FINAL, signal=signal
                         ).decision
                         routing_status = "ROUTED" if selected_repository else "UNKNOWN"
-                        if selected_repository is None:
+                        if selected_repository is None or history_failed:
                             routing_incomplete = True
                             decision = Decision.NEEDS_ENGINEER_REVIEW
                         results.append(
@@ -189,7 +203,7 @@ def execute_read_workflow(
                 page_number += 1
                 if not page.items or page_number > page_count or discovered >= limit:
                     break
-                page = source(page_number, min(100, limit - discovered))
+                page = source(page_number, discovery_page_size)
         truncated = (not total_known) or total > discovered
         completeness = "COMPLETE" if not failures and not truncated and not routing_incomplete else "PARTIAL"
         result = RunResult(

@@ -198,11 +198,18 @@ class RunResult:
     truncated: bool = False
 
     def to_v2_payload(self) -> dict[str, object]:
+        def json_value(value: object) -> object:
+            if isinstance(value, Enum):
+                return value.value
+            if isinstance(value, tuple):
+                return [json_value(item) for item in value]
+            if isinstance(value, dict):
+                return {key: json_value(item) for key, item in value.items()}
+            return value
+
         def item(v: object) -> dict[str, object]:
             result = asdict(cast(Any, v))
-            return {
-                k: (x.value if isinstance(x, Enum) else x) for k, x in result.items()
-            }
+            return {k: json_value(x) for k, x in result.items()}
 
         return {
             "schemaVersion": "v2",

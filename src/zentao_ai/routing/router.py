@@ -16,6 +16,7 @@ def normalize_scope_name(value: str) -> str:
 
 def route_bug(snapshot: BugSnapshot, config: AppConfig) -> RoutingDecision:
     text = unicodedata.normalize("NFC", f"{snapshot.title} {snapshot.description}").casefold()
+    title_text = unicodedata.normalize("NFC", snapshot.title).casefold()
     front = [word for word in FRONTEND if word.casefold() in text]
     back = [word for word in BACKEND if word.casefold() in text]
     layer = "frontend" if front and not back else "backend" if back and not front else None
@@ -30,9 +31,21 @@ def route_bug(snapshot: BugSnapshot, config: AppConfig) -> RoutingDecision:
         if unicodedata.normalize("NFC", mapping.marker).casefold() in text
     ]
     if title_matches:
+        title_front = [word for word in FRONTEND if word.casefold() in title_text]
+        title_back = [word for word in BACKEND if word.casefold() in title_text]
         local_front = list(front)
         local_back = list(back)
         for title_mapping in title_matches:
+            title_front.extend(
+                keyword
+                for keyword in title_mapping.frontendKeywords
+                if keyword.casefold() in title_text
+            )
+            title_back.extend(
+                keyword
+                for keyword in title_mapping.backendKeywords
+                if keyword.casefold() in title_text
+            )
             local_front.extend(
                 keyword
                 for keyword in title_mapping.frontendKeywords
@@ -45,6 +58,10 @@ def route_bug(snapshot: BugSnapshot, config: AppConfig) -> RoutingDecision:
             )
         local_front = list(dict.fromkeys(local_front))
         local_back = list(dict.fromkeys(local_back))
+        title_front = list(dict.fromkeys(title_front))
+        title_back = list(dict.fromkeys(title_back))
+        if bool(title_front) != bool(title_back):
+            local_front, local_back = title_front, title_back
         local_layer = (
             "frontend"
             if local_front and not local_back
