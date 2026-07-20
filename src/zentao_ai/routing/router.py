@@ -32,15 +32,15 @@ def route_bug(snapshot: BugSnapshot, config: AppConfig) -> RoutingDecision:
     if title_matches:
         local_front = list(front)
         local_back = list(back)
-        for mapping in title_matches:
+        for title_mapping in title_matches:
             local_front.extend(
                 keyword
-                for keyword in mapping.frontendKeywords
+                for keyword in title_mapping.frontendKeywords
                 if keyword.casefold() in text
             )
             local_back.extend(
                 keyword
-                for keyword in mapping.backendKeywords
+                for keyword in title_mapping.backendKeywords
                 if keyword.casefold() in text
             )
         local_front = list(dict.fromkeys(local_front))
@@ -55,10 +55,10 @@ def route_bug(snapshot: BugSnapshot, config: AppConfig) -> RoutingDecision:
         title_candidates = list(
             dict.fromkeys(
                 repository
-                for mapping in title_matches
+                for title_mapping in title_matches
                 for repository in (
-                    config.repositories[mapping.frontendRepository].repository,
-                    config.repositories[mapping.backendRepository].repository,
+                    config.repositories[title_mapping.frontendRepository].repository,
+                    config.repositories[title_mapping.backendRepository].repository,
                 )
             )
         )
@@ -78,14 +78,14 @@ def route_bug(snapshot: BugSnapshot, config: AppConfig) -> RoutingDecision:
             confidence=0.9 if selected else 0.0,
             reasons=["LOCAL_TITLE_MARKER_AND_LAYER"] if selected else ["LOCAL_TITLE_ROUTING_AMBIGUOUS"],
         )
-    for scope, mapping in config.repositories.items():
-        markers = {scope.casefold(), mapping.repository.casefold()}
+    for scope, repository_mapping in config.repositories.items():
+        markers = {scope.casefold(), repository_mapping.repository.casefold()}
         def present(marker: str) -> bool:
             if marker.isascii():
                 return re.search(rf"(?<![\w@.]){re.escape(marker)}(?![\w@.])", text) is not None
             return marker in text
         if any(marker and present(marker) for marker in markers):
-            candidates.append(mapping.repository)
+            candidates.append(repository_mapping.repository)
     candidates = list(dict.fromkeys(candidates))
     selected = candidates[0] if len(candidates) == 1 and (bool(exact_keys) or layer is not None) else None
     exact_selected = selected is not None and bool(exact_keys)

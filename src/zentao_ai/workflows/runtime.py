@@ -141,6 +141,7 @@ def execute_read_workflow(
                             else None
                         )
                         provider_routing = detail.routing
+                        selected_repository: str | None
                         if (
                             provider_routing is not None
                             and provider_routing.selected_repository is not None
