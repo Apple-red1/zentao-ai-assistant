@@ -553,7 +553,7 @@ class HttpZentaoProvider:
         if self._endpoints.bug_history == "/api.php/v2/bugs/{bug_id}":
             data = self._request("GET", path, "query_bug_history")
             all_items = tuple(
-                self._history(item, "query_bug_history")
+                self._official_history(item, "query_bug_history")
                 for item in self._actions(data, "query_bug_history")
             )
             start = (page - 1) * page_size
@@ -911,6 +911,22 @@ class HttpZentaoProvider:
             return BugHistoryEntry(**data, raw=cls._sanitize(data))
         except Exception:
             raise ContractError(f"{operation}: invalid history contract") from None
+
+    @classmethod
+    def _official_history(
+        cls, data: Mapping[str, Any], operation: str
+    ) -> BugHistoryEntry:
+        identifier = data.get("id")
+        action = data.get("action")
+        if (
+            isinstance(identifier, bool)
+            or not isinstance(identifier, (str, int))
+            or not str(identifier).strip()
+            or not isinstance(action, str)
+            or not action.strip()
+        ):
+            raise ContractError(f"{operation}: invalid history contract")
+        return cls._history(data, operation)
 
     @staticmethod
     def _coverage(

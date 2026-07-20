@@ -39,3 +39,13 @@
 ## Concerns
 
 - In the current production configuration, both the fixed arbitrary-user query and `query_my_bugs` returned empty incomplete pages. Automated history acceptance therefore needs `ZENTAO_PRODUCTION_HISTORY_BUG_ID` unless discovery later yields a Bug. The committed test fails with a safe instruction when neither source is available rather than silently skipping history.
+
+## P1 review fix: semantic action validity
+
+- Root cause: `_actions()` checked only that each entry was a mapping, while `BugHistoryEntry` supplies defaults and ignores unknown fields. Empty, unknown-only, and credential-only mappings therefore became blank history entries.
+- RED: the three focused reviewer shapes (`{}`, `{"unknown": 1}`, and a credential-only mapping) all initially failed to raise `ContractError`. The final boundary suite also covers blank IDs/actions and a boolean ID.
+- Fix: official detail actions now require a nonboolean, nonblank string/integer `id` and a nonblank string `action` before normalization. `actor` remains optional per the existing `BugHistoryEntry` contract.
+- Compatibility: this validation applies only to official `actions`; custom `items`, sanitized raw fields, idempotency fields, and local pagination are unchanged.
+- GREEN focused verification: `27 passed, 89 deselected`, covering official history and custom reconciliation behavior.
+- Fresh full verification: `586 passed, 3 skipped, 26 subtests passed`.
+- Fresh static verification: Ruff passed; mypy reported no issues in 57 source files; `git diff --check` passed.

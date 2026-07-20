@@ -196,6 +196,48 @@ def test_official_bug_history_rejects_missing_or_invalid_actions(
 
 
 @pytest.mark.parametrize(
+    "action",
+    [
+        {},
+        {"unknown": 1},
+        {"apiToken": "discard"},
+        {"id": "", "action": "opened"},
+        {"id": " ", "action": "opened"},
+        {"id": True, "action": "opened"},
+        {"id": 9, "action": ""},
+        {"id": 9, "action": " "},
+    ],
+)
+def test_official_bug_history_rejects_semantically_invalid_action_mappings(
+    action: dict[str, object],
+) -> None:
+    instance = provider(
+        httpx.MockTransport(
+            lambda request: httpx.Response(200, json={"actions": [action]})
+        ),
+        endpoints=ZentaoEndpoints(bugHistory="/api.php/v2/bugs/{bug_id}"),
+    )
+
+    with pytest.raises(
+        ContractError, match="^query_bug_history: invalid history contract$"
+    ):
+        instance.query_bug_history(7)
+
+
+def test_official_bug_history_allows_missing_actor() -> None:
+    instance = provider(
+        httpx.MockTransport(
+            lambda request: httpx.Response(
+                200, json={"actions": [{"id": 9, "action": "opened"}]}
+            )
+        ),
+        endpoints=ZentaoEndpoints(bugHistory="/api.php/v2/bugs/{bug_id}"),
+    )
+
+    assert instance.query_bug_history(7).items[0].actor is None
+
+
+@pytest.mark.parametrize(
     "page,page_size",
     [(0, 20), (-1, 20), (1, 0), (1, -1), (1, 1001), (True, 20), (1, False)],
 )
