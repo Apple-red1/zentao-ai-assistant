@@ -110,7 +110,7 @@ def execute_read_workflow(
         total = 0
         total_known = True
         limit = context.config.limits.maxBugsPerRun
-        discovery_page_size = min(20, limit)
+        discovery_page_size = min(100, limit)
         for source in sources:
             first_page = source(1, discovery_page_size)
             if first_page.coverage.total < len(first_page.items):

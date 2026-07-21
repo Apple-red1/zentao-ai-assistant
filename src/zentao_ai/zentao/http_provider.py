@@ -329,6 +329,60 @@ class HttpZentaoProvider:
         return account or None
 
     @classmethod
+    def _identity_values(cls, value: Any) -> tuple[str, ...]:
+        candidates: list[Any] = [value]
+        if isinstance(value, Mapping):
+            candidates = [
+                value.get("account"),
+                value.get("realname"),
+                value.get("realName"),
+                value.get("name"),
+                value.get("displayName"),
+            ]
+        result: list[str] = []
+        seen: set[str] = set()
+        for candidate in candidates:
+            if isinstance(candidate, bool) or not isinstance(candidate, (str, int)):
+                continue
+            normalized = cls._normalized_text(candidate)
+            if normalized and normalized not in seen:
+                seen.add(normalized)
+                result.append(normalized)
+        return tuple(result)
+
+    @classmethod
+    def _member_pair_aliases(cls, data: Mapping[str, Any], user: str) -> tuple[str, ...]:
+        requested = cls._normalized_text(user)
+        pairs = data.get("memberPairs")
+        aliases: list[str] = []
+        seen: set[str] = {requested}
+
+        def add(value: Any) -> None:
+            if isinstance(value, bool) or not isinstance(value, (str, int)):
+                return
+            normalized = cls._normalized_text(value)
+            if normalized and normalized not in seen:
+                seen.add(normalized)
+                aliases.append(normalized)
+
+        if isinstance(pairs, Mapping):
+            for account, display in pairs.items():
+                account_norm = cls._normalized_text(account)
+                display_norm = cls._normalized_text(display)
+                if requested in {account_norm, display_norm}:
+                    add(account)
+                    add(display)
+        elif isinstance(pairs, list):
+            for item in pairs:
+                if not isinstance(item, Mapping):
+                    continue
+                values = cls._identity_values(item)
+                if requested in values:
+                    for key in ("account", "realname", "realName", "name", "displayName"):
+                        add(item.get(key))
+        return tuple(aliases)
+
+    @classmethod
     def _official_snapshot(
         cls, data: Mapping[str, Any], operation: str = "query_my_bugs"
     ) -> BugSnapshot:
@@ -493,6 +547,7 @@ class HttpZentaoProvider:
         self._validate_pagination(page, page_size)
         operation = "query_user_bugs"
         requested_account = self._normalized_text(user)
+        requested_aliases: set[str] = {requested_account}
         snapshots: list[BugSnapshot] = []
         seen_ids: set[str] = set()
         upstream_seen_ids: set[str] = set()
@@ -517,6 +572,7 @@ class HttpZentaoProvider:
                 operation,
                 params=params,
             )
+            requested_aliases.update(self._member_pair_aliases(data, user))
             bugs = self._official_bug_rows(data, operation)
             page_ids = tuple(self._normalized_bug_id(item.get("id")) for item in bugs)
             repeated = page_ids in seen_pages
@@ -530,11 +586,15 @@ class HttpZentaoProvider:
 
             for item in bugs:
                 assignee = self._account(item.get("assignedTo"))
+                assignee_identities = set(self._identity_values(item.get("assignedTo")))
+                if assignee is not None:
+                    assignee_identities.add(self._normalized_text(assignee))
                 if (
                     assignee is None
-                    or self._normalized_text(assignee) != requested_account
+                    or assignee_identities.isdisjoint(requested_aliases)
                 ):
                     continue
+                expected_account = self._normalized_text(assignee)
                 normalized_id = self._normalized_bug_id(item.get("id"))
                 if normalized_id is None:
                     if not self._has_stable_version(item):
@@ -547,7 +607,7 @@ class HttpZentaoProvider:
                     self._official_user_snapshot(
                         item,
                         normalized_id=normalized_id,
-                        requested_account=requested_account,
+                        requested_account=expected_account,
                     )
                 )
 
@@ -561,7 +621,10 @@ class HttpZentaoProvider:
             if repeated or overlaps_prior_page:
                 break
             if metadata is None:
-                if expected_total is not None or expected_pages is not None or not bugs:
+                if not bugs:
+                    complete = True
+                    break
+                if expected_total is not None or expected_pages is not None:
                     break
                 continue
             total, pages = metadata

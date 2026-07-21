@@ -1364,6 +1364,105 @@ def test_query_user_bugs_filters_official_collection_by_assignee_account() -> No
     assert result.coverage.pages == 1
 
 
+def test_query_user_bugs_matches_official_assignee_real_name() -> None:
+    def handle(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api.php/v2/bugs"
+        return httpx.Response(
+            200,
+            json={
+                "bugs": [
+                    {
+                        "id": 1,
+                        "status": "active",
+                        "title": "designer",
+                        "openedBy": {"account": "qa"},
+                        "assignedTo": {"account": "xuli", "realname": "许立"},
+                        "lastEditedDate": "2026-07-20 09:00:00",
+                    },
+                    {
+                        "id": 2,
+                        "status": "active",
+                        "title": "other",
+                        "openedBy": {"account": "qa"},
+                        "assignedTo": {"account": "other", "realname": "其他人"},
+                        "lastEditedDate": "2026-07-20 09:01:00",
+                    },
+                ],
+                "page": 1,
+                "limit": 20,
+                "total": 2,
+            },
+        )
+
+    result = provider(
+        httpx.MockTransport(handle),
+        endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs"),
+        auth=ZentaoAuth(username="weiwenting", apiToken="token"),
+    ).query_user_bugs("许立")
+
+    assert [item.id for item in result.items] == [1]
+    assert result.items[0].assignee == "xuli"
+    assert result.coverage.total == 1
+    assert result.coverage.pages == 1
+
+
+def test_query_user_bugs_resolves_member_pairs_display_name_to_account() -> None:
+    requested_paths: list[str] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requested_paths.append(request.url.path)
+        if request.url.path == "/api.php/v2/bugs/7":
+            return httpx.Response(
+                200,
+                json={
+                    "bug": {
+                        "id": 7,
+                        "status": "active",
+                        "title": "verified detail",
+                        "assignedTo": {"account": "xuli"},
+                        "lastEditedDate": "detail-v1",
+                    }
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "memberPairs": {"xuli": "许立", "other": "其他人"},
+                "bugs": [
+                    {
+                        "id": 7,
+                        "status": "active",
+                        "title": "unstable list row",
+                        "openedBy": {"account": "qa"},
+                        "assignedTo": {"account": "xuli"},
+                    },
+                    {
+                        "id": 8,
+                        "status": "active",
+                        "title": "other",
+                        "openedBy": {"account": "qa"},
+                        "assignedTo": {"account": "other"},
+                        "lastEditedDate": "v8",
+                    },
+                ],
+                "page": 1,
+                "limit": 20,
+                "total": 2,
+            },
+        )
+
+    result = provider(
+        httpx.MockTransport(handle),
+        endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs"),
+    ).query_user_bugs("许立")
+
+    assert requested_paths == ["/api.php/v2/bugs", "/api.php/v2/bugs/7"]
+    assert [item.id for item in result.items] == [7]
+    assert result.items[0].assignee == "xuli"
+    assert result.coverage.total == 1
+    assert result.coverage.pages == 1
+
+
 def test_query_user_bugs_ignores_unmatched_bug_without_stable_version() -> None:
     transport = httpx.MockTransport(
         lambda request: httpx.Response(
@@ -1464,8 +1563,8 @@ def test_query_user_bugs_scans_until_empty_when_official_metadata_is_missing() -
 
     assert requested_pages == [1, 2, 3]
     assert [item.id for item in result.items] == [2]
-    assert result.coverage.total == -1
-    assert result.coverage.pages is None
+    assert result.coverage.total == 1
+    assert result.coverage.pages == 1
 
 
 def test_query_user_bugs_enriches_matching_row_from_verified_detail() -> None:

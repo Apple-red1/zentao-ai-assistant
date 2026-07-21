@@ -65,7 +65,8 @@ class RecordingProvider:
         self.list_calls.append(("personal", scope_names, page, page_size))
         pages = {1: (bug(1), bug(2)), 2: (bug(2), bug(3)), 3: (bug(4),)}
         return BugPage(
-            items=pages.get(page, ()), coverage=Coverage(page=page, pageSize=2, total=5)
+            items=pages.get(page, ()),
+            coverage=Coverage(page=page, pageSize=2, total=5),
         )
 
     def query_user_bugs(
@@ -178,8 +179,8 @@ def test_report_discovery_uses_stable_official_page_size() -> None:
     provider, ledger = RecordingProvider(), RecordingLedger()
     run_personal(make_context(provider, ledger, limit=50, account="alice"))
     assert provider.list_calls == [
-        ("alice", (), 1, 20, "assigntome"),
-        ("alice", (), 2, 20, "assigntome"),
+        ("alice", (), 1, 50, "assigntome"),
+        ("alice", (), 2, 50, "assigntome"),
     ]
 
 
