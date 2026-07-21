@@ -10,6 +10,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 
 from zentao_ai.cli.runtime import DependencyFactory
+from zentao_ai.zentao.errors import sanitized_mcp_error
 
 from .tools import TOOL_NAMES, ZentaoTools
 
@@ -22,13 +23,14 @@ async def execute_tool(
     try:
         return tools.call(name, arguments)
     except Exception as exc:
+        error = sanitized_mcp_error(exc)
         payload = {
             "version": "v1",
             "data": None,
-            "error": {"type": type(exc).__name__, "message": "tool operation failed"},
+            "error": error,
         }
         return types.CallToolResult(
-            content=[types.TextContent(type="text", text="tool operation failed")],
+            content=[types.TextContent(type="text", text=error["message"])],
             structuredContent=payload,
             isError=True,
         )

@@ -29,6 +29,12 @@ from zentao_ai.zentao.models import (
     ResolvedIdentity,
     StepUpdateResult,
 )
+from zentao_ai.zentao.errors import (
+    AmbiguousIdentityError,
+    ContractError,
+    IdentityNotFoundError,
+    PermissionDeniedError,
+)
 
 
 CONFIG = AppConfig.model_validate(
@@ -767,10 +773,57 @@ def test_blank_or_nul_authorized_image_path_is_rejected(bad: str) -> None:
 
 
 @pytest.mark.anyio
-async def test_tool_errors_are_structured_and_redacted() -> None:
+@pytest.mark.parametrize(
+    ("error", "expected_error"),
+    [
+        (
+            IdentityNotFoundError("session=secret-marker"),
+            {
+                "code": "IDENTITY_NOT_FOUND",
+                "type": "identity_not_found",
+                "message": "Requested identity was not found.",
+            },
+        ),
+        (
+            AmbiguousIdentityError("cookie=secret-marker"),
+            {
+                "code": "AMBIGUOUS_IDENTITY",
+                "type": "ambiguous_identity",
+                "message": "Requested identity is ambiguous.",
+            },
+        ),
+        (
+            PermissionDeniedError("authorization=secret-marker"),
+            {
+                "code": "PERMISSION_DENIED",
+                "type": "permission_denied",
+                "message": "Permission was denied.",
+            },
+        ),
+        (
+            ContractError("response_body=secret-marker"),
+            {
+                "code": "INVALID_ENVELOPE",
+                "type": "invalid_envelope",
+                "message": "Received an invalid Zentao response.",
+            },
+        ),
+        (
+            RuntimeError("token=secret-marker"),
+            {
+                "code": "INTERNAL_ERROR",
+                "type": "internal_error",
+                "message": "An internal error occurred.",
+            },
+        ),
+    ],
+)
+async def test_tool_errors_are_structured_sanitized_and_stable(
+    error: Exception, expected_error: dict[str, str]
+) -> None:
     class FailingProvider(Provider):
         def query_bug_detail(self, bug_id: int | str) -> BugSnapshot:
-            raise RuntimeError("token=must-not-leak")
+            raise error
 
     result = await execute_tool(
         ZentaoTools(runtime(FailingProvider())), "query_bug_detail", {"bugId": 7}
@@ -779,6 +832,7 @@ async def test_tool_errors_are_structured_and_redacted() -> None:
     assert result.structuredContent == {
         "version": "v1",
         "data": None,
-        "error": {"type": "RuntimeError", "message": "tool operation failed"},
+        "error": expected_error,
     }
-    assert "must-not-leak" not in str(result)
+    assert result.content[0].text == expected_error["message"]
+    assert "secret-marker" not in str(result)
