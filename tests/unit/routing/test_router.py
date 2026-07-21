@@ -85,15 +85,46 @@ def test_routing_fails_closed_without_exactly_one_title_marker(tmp_path) -> None
     assert multiple.evidence == ["TITLE_MARKER_AMBIGUOUS"]
 
 
-def test_routing_fails_closed_for_conflicting_or_missing_layer_keywords(tmp_path) -> None:
+def test_title_layer_keywords_do_not_classify_without_description_evidence(tmp_path) -> None:
     config = routing_config(tmp_path)
 
-    conflict = route_bug(
-        BugSnapshot(identifier="conflict", title="【AI建站】 页面", description="API 接口"),
+    result = route_bug(
+        BugSnapshot(
+            identifier="title-only", title="【AI建站】 页面 button API", description="回归"
+        ),
         config,
     )
-    missing = route_bug(BugSnapshot(identifier="none", title="【AI建站】 回归"), config)
 
+    assert result.selectedRepository is None
+    assert result.layer is None
+    assert result.confidence == "none"
+    assert result.evidence == ["TITLE_MARKER_MATCHED", "LAYER_MISSING"]
+
+
+def test_description_layer_keywords_classify_and_conflicts_fail_closed(tmp_path) -> None:
+    config = routing_config(tmp_path)
+
+    backend = route_bug(
+        BugSnapshot(
+            identifier="backend",
+            title="【AI建站】 页面 button",
+            description="API 接口不可用",
+        ),
+        config,
+    )
+    conflict = route_bug(
+        BugSnapshot(
+            identifier="conflict",
+            title="【AI建站】 页面 API",
+            description="页面 API",
+        ),
+        config,
+    )
+
+    assert backend.selectedRepository == "ai-site-backend"
+    assert backend.layer == "backend"
+    assert backend.confidence == "high"
+    assert backend.evidence == ["TITLE_MARKER_MATCHED", "BACKEND_KEYWORD_MATCHED"]
     assert conflict.selectedRepository is None
     assert conflict.layer is None
     assert conflict.confidence == "none"
@@ -103,8 +134,6 @@ def test_routing_fails_closed_for_conflicting_or_missing_layer_keywords(tmp_path
         "BACKEND_KEYWORD_MATCHED",
         "LAYER_AMBIGUOUS",
     ]
-    assert missing.selectedRepository is None
-    assert missing.evidence == ["TITLE_MARKER_MATCHED", "LAYER_MISSING"]
 
 
 def test_marker_requires_exact_full_width_title_text_and_description_commands_are_inert(tmp_path) -> None:

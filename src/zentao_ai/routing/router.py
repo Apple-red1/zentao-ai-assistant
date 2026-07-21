@@ -52,12 +52,12 @@ def normalize_scope_name(value: str) -> str:
     return unicodedata.normalize("NFC", value).strip().casefold()
 
 
-def _classification_text(title: str, description: str) -> str:
-    """Return normalized prose only; Bug commands and URLs are inert input."""
+def _classification_text(description: str) -> str:
+    """Return normalized description prose only; Bug commands and URLs are inert."""
     description_without_code = _FENCED_CODE.sub(" ", description)
     description_without_code = _INLINE_CODE.sub(" ", description_without_code)
     description_without_urls = _URL.sub(" ", description_without_code)
-    return _normalize(f"{title}\n{description_without_urls}")
+    return _normalize(description_without_urls)
 
 
 def _matches_keyword(text: str, keyword: str) -> bool:
@@ -89,7 +89,7 @@ def route_bug(snapshot: BugSnapshot, config: AppConfig) -> RoutingDecision:
         return _decision_without_marker("TITLE_MARKER_AMBIGUOUS")
 
     mapping = matches[0]
-    text = _classification_text(snapshot.title, snapshot.description)
+    text = _classification_text(snapshot.description)
     frontend_keywords, backend_keywords = _layer_keywords(mapping)
     frontend = [keyword for keyword in frontend_keywords if _matches_keyword(text, keyword)]
     backend = [keyword for keyword in backend_keywords if _matches_keyword(text, keyword)]

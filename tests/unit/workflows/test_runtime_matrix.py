@@ -337,7 +337,8 @@ def test_personal_enriches_missing_routing_and_retains_ambiguous_bug() -> None:
                         status="active",
                         version="v1",
                         snapshotVersion="v1",
-                        title="【Synthetic Area】 button cannot click",
+                        title="【Synthetic Area】 failure",
+                        steps="button cannot click",
                     ),
                     BugSnapshot(
                         id=11,
