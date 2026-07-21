@@ -1224,8 +1224,8 @@ def test_query_user_bugs_adapts_official_bugs_envelope() -> None:
 def test_query_user_bugs_adapts_observed_assignee_map_and_pager() -> None:
     def handle(request: httpx.Request) -> httpx.Response:
         assert dict(request.url.params) == {
-            "page": "1",
-            "limit": "20",
+            "pageID": "1",
+            "recPerPage": "20",
         }
         return httpx.Response(
             200,
@@ -1353,7 +1353,7 @@ def test_query_user_bugs_scans_complete_official_collection_before_filtering() -
     requested_pages: list[int] = []
 
     def handle(request: httpx.Request) -> httpx.Response:
-        requested_page = int(request.url.params["page"])
+        requested_page = int(request.url.params["pageID"])
         requested_pages.append(requested_page)
         bug_id, assignee = (1, "other") if requested_page == 1 else (2, "xuli")
         return httpx.Response(
@@ -1391,7 +1391,7 @@ def test_query_user_bugs_scans_until_empty_when_official_metadata_is_missing() -
     requested_pages: list[int] = []
 
     def handle(request: httpx.Request) -> httpx.Response:
-        requested_page = int(request.url.params["page"])
+        requested_page = int(request.url.params["pageID"])
         requested_pages.append(requested_page)
         rows = {
             1: [
@@ -1546,7 +1546,7 @@ def test_query_user_bugs_marks_repeated_official_page_incomplete() -> None:
     requested_pages: list[int] = []
 
     def handle(request: httpx.Request) -> httpx.Response:
-        requested_page = int(request.url.params["page"])
+        requested_page = int(request.url.params["pageID"])
         requested_pages.append(requested_page)
         return httpx.Response(
             200,
@@ -1583,7 +1583,7 @@ def test_query_user_bugs_marks_contradictory_official_pager_incomplete() -> None
     requested_pages: list[int] = []
 
     def handle(request: httpx.Request) -> httpx.Response:
-        requested_page = int(request.url.params["page"])
+        requested_page = int(request.url.params["pageID"])
         requested_pages.append(requested_page)
         return httpx.Response(
             200,
@@ -1651,7 +1651,7 @@ def test_query_user_bugs_marks_cross_page_id_overlap_incomplete() -> None:
     requested_pages: list[int] = []
 
     def handle(request: httpx.Request) -> httpx.Response:
-        requested_page = int(request.url.params["page"])
+        requested_page = int(request.url.params["pageID"])
         requested_pages.append(requested_page)
         ids = [1, 2] if requested_page == 1 else [2, 3]
         return httpx.Response(
@@ -1693,7 +1693,7 @@ def test_query_user_bugs_marks_max_page_exhaustion_incomplete(
     requested_pages: list[int] = []
 
     def handle(request: httpx.Request) -> httpx.Response:
-        requested_page = int(request.url.params["page"])
+        requested_page = int(request.url.params["pageID"])
         requested_pages.append(requested_page)
         return httpx.Response(
             200,
@@ -1784,12 +1784,30 @@ def test_query_user_bugs_transmits_only_nonempty_scope_names() -> None:
     assert requests[1].url.params.get_list("scopeNames") == ["Site", "API"]
 
 
-def test_official_collection_uses_collection_pagination() -> None:
+def test_official_collection_uses_page_id_and_records_per_page() -> None:
     requests: list[httpx.Request] = []
 
     def handle(request: httpx.Request) -> httpx.Response:
         requests.append(request)
-        return httpx.Response(200, json={"bugs": [], "pager": {}})
+        return httpx.Response(
+            200,
+            json={
+                "bugs": [
+                    {
+                        "id": 7,
+                        "status": "active",
+                        "assignedTo": "alice",
+                        "lastEditedDate": "v7",
+                    }
+                ],
+                "pager": {
+                    "pageID": 1,
+                    "recPerPage": 20,
+                    "recTotal": 1,
+                    "pageTotal": 1,
+                },
+            },
+        )
 
     endpoints = ZentaoEndpoints(userBugs="/api.php/v2/bugs")
     instance = provider(
@@ -1797,12 +1815,51 @@ def test_official_collection_uses_collection_pagination() -> None:
         endpoints=endpoints,
         auth=ZentaoAuth(username="alice", apiToken="token"),
     )
-    instance.query_user_bugs("alice", scope_names=())
+    result = instance.query_user_bugs("alice", scope_names=())
 
+    assert [item.id for item in result.items] == [7]
     assert requests[0].url.path == "/api.php/v2/bugs"
     assert dict(requests[0].url.params) == {
-        "page": "1",
-        "limit": "20",
+        "pageID": "1",
+        "recPerPage": "20",
+    }
+
+
+def test_official_personal_collection_uses_exact_assignee_browse_type() -> None:
+    requests: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "bugs": [
+                    {
+                        "id": 7,
+                        "status": "active",
+                        "assignedTo": "alice",
+                        "lastEditedDate": "v7",
+                    }
+                ],
+                "pager": {
+                    "pageID": 1,
+                    "recPerPage": 20,
+                    "recTotal": 1,
+                    "pageTotal": 1,
+                },
+            },
+        )
+
+    result = provider(
+        httpx.MockTransport(handle),
+        endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs"),
+    ).query_user_bugs("alice", browse_type="assigntome")
+
+    assert [item.id for item in result.items] == [7]
+    assert dict(requests[0].url.params) == {
+        "pageID": "1",
+        "recPerPage": "20",
+        "browseType": "assigntome",
     }
 
 
@@ -1826,7 +1883,7 @@ def test_official_collection_is_used_for_any_requested_account(
 
     assert requests[0].url.path == "/api.php/v2/bugs"
     assert requests[0].url.params.get_list("scopeNames") == ["Site"]
-    assert requests[0].url.params["limit"] == "20"
+    assert requests[0].url.params["recPerPage"] == "20"
     assert "browseType" not in requests[0].url.params
 
 

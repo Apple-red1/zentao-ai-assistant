@@ -75,13 +75,31 @@ class Provider:
         return BugPage(items=(bug,), coverage=Coverage(total=1))
 
     def query_user_bugs(
-        self, user: str, *, scope_names: tuple[str, ...], page: int, page_size: int
+        self,
+        user: str,
+        *,
+        scope_names: tuple[str, ...],
+        page: int,
+        page_size: int,
+        browse_type: str | None = None,
     ) -> BugPage:
-        self.calls.append(("user", user, scope_names, page, page_size))
+        self.calls.append(("user", user, scope_names, page, page_size, browse_type))
         return BugPage(
             items=(
-                BugSnapshot(id=2537, title="【AI建站】 first", status="active", version="v1", snapshotVersion="s1"),
-                BugSnapshot(id=3397, title="【站点后台】 second", status="open", version="v1", snapshotVersion="s2"),
+                BugSnapshot(
+                    id=2537,
+                    title="【AI建站】 first",
+                    status="active",
+                    version="v1",
+                    snapshotVersion="s1",
+                ),
+                BugSnapshot(
+                    id=3397,
+                    title="【站点后台】 second",
+                    status="open",
+                    version="v1",
+                    snapshotVersion="s2",
+                ),
             ),
             coverage=Coverage(page=1, pageSize=20, total=2, pages=1),
         )
@@ -168,11 +186,15 @@ def test_bugs_mine_uses_configured_user_endpoint_and_filters(
 ) -> None:
     provider = Provider()
     result = CliRunner().invoke(
-        app, ["bugs", "mine", *options, "--json"], obj=factory(tmp_path, provider=provider)
+        app,
+        ["bugs", "mine", *options, "--json"],
+        obj=factory(tmp_path, provider=provider),
     )
     assert result.exit_code == 0
-    assert [item["id"] for item in json.loads(result.stdout)["data"]["items"]] == expected
-    assert provider.calls == [("user", "weiwenting", (), 1, 20)]
+    assert [
+        item["id"] for item in json.loads(result.stdout)["data"]["items"]
+    ] == expected
+    assert provider.calls == [("user", "weiwenting", (), 1, 20, "assigntome")]
 
 
 def test_bugs_mine_distrusts_multi_page_total_when_visible_items_all_pass(
@@ -180,10 +202,20 @@ def test_bugs_mine_distrusts_multi_page_total_when_visible_items_all_pass(
 ) -> None:
     class MultiPageProvider(Provider):
         def query_user_bugs(
-            self, user: str, *, scope_names: tuple[str, ...], page: int, page_size: int
+            self,
+            user: str,
+            *,
+            scope_names: tuple[str, ...],
+            page: int,
+            page_size: int,
+            browse_type: str | None = None,
         ) -> BugPage:
             source = super().query_user_bugs(
-                user, scope_names=scope_names, page=page, page_size=page_size
+                user,
+                scope_names=scope_names,
+                page=page,
+                page_size=page_size,
+                browse_type=browse_type,
             )
             return source.model_copy(
                 update={"coverage": Coverage(page=1, pageSize=20, total=40, pages=2)}
@@ -209,10 +241,20 @@ def test_bugs_mine_distrusts_multi_page_total_when_visible_items_all_pass(
 def test_bugs_mine_distrusts_zero_pages_with_nonempty_items(tmp_path: Path) -> None:
     class ContradictoryProvider(Provider):
         def query_user_bugs(
-            self, user: str, *, scope_names: tuple[str, ...], page: int, page_size: int
+            self,
+            user: str,
+            *,
+            scope_names: tuple[str, ...],
+            page: int,
+            page_size: int,
+            browse_type: str | None = None,
         ) -> BugPage:
             source = super().query_user_bugs(
-                user, scope_names=scope_names, page=page, page_size=page_size
+                user,
+                scope_names=scope_names,
+                page=page,
+                page_size=page_size,
+                browse_type=browse_type,
             )
             return BugPage(
                 items=source.items[:1],

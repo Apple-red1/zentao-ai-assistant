@@ -126,6 +126,7 @@ class ZentaoTools:
                 scope_names=(),
                 page=value.page,
                 page_size=value.pageSize,
+                browse_type="assigntome",
             )
             items = filter_assignee_bugs(
                 source.items, title_tag=value.titleTag, status=value.status

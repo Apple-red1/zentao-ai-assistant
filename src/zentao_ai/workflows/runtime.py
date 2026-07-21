@@ -84,7 +84,11 @@ def execute_read_workflow(
             account = context.config.zentao.account
             if account:
                 return context.provider.query_user_bugs(
-                    account, scope_names=(), page=page, page_size=page_size
+                    account,
+                    scope_names=(),
+                    page=page,
+                    page_size=page_size,
+                    browse_type="assigntome",
                 )
             return context.provider.query_my_bugs(
                 scope_names=scope_names, page=page, page_size=page_size
@@ -181,7 +185,9 @@ def execute_read_workflow(
                             detail, history, AnalysisPhase.FINAL, signal=signal
                         ).decision
                         routing_status = "ROUTED" if selected_repository else "UNKNOWN"
-                        if history_failed or (kind == "personal" and selected_repository is None):
+                        if history_failed or (
+                            kind == "personal" and selected_repository is None
+                        ):
                             routing_incomplete = True
                             decision = Decision.NEEDS_ENGINEER_REVIEW
                         results.append(
@@ -205,7 +211,11 @@ def execute_read_workflow(
                     break
                 page = source(page_number, discovery_page_size)
         truncated = (not total_known) or total > discovered
-        completeness = "COMPLETE" if not failures and not truncated and not routing_incomplete else "PARTIAL"
+        completeness = (
+            "COMPLETE"
+            if not failures and not truncated and not routing_incomplete
+            else "PARTIAL"
+        )
         result = RunResult(
             str(business),
             cutoff,

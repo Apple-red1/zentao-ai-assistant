@@ -414,6 +414,7 @@ class HttpZentaoProvider:
         scope_names: tuple[str, ...] = (),
         page: int = 1,
         page_size: int = 20,
+        browse_type: str | None = None,
     ) -> BugPage:
         operation = "query_user_bugs"
         configured_official = self._endpoints.user_bugs == "/api.php/v2/bugs"
@@ -423,6 +424,7 @@ class HttpZentaoProvider:
                 scope_names=scope_names,
                 page=page,
                 page_size=page_size,
+                browse_type=browse_type,
             )
         path = self._endpoints.user_bugs
         params: dict[str, Any] = {"page": page, "pageSize": page_size}
@@ -477,6 +479,7 @@ class HttpZentaoProvider:
         scope_names: tuple[str, ...],
         page: int,
         page_size: int,
+        browse_type: str | None,
     ) -> BugPage:
         self._validate_pagination(page, page_size)
         operation = "query_user_bugs"
@@ -491,7 +494,12 @@ class HttpZentaoProvider:
         complete = False
 
         for upstream_page in range(1, self._MAX_USER_BUG_PAGES + 1):
-            params: dict[str, Any] = {"page": upstream_page, "limit": page_size}
+            params: dict[str, Any] = {
+                "pageID": upstream_page,
+                "recPerPage": page_size,
+            }
+            if browse_type is not None:
+                params["browseType"] = browse_type
             if scope_names:
                 params["scopeNames"] = list(scope_names)
             data = self._request(
