@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import datetime
 
+import httpx
 import pytest
 
 from zentao_ai.config.models import AppConfig
@@ -19,6 +20,7 @@ from zentao_ai.workflows.models import (
     RunContext,
     TestResult as WorkflowTestResult,
 )
+from zentao_ai.zentao import HttpZentaoProvider, ZentaoEndpoints
 from zentao_ai.zentao.models import (
     BugHistoryEntry,
     BugSnapshot,
@@ -266,6 +268,55 @@ def test_happy_path_has_strict_order_exact_whitelist_and_no_prohibited_operation
     for name in ("checkout", "commit", "push", "merge", "deploy", "reset", "resolve", "close"):
         with pytest.raises(AssertionError):
             getattr(patch, name)
+
+
+def test_real_high_confidence_route_reaches_repository_preflight() -> None:
+    context, recording_provider, _, _, _, calls = harness()
+    data = context.config.model_dump(mode="python", by_alias=True)
+    data["repositories"]["backend"] = {
+        "repository": "backend-repo",
+        "path": "C:/backend-repo",
+        "targetBranch": "main",
+        "testCommands": ["pytest -q"],
+    }
+    data["titleRouting"] = [
+        {
+            "marker": "【AI建站】",
+            "frontendRepository": "main",
+            "backendRepository": "backend",
+        }
+    ]
+    config = AppConfig.model_validate(data)
+    routing_provider = HttpZentaoProvider(
+        base_url="https://zentao.invalid",
+        endpoints=ZentaoEndpoints(),
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(
+                200,
+                json={
+                    "bug": {
+                        "id": 7,
+                        "status": "active",
+                        "assignedTo": "alice",
+                        "lastEditedDate": "v1",
+                        "title": "【AI建站】 发布页",
+                        "steps": "页面按钮无法点击",
+                    }
+                },
+            )
+        ),
+        routing_config=config,
+    )
+    try:
+        routed = routing_provider.query_bug_detail(7)
+    finally:
+        routing_provider.close()
+    recording_provider.snapshots = [routed, routed]
+
+    result = repair_bug(replace(context, config=config), 7)
+
+    assert result.reasons != ("ROUTING_NOT_TRUSTED",)
+    assert "preflight" in calls
 
 
 @pytest.mark.parametrize("readonly,dry_run", [(True, False), (False, True)])

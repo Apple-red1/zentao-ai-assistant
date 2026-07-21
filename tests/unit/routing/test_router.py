@@ -49,6 +49,7 @@ def test_routes_bug_2537_to_ai_site_builder_frontend_with_high_confidence(tmp_pa
     )
 
     assert result.selectedRepository == "ai-site-builder"
+    assert result.candidates == ["ai-site-builder"]
     assert result.layer == "frontend"
     assert result.confidence == "high"
     assert result.evidence == ["TITLE_MARKER_MATCHED", "FRONTEND_KEYWORD_MATCHED"]
@@ -122,10 +123,12 @@ def test_description_layer_keywords_classify_and_conflicts_fail_closed(tmp_path)
     )
 
     assert backend.selectedRepository == "ai-site-backend"
+    assert backend.candidates == ["ai-site-backend"]
     assert backend.layer == "backend"
     assert backend.confidence == "high"
     assert backend.evidence == ["TITLE_MARKER_MATCHED", "BACKEND_KEYWORD_MATCHED"]
     assert conflict.selectedRepository is None
+    assert set(conflict.candidates) == {"ai-site-builder", "ai-site-backend"}
     assert conflict.layer is None
     assert conflict.confidence == "none"
     assert conflict.evidence == [

@@ -1,6 +1,8 @@
 from .errors import (
     AuthenticationError,
     ContractError,
+    InvalidBugContractError,
+    MissingStableVersionError,
     PermissionDeniedError,
     TransportError,
     UnknownWriteResultError,
@@ -33,6 +35,8 @@ __all__ = [
     "Coverage",
     "HistoryPage",
     "HttpZentaoProvider",
+    "InvalidBugContractError",
+    "MissingStableVersionError",
     "PermissionDeniedError",
     "RoutingData",
     "StepUpdateResult",

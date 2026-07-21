@@ -401,7 +401,6 @@ def test_personal_enriches_missing_routing_and_retains_ambiguous_bug() -> None:
     assert result.bugResults[0].routingStatus == "ROUTED"
     assert result.to_v2_payload()["bugResults"][0]["candidates"] == [
         "area-web",
-        "area-api",
     ]  # type: ignore[index]
     assert result.bugResults[1].selectedRepository is None
     assert result.bugResults[1].decision.value == "NEEDS_ENGINEER_REVIEW"

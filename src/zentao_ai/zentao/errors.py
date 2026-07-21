@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from typing import Final
+from collections.abc import Mapping
+from typing import Any, Final
 
 
-McpErrorPayload = dict[str, str]
+McpErrorPayload = dict[str, Any]
 
 
 _INTERNAL_ERROR: Final[McpErrorPayload] = {
@@ -29,12 +30,31 @@ class ContractError(ZentaoError):
     pass
 
 
+class InvalidBugContractError(ContractError):
+    pass
+
+
+class MissingStableVersionError(ContractError):
+    pass
+
+
 class IdentityNotFoundError(ContractError):
     pass
 
 
 class AmbiguousIdentityError(ContractError):
-    pass
+    def __init__(
+        self,
+        message: str,
+        *,
+        candidates: tuple[Mapping[str, object], ...] = (),
+    ) -> None:
+        super().__init__(message)
+        self.candidates = tuple(
+            candidate
+            for value in candidates
+            if (candidate := _sanitized_identity_candidate(value)) is not None
+        )
 
 
 class TransportError(ZentaoError):
@@ -43,6 +63,21 @@ class TransportError(ZentaoError):
 
 class UnknownWriteResultError(TransportError):
     pass
+
+
+def _sanitized_identity_candidate(
+    value: Mapping[str, object],
+) -> dict[str, str | None] | None:
+    account = value.get("account")
+    display_name = value.get("displayName")
+    if not isinstance(account, str) or not account.strip():
+        return None
+    return {
+        "account": account.strip(),
+        "displayName": display_name.strip()
+        if isinstance(display_name, str) and display_name.strip()
+        else None,
+    }
 
 
 def sanitized_mcp_error(error: Exception) -> McpErrorPayload:
@@ -55,9 +90,16 @@ def sanitized_mcp_error(error: Exception) -> McpErrorPayload:
         }
     if isinstance(error, AmbiguousIdentityError):
         return {
-            "code": "AMBIGUOUS_IDENTITY",
-            "type": "ambiguous_identity",
+            "code": "IDENTITY_AMBIGUOUS",
+            "type": "identity_ambiguous",
             "message": "Requested identity is ambiguous.",
+            "details": {"candidates": list(error.candidates)},
+        }
+    if isinstance(error, AuthenticationError):
+        return {
+            "code": "AUTHENTICATION_FAILED",
+            "type": "authentication_failed",
+            "message": "Authentication failed.",
         }
     if isinstance(error, PermissionDeniedError):
         return {
@@ -65,10 +107,22 @@ def sanitized_mcp_error(error: Exception) -> McpErrorPayload:
             "type": "permission_denied",
             "message": "Permission was denied.",
         }
+    if isinstance(error, MissingStableVersionError):
+        return {
+            "code": "MISSING_STABLE_VERSION",
+            "type": "missing_stable_version",
+            "message": "Bug response is missing a stable version.",
+        }
+    if isinstance(error, InvalidBugContractError):
+        return {
+            "code": "INVALID_BUG_CONTRACT",
+            "type": "invalid_bug_contract",
+            "message": "Received an invalid Bug contract.",
+        }
     if isinstance(error, ContractError):
         return {
-            "code": "INVALID_ENVELOPE",
-            "type": "invalid_envelope",
+            "code": "INVALID_RESPONSE_ENVELOPE",
+            "type": "invalid_response_envelope",
             "message": "Received an invalid Zentao response.",
         }
     return _INTERNAL_ERROR.copy()

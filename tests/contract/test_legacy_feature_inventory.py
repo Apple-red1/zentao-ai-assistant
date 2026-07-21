@@ -56,6 +56,7 @@ class LegacyFeatureInventoryTests(unittest.TestCase):
             "SKILL.md": (
                 "`team.members` controls `team-report` only",
                 "`session-visible` is an explicit read-only query",
+                "`session-visible` obeys neither configured report scope nor report membership",
                 "`confidence=high` with exactly one candidate",
             ),
             "team-bug-report.md": (

@@ -174,10 +174,61 @@ def test_query_user_bugs_rejects_ambiguous_member_pair_display_name() -> None:
 
     with pytest.raises(
         AmbiguousIdentityError, match="^query_user_bugs: ambiguous display name$"
-    ):
+    ) as caught:
         provider(
             transport, endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs")
         ).query_user_bugs("\u5468\u6d77\u97f3")
+    assert caught.value.candidates == (
+        {"account": "zhouhaiyin", "displayName": "\u5468\u6d77\u97f3"},
+        {"account": "zhouhaiyin2", "displayName": "\u5468\u6d77\u97f3"},
+    )
+
+
+def test_query_user_bugs_rejects_any_malformed_member_pair_record() -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            json={
+                "memberPairs": [
+                    {"account": "alpha", "realname": "Shared"},
+                    {"realname": "Shared"},
+                ],
+                "bugs": [],
+                "page": 1,
+                "limit": 20,
+                "total": 0,
+            },
+        )
+    )
+
+    with pytest.raises(ContractError, match="^query_user_bugs: invalid member pairs$"):
+        provider(
+            transport, endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs")
+        ).query_user_bugs("Shared")
+
+
+def test_query_user_bugs_rejects_normalized_account_collisions_as_ambiguous() -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            json={
+                "memberPairs": {"Alice": "First", "alice": "Second"},
+                "bugs": [],
+                "page": 1,
+                "limit": 20,
+                "total": 0,
+            },
+        )
+    )
+
+    with pytest.raises(AmbiguousIdentityError) as caught:
+        provider(
+            transport, endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs")
+        ).query_user_bugs("ＡＬＩＣＥ")
+    assert caught.value.candidates == (
+        {"account": "Alice", "displayName": "First"},
+        {"account": "alice", "displayName": "Second"},
+    )
 
 
 @pytest.mark.parametrize("member_pairs", [None, "malformed"])
@@ -307,8 +358,8 @@ def test_query_user_bugs_retains_valid_official_rows_when_matching_rows_are_malf
     assert result.coverage.returned == 1
     assert result.coverage.failed == 2
     assert result.coverage.complete is False
-    assert result.coverage.total == -1
-    assert result.coverage.pages is None
+    assert result.coverage.total == 3
+    assert result.coverage.pages == 1
 
 
 @pytest.mark.parametrize(

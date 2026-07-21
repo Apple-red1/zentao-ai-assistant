@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
+import httpx
 import pytest
 from pydantic import ValidationError
 
@@ -18,6 +20,7 @@ from zentao_ai.mcp_server.schemas import (
 from zentao_ai.mcp_server.server import execute_tool
 from zentao_ai.mcp_server.tools import TOOL_NAMES, ZentaoTools
 from zentao_ai.state.models import OutboxRecord, OutboxStatus
+from zentao_ai.zentao import HttpZentaoProvider, ZentaoEndpoints
 from zentao_ai.zentao.models import (
     BugPage,
     BugSnapshot,
@@ -31,6 +34,7 @@ from zentao_ai.zentao.models import (
 )
 from zentao_ai.zentao.errors import (
     AmbiguousIdentityError,
+    AuthenticationError,
     ContractError,
     IdentityNotFoundError,
     PermissionDeniedError,
@@ -46,6 +50,15 @@ CONFIG = AppConfig.model_validate(
         "repositories": {},
     }
 )
+
+
+def ambiguous_identity_error() -> AmbiguousIdentityError:
+    return AmbiguousIdentityError(
+        "cookie=secret-marker",
+        candidates=(
+            {"account": "alice", "displayName": "Alice"},
+        ),
+    )
 
 
 class Provider:
@@ -806,11 +819,22 @@ def test_blank_or_nul_authorized_image_path_is_rejected(bad: str) -> None:
             },
         ),
         (
-            AmbiguousIdentityError("cookie=secret-marker"),
+            ambiguous_identity_error(),
             {
-                "code": "AMBIGUOUS_IDENTITY",
-                "type": "ambiguous_identity",
+                "code": "IDENTITY_AMBIGUOUS",
+                "type": "identity_ambiguous",
                 "message": "Requested identity is ambiguous.",
+                "details": {
+                    "candidates": [{"account": "alice", "displayName": "Alice"}]
+                },
+            },
+        ),
+        (
+            AuthenticationError("password=secret-marker"),
+            {
+                "code": "AUTHENTICATION_FAILED",
+                "type": "authentication_failed",
+                "message": "Authentication failed.",
             },
         ),
         (
@@ -824,8 +848,8 @@ def test_blank_or_nul_authorized_image_path_is_rejected(bad: str) -> None:
         (
             ContractError("response_body=secret-marker"),
             {
-                "code": "INVALID_ENVELOPE",
-                "type": "invalid_envelope",
+                "code": "INVALID_RESPONSE_ENVELOPE",
+                "type": "invalid_response_envelope",
                 "message": "Received an invalid Zentao response.",
             },
         ),
@@ -840,7 +864,7 @@ def test_blank_or_nul_authorized_image_path_is_rejected(bad: str) -> None:
     ],
 )
 async def test_tool_errors_are_structured_sanitized_and_stable(
-    error: Exception, expected_error: dict[str, str]
+    error: Exception, expected_error: dict[str, Any]
 ) -> None:
     class FailingProvider(Provider):
         def query_bug_detail(self, bug_id: int | str) -> BugSnapshot:
@@ -857,3 +881,30 @@ async def test_tool_errors_are_structured_sanitized_and_stable(
     }
     assert result.content[0].text == expected_error["message"]
     assert "secret-marker" not in str(result)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("body", "expected_code"),
+    [
+        ({"bug": []}, "INVALID_BUG_CONTRACT"),
+        ({"bug": {"id": 7, "status": "active"}}, "MISSING_STABLE_VERSION"),
+    ],
+)
+async def test_bug_contract_errors_keep_their_approved_public_codes(
+    body: dict[str, object], expected_code: str
+) -> None:
+    provider = HttpZentaoProvider(
+        base_url="https://zentao.invalid",
+        endpoints=ZentaoEndpoints(),
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json=body)),
+    )
+    try:
+        result = await execute_tool(
+            ZentaoTools(runtime(provider)), "query_bug_detail", {"bugId": 7}
+        )
+    finally:
+        provider.close()
+
+    assert result.isError is True
+    assert result.structuredContent["error"]["code"] == expected_code

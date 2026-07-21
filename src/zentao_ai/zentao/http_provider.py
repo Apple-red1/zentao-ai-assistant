@@ -20,6 +20,8 @@ from .errors import (
     AuthenticationError,
     ContractError,
     IdentityNotFoundError,
+    InvalidBugContractError,
+    MissingStableVersionError,
     PermissionDeniedError,
     TransportError,
     UnknownWriteResultError,
@@ -381,7 +383,7 @@ class HttpZentaoProvider:
             or not isinstance(version, (str, int))
             or not str(version).strip()
         ):
-            raise ContractError(f"{operation}: missing stable version")
+            raise MissingStableVersionError(f"{operation}: missing stable version")
         normalized = {
             "id": data.get("id"),
             "status": data.get("status"),
@@ -396,7 +398,9 @@ class HttpZentaoProvider:
         try:
             return self._with_routing(BugSnapshot.model_validate(normalized))
         except Exception:
-            raise ContractError(f"{operation}: invalid bug contract") from None
+            raise InvalidBugContractError(
+                f"{operation}: invalid bug contract"
+            ) from None
 
     def _load_product_catalog(
         self, *, page: int = 1, page_size: int = 100
@@ -635,8 +639,9 @@ class HttpZentaoProvider:
                 break
 
         start = (page - 1) * page_size
-        complete = complete and not item_failures
-        total = len(snapshots) if complete else -1
+        pagination_complete = complete
+        complete = pagination_complete and not item_failures
+        total = len(snapshots) + len(item_failures) if pagination_complete else -1
         items = tuple(snapshots[start : start + page_size])
         return BugPage(
             items=items,
@@ -644,7 +649,9 @@ class HttpZentaoProvider:
                 page=page,
                 pageSize=page_size,
                 total=total,
-                pages=(total + page_size - 1) // page_size if complete else None,
+                pages=(total + page_size - 1) // page_size
+                if pagination_complete
+                else None,
                 returned=len(items),
                 failed=len(item_failures),
                 complete=complete,
@@ -674,24 +681,50 @@ class HttpZentaoProvider:
             for account, display_name in pairs.items():
                 account_value = cls._catalog_text(account)
                 display_value = cls._catalog_text(display_name)
-                if account_value is not None:
-                    members.append((account_value, cls._normalized_text(account_value), display_value))
+                if account_value is None or display_value is None:
+                    raise ContractError("query_user_bugs: invalid member pairs")
+                members.append(
+                    (
+                        account_value,
+                        cls._normalized_text(account_value),
+                        display_value,
+                    )
+                )
         else:
             for pair in pairs:
                 if not isinstance(pair, Mapping):
-                    continue
+                    raise ContractError("query_user_bugs: invalid member pairs")
                 account_value = cls._account(pair)
                 if account_value is None:
-                    continue
-                display_value = next(
+                    raise ContractError("query_user_bugs: invalid member pairs")
+                display_values: list[str] = []
+                for field in ("realname", "realName", "name", "displayName"):
+                    if field not in pair:
+                        continue
+                    display_value = cls._catalog_text(pair.get(field))
+                    if display_value is None:
+                        raise ContractError("query_user_bugs: invalid member pairs")
+                    if display_value not in display_values:
+                        display_values.append(display_value)
+                if len({cls._normalized_text(value) for value in display_values}) > 1:
+                    raise ContractError("query_user_bugs: invalid member pairs")
+                members.append(
                     (
-                        cls._catalog_text(pair.get(field))
-                        for field in ("realname", "realName", "name", "displayName")
-                        if cls._catalog_text(pair.get(field)) is not None
-                    ),
-                    None,
+                        account_value,
+                        cls._normalized_text(account_value),
+                        display_values[0] if display_values else None,
+                    )
                 )
-                members.append((account_value, cls._normalized_text(account_value), display_value))
+
+        members = list(dict.fromkeys(members))
+
+        def ambiguity_candidates(
+            matches: list[tuple[str, str, str | None]],
+        ) -> tuple[dict[str, object], ...]:
+            return tuple(
+                {"account": account, "displayName": display_name}
+                for account, _, display_name in matches
+            )
 
         account_matches = [member for member in members if member[1] == requested_normalized]
         if len(account_matches) == 1:
@@ -701,6 +734,11 @@ class HttpZentaoProvider:
                 resolvedAccount=account,
                 resolvedDisplayName=display_name,
                 matchType="account",
+            )
+        if len(account_matches) > 1:
+            raise AmbiguousIdentityError(
+                "query_user_bugs: ambiguous account",
+                candidates=ambiguity_candidates(account_matches),
             )
 
         display_matches = [
@@ -718,7 +756,10 @@ class HttpZentaoProvider:
                 matchType="display_name",
             )
         if len(display_matches) > 1:
-            raise AmbiguousIdentityError("query_user_bugs: ambiguous display name")
+            raise AmbiguousIdentityError(
+                "query_user_bugs: ambiguous display name",
+                candidates=ambiguity_candidates(display_matches),
+            )
         raise IdentityNotFoundError("query_user_bugs: identity not found")
 
     @staticmethod
@@ -768,12 +809,12 @@ class HttpZentaoProvider:
             return self._official_snapshot(data, operation=operation)
         detail = self.query_bug_detail(data["id"])
         if self._normalized_bug_id(detail.id) != normalized_id:
-            raise ContractError(f"{operation}: detail Bug id changed")
+            raise InvalidBugContractError(f"{operation}: detail Bug id changed")
         if (
             detail.assignee is None
             or self._normalized_text(detail.assignee) != requested_account
         ):
-            raise ContractError(f"{operation}: detail assignee changed")
+            raise InvalidBugContractError(f"{operation}: detail assignee changed")
         return detail
 
     def _snapshot_or_failure(
@@ -804,14 +845,14 @@ class HttpZentaoProvider:
                 ),
                 None,
             )
+        except MissingStableVersionError:
+            return None, ItemFailure(
+                bugId=normalized_id,
+                code="MISSING_STABLE_VERSION",
+                field="version",
+                message="missing stable version",
+            )
         except ContractError as error:
-            if str(error) == "query_bug_detail: missing stable version":
-                return None, ItemFailure(
-                    bugId=normalized_id,
-                    code="MISSING_STABLE_VERSION",
-                    field="version",
-                    message="missing stable version",
-                )
             if str(error).startswith("query_bug_detail"):
                 raise
             return self._invalid_bug_failure(normalized_id)
@@ -933,7 +974,9 @@ class HttpZentaoProvider:
         if self._endpoints.bug_detail == "/api.php/v2/bugs/{bug_id}":
             bug = data.get("bug")
             if not isinstance(bug, Mapping):
-                raise ContractError("query_bug_detail: invalid bug contract")
+                raise InvalidBugContractError(
+                    "query_bug_detail: invalid bug contract"
+                )
             return self._official_snapshot(bug, operation="query_bug_detail")
         return self._snapshot(data, "query_bug_detail")
 
@@ -953,7 +996,9 @@ class HttpZentaoProvider:
                 or not isinstance(bug, Mapping)
                 or self._normalized_bug_id(bug.get("id")) != requested_id
             ):
-                raise ContractError("query_bug_history: invalid bug contract")
+                raise InvalidBugContractError(
+                    "query_bug_history: invalid bug contract"
+                )
             all_items = tuple(
                 self._official_history(item, "query_bug_history")
                 for item in self._actions(data, "query_bug_history")
@@ -1296,7 +1341,7 @@ class HttpZentaoProvider:
     def _snapshot(self, data: Mapping[str, Any], operation: str) -> BugSnapshot:
         version = data.get("version")
         if version is None or not str(version).strip():
-            raise ContractError(f"{operation}: missing stable version")
+            raise MissingStableVersionError(f"{operation}: missing stable version")
         safe = self._sanitize(data)
         normalized = {
             **data,
@@ -1307,7 +1352,9 @@ class HttpZentaoProvider:
         try:
             return self._with_routing(BugSnapshot.model_validate(normalized))
         except Exception:
-            raise ContractError(f"{operation}: invalid bug contract") from None
+            raise InvalidBugContractError(
+                f"{operation}: invalid bug contract"
+            ) from None
 
     def _with_routing(self, snapshot: BugSnapshot) -> BugSnapshot:
         if self._routing_config is None:

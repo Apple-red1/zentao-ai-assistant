@@ -119,7 +119,7 @@ def route_bug(snapshot: BugSnapshot, config: AppConfig) -> RoutingDecision:
         else config.repositories[mapping.backendRepository].repository
     )
     return RoutingDecision(
-        candidates=candidates,
+        candidates=[selected],
         layer=layer,
         selectedRepository=selected,
         matchedKeywords=frontend if layer == "frontend" else backend,
