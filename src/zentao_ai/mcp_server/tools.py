@@ -54,6 +54,39 @@ def _json(value: object) -> Any:
     return value
 
 
+def _filtered_assignee_page(
+    source: BugPage,
+    *,
+    status: str,
+    page: int,
+    page_size: int,
+) -> BugPage:
+    if status == "all":
+        return source
+    items = filter_assignee_bugs(source.items, title_tag=None, status="unclosed")
+    coverage = source.coverage
+    complete = coverage.complete and (
+        coverage.page == page
+        and coverage.pages is not None
+        and coverage.pages == (0 if not source.items else 1)
+        and coverage.total == len(source.items)
+    )
+    return BugPage(
+        items=items,
+        coverage=Coverage(
+            page=page,
+            pageSize=page_size,
+            total=len(items) if complete else -1,
+            pages=(0 if not items else 1) if complete else None,
+            returned=len(items),
+            failed=coverage.failed,
+            complete=complete,
+        ),
+        itemFailures=source.item_failures,
+        resolvedIdentity=source.resolved_identity,
+    )
+
+
 class ZentaoTools:
     def __init__(self, runtime: AppRuntime) -> None:
         self.runtime = runtime
@@ -155,9 +188,21 @@ class ZentaoTools:
             )
         elif name == "query_user_bugs":
             assert isinstance(value, QueryUserBugsInput)
-            data = provider.query_user_bugs(
+            if value.scopeMode == "team-report":
+                if value.user not in self.runtime.config.team.members:
+                    raise ValueError("user is not a configured team member")
+                scope_names = tuple(self.runtime.config.team.scopeNames)
+            else:
+                scope_names = ()
+            source = provider.query_user_bugs(
                 value.user,
-                scope_names=tuple(self.runtime.config.team.scopeNames),
+                scope_names=scope_names,
+                page=value.page,
+                page_size=value.pageSize,
+            )
+            data = _filtered_assignee_page(
+                source,
+                status=value.status,
                 page=value.page,
                 page_size=value.pageSize,
             )

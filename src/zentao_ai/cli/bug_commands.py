@@ -61,6 +61,33 @@ def _placeholder(bug_id: str = "0") -> BugSnapshot:
     )
 
 
+def _filtered_assignee_page(source: BugPage, *, status: str) -> BugPage:
+    if status == "all":
+        return source
+    items = filter_assignee_bugs(source.items, title_tag=None, status="unclosed")
+    coverage = source.coverage
+    complete = coverage.complete and (
+        coverage.page == 1
+        and coverage.pages is not None
+        and coverage.pages == (0 if not source.items else 1)
+        and coverage.total == len(source.items)
+    )
+    return BugPage(
+        items=items,
+        coverage=Coverage(
+            page=1,
+            pageSize=20,
+            total=len(items) if complete else -1,
+            pages=(0 if not items else 1) if complete else None,
+            returned=len(items),
+            failed=coverage.failed,
+            complete=complete,
+        ),
+        itemFailures=source.item_failures,
+        resolvedIdentity=source.resolved_identity,
+    )
+
+
 def _request(
     runtime: AppRuntime,
     snapshot: Any,
@@ -142,13 +169,22 @@ def user(
     account: str,
     project: Path = typer.Option(Path.cwd()),
     json_output: bool = typer.Option(False, "--json"),
+    scope_mode: Literal["team-report", "session-visible"] = typer.Option(
+        "team-report", "--scope-mode"
+    ),
+    status: Literal["all", "unclosed"] = typer.Option("all", "--status"),
 ) -> None:
     with _runtime(ctx, project) as runtime:
-        request = _request(runtime, _placeholder())
-        page = runtime.provider.query_user_bugs(
-            account, scope_names=request.scope_names, page=1, page_size=20
+        if scope_mode == "team-report":
+            if account not in runtime.config.team.members:
+                raise ValueError("user is not a configured team member")
+            scope_names = tuple(runtime.config.team.scopeNames)
+        else:
+            scope_names = ()
+        source = runtime.provider.query_user_bugs(
+            account, scope_names=scope_names, page=1, page_size=20
         )
-        _emit(page, json_output)
+        _emit(_filtered_assignee_page(source, status=status), json_output)
 
 
 @bug_app.command("analyze")

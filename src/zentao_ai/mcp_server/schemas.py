@@ -32,6 +32,8 @@ class QueryMyBugsInput(PagingInput):
 
 class QueryUserBugsInput(PagingInput):
     user: NonEmpty
+    scopeMode: Literal["team-report", "session-visible"] = "team-report"
+    status: Literal["all", "unclosed"] = "all"
 
 
 class QueryBugDetailInput(StrictInput):

@@ -206,6 +206,36 @@ def test_bugs_mine_uses_configured_user_endpoint_and_filters(
     assert provider.calls == [("user", "weiwenting", (), 1, 20, "assigntome")]
 
 
+def test_bugs_user_session_visible_queries_explicit_user_without_team_membership(
+    tmp_path: Path,
+) -> None:
+    provider = Provider()
+    config_before = CONFIG.model_dump()
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "bugs",
+            "user",
+            "周海韵",
+            "--scope-mode",
+            "session-visible",
+            "--status",
+            "unclosed",
+            "--json",
+        ],
+        obj=factory(tmp_path, provider=provider),
+    )
+
+    assert result.exit_code == 0
+    assert [item["id"] for item in json.loads(result.stdout)["data"]["items"]] == [
+        2537,
+        3397,
+    ]
+    assert provider.calls == [("user", "周海韵", (), 1, 20, None)]
+    assert CONFIG.model_dump() == config_before
+
+
 def test_bugs_mine_distrusts_multi_page_total_when_visible_items_all_pass(
     tmp_path: Path,
 ) -> None:

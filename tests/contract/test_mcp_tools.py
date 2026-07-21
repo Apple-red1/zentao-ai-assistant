@@ -12,6 +12,7 @@ from zentao_ai.mcp_server.schemas import (
     AddCommentInput,
     QueryBugDetailInput,
     QueryMyBugsInput,
+    QueryUserBugsInput,
     UpdateStepsInput,
 )
 from zentao_ai.mcp_server.server import execute_tool
@@ -203,6 +204,9 @@ def test_tool_list_is_exact_and_has_no_destructive_equivalent() -> None:
 
 
 def test_schemas_reject_unknown_and_invalid_write_arguments() -> None:
+    query_user = QueryUserBugsInput.model_validate({"user": "alice"})
+    assert query_user.scopeMode == "team-report"
+    assert query_user.status == "all"
     with pytest.raises(ValidationError):
         QueryBugDetailInput.model_validate({"bugId": 7, "extra": True})
     with pytest.raises(ValidationError):
@@ -305,6 +309,112 @@ def test_personal_tool_sets_assignee_filter_but_arbitrary_user_tool_does_not() -
             {"scope_names": ("team",), "page": 1, "page_size": 20},
         ),
     ]
+
+
+def test_query_user_bugs_defaults_to_team_report_and_requires_a_configured_member() -> (
+    None
+):
+    provider = AssigneeProvider()
+    tools = ZentaoTools(runtime(provider))
+
+    tools.call("query_user_bugs", {"user": "alice"})
+
+    with pytest.raises(ValueError, match="configured team member"):
+        tools.call("query_user_bugs", {"user": "周海韵"})
+
+    assert provider.calls == [
+        (
+            "user",
+            "alice",
+            {"scope_names": ("team",), "page": 1, "page_size": 20},
+        )
+    ]
+
+
+def test_query_user_bugs_session_visible_uses_explicit_user_without_team_scope() -> (
+    None
+):
+    provider = AssigneeProvider()
+    config_before = runtime(provider).config.model_dump()
+    tools = ZentaoTools(runtime(provider))
+
+    result = tools.call(
+        "query_user_bugs",
+        {"user": "周海韵", "scopeMode": "session-visible", "status": "unclosed"},
+    )
+
+    assert [item["id"] for item in result["data"]["items"]] == [2537, 3397]
+    assert provider.calls == [
+        (
+            "user",
+            "周海韵",
+            {"scope_names": (), "page": 1, "page_size": 20},
+        )
+    ]
+    assert tools.runtime.config.model_dump() == config_before
+
+
+def test_query_user_bugs_keeps_partial_metadata_after_status_filtering() -> None:
+    provider = AssigneeProvider()
+    provider.query_user_bugs = lambda user, **kwargs: BugPage(  # type: ignore[method-assign]
+        items=(
+            BugSnapshot(
+                id=2537,
+                title="visible",
+                status="active",
+                version="v1",
+                snapshotVersion="s1",
+            ),
+            BugSnapshot(
+                id=3397,
+                title="closed",
+                status="closed",
+                version="v1",
+                snapshotVersion="s2",
+            ),
+        ),
+        coverage=Coverage(
+            page=1,
+            pageSize=20,
+            total=-1,
+            pages=None,
+            returned=2,
+            failed=1,
+            complete=False,
+        ),
+        itemFailures=(
+            ItemFailure(
+                bugId="3398",
+                code="MISSING_STABLE_VERSION",
+                field="version",
+                message="missing stable version",
+            ),
+        ),
+        resolvedIdentity=ResolvedIdentity(
+            requestedIdentity="周海韵",
+            resolvedAccount="zhouhaiyun",
+            resolvedDisplayName="周海韵",
+            matchType="display_name",
+        ),
+    )
+
+    data = ZentaoTools(runtime(provider)).call(
+        "query_user_bugs",
+        {"user": "周海韵", "scopeMode": "session-visible", "status": "unclosed"},
+    )["data"]
+
+    assert [item["id"] for item in data["items"]] == [2537]
+    assert data["coverage"] == {
+        "page": 1,
+        "pageSize": 20,
+        "total": -1,
+        "pages": None,
+        "returned": 1,
+        "failed": 1,
+        "complete": False,
+    }
+    assert data["itemFailures"][0]["bugId"] == "3398"
+    assert data["resolvedIdentity"]["resolvedAccount"] == "zhouhaiyun"
 
 
 @pytest.mark.parametrize("account", [None, "", "   "])
