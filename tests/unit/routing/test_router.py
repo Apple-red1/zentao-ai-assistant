@@ -59,3 +59,79 @@ def test_exact_scope_lowercases_non_ascii_letters(tmp_path):
 def test_marker_uses_token_boundaries_and_does_not_match_email(tmp_path):
     result = route_bug(BugSnapshot(identifier="x", title="UI user@site.example"), config(tmp_path))
     assert result.selectedRepository is None
+
+
+def title_config(tmp_path):
+    return AppConfig.model_validate({
+        "personal": {"scopeNames": ["area-web", "area-api", "other-web", "other-api"]},
+        "team": {"scopeNames": ["area-web"]},
+        "repositories": {
+            key: {
+                "repository": key,
+                "path": str(tmp_path / key),
+                "targetBranch": "feature/fix",
+                "testCommands": ["pytest"],
+            }
+            for key in ("area-web", "area-api", "other-web", "other-api")
+        },
+        "titleRouting": [
+            {
+                "marker": "【Synthetic Area】",
+                "frontendRepository": "area-web",
+                "backendRepository": "area-api",
+                "frontendKeywords": ["widget"],
+                "backendKeywords": ["worker"],
+            },
+            {
+                "marker": "【Other Area】",
+                "frontendRepository": "other-web",
+                "backendRepository": "other-api",
+            },
+        ],
+    })
+
+
+def test_local_title_marker_routes_frontend_and_backend(tmp_path):
+    cfg = title_config(tmp_path)
+    frontend = route_bug(
+        BugSnapshot(identifier="front", title="【Synthetic Area】 button cannot click"),
+        cfg,
+    )
+    backend = route_bug(
+        BugSnapshot(identifier="back", title="【Synthetic Area】 worker failed"),
+        cfg,
+    )
+    assert frontend.selectedRepository == "area-web"
+    assert frontend.layer == "frontend"
+    assert {"button", "click"} <= set(frontend.matchedKeywords)
+    assert backend.selectedRepository == "area-api"
+    assert backend.layer == "backend"
+    assert "worker" in backend.matchedKeywords
+
+
+def test_explicit_title_layer_wins_over_url_tokens_in_description(tmp_path):
+    result = route_bug(
+        BugSnapshot(
+            identifier="front-with-url",
+            title="【Synthetic Area】 footer link cannot click",
+            description="reproduce at https://example.invalid/api/preview",
+        ),
+        title_config(tmp_path),
+    )
+    assert result.selectedRepository == "area-web"
+    assert result.layer == "frontend"
+
+
+def test_local_title_marker_fails_closed_for_ambiguous_layer_or_marker(tmp_path):
+    cfg = title_config(tmp_path)
+    ambiguous_layer = route_bug(
+        BugSnapshot(identifier="layer", title="【Synthetic Area】 button API"), cfg
+    )
+    conflicting_marker = route_bug(
+        BugSnapshot(identifier="marker", title="【Synthetic Area】【Other Area】 button"), cfg
+    )
+    unmatched = route_bug(BugSnapshot(identifier="none", title="button"), cfg)
+    assert ambiguous_layer.selectedRepository is None
+    assert set(ambiguous_layer.candidates) == {"area-web", "area-api"}
+    assert conflicting_marker.selectedRepository is None
+    assert unmatched.selectedRepository is None

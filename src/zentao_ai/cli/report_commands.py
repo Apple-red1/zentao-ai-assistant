@@ -23,6 +23,8 @@ def personal(
         request = _request(runtime, _placeholder())
         result = run_personal(runtime.context(config=request.config))
         _emit(result.to_v2_payload(), json_output)
+        if result.completeness != "COMPLETE":
+            raise typer.Exit(3)
 
 
 @app.command("team")
@@ -36,3 +38,5 @@ def team(
         request = _request(runtime, _placeholder())
         result = run_team_report(runtime.context(config=request.config))
         _emit(result.to_v2_payload(), json_output)
+        if result.completeness != "COMPLETE":
+            raise typer.Exit(3)

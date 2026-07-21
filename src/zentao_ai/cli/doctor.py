@@ -9,7 +9,17 @@ from typing import Any
 
 import typer
 
+from zentao_ai.credentials.store import CredentialName
+
 from .runtime import failure, get_factory, success
+
+
+def _has_stored_credential(store: Any) -> bool:
+    for name in (CredentialName.API_TOKEN, CredentialName.PASSWORD):
+        credential = store.get(name)
+        if credential is not None and credential.get_secret_value().strip():
+            return True
+    return False
 
 
 def doctor_command(
@@ -55,33 +65,33 @@ def doctor_command(
     box: list[Any] = []
     check("config", lambda: box.append(get_factory(ctx.obj)(project)))
     runtime = box[0] if box else None
-
-    query_probe_box: list[Any] = []
-
-    def query_probe() -> Any:
-        if runtime is None:
-            raise RuntimeError("runtime unavailable")
-        if not query_probe_box:
-            query_probe_box.append(
-                runtime.provider.query_my_bugs(
-                    scope_names=tuple(runtime.config.personal.scopeNames),
-                    page=1,
-                    page_size=1,
-                )
-            )
-        return query_probe_box[0]
-
     check(
         "credentials",
-        lambda: (query_probe(), "query authentication accepted")[1],
+        lambda: (
+            require(_has_stored_credential(runtime.store))
+            if runtime and runtime.store
+            else require(None)
+        ),
     )
     check(
         "connection",
-        lambda: (query_probe(), "bug query endpoint reachable")[1],
+        lambda: (
+            runtime.provider.bug_statistics()
+            if runtime
+            else (_ for _ in ()).throw(RuntimeError())
+        ),
     )
     check(
         "query-permission",
-        query_probe,
+        lambda: (
+            runtime.provider.query_my_bugs(
+                scope_names=tuple(runtime.config.personal.scopeNames),
+                page=1,
+                page_size=1,
+            )
+            if runtime
+            else (_ for _ in ()).throw(RuntimeError())
+        ),
     )
     check(
         "repository",

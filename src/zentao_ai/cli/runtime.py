@@ -14,7 +14,10 @@ import typer
 
 from zentao_ai.config.loader import load_config
 from zentao_ai.config.models import AppConfig
-from zentao_ai.credentials.environment import CredentialUnavailableError, resolve_credential
+from zentao_ai.credentials.environment import (
+    CredentialUnavailableError,
+    resolve_credential,
+)
 from zentao_ai.credentials.store import CredentialName, CredentialStore
 from zentao_ai.repository.guard import (
     GuardResult,
@@ -217,6 +220,8 @@ class DependencyFactory:
             base_url=config.zentao.baseUrl,
             endpoints=ZentaoEndpoints(
                 login="/api.php/v2/users/login",
+                products="/api.php/v2/products",
+                productBugs="/api.php/v2/products/{product_id}/bugs",
                 myBugs="/api/bugs/mine",
                 userBugs="/api.php/v2/bugs",
                 bugDetail="/api.php/v2/bugs/{bug_id}",
@@ -226,7 +231,10 @@ class DependencyFactory:
                 updateSteps="/api/bugs/{bug_id}/steps",
             ),
             auth=ZentaoAuth(
-                username=config.zentao.account, apiToken=token, password=password, webCookie=None
+                username=config.zentao.account,
+                password=password,
+                apiToken=token,
+                webCookie=None,
             ),
         )
         ledger = Ledger(project / ".codex" / "zentao-ai-state.sqlite3")

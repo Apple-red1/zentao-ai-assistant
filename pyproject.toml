@@ -17,10 +17,14 @@ dependencies = [
   "httpx>=0.27,<1",
   "mcp>=1,<2",
   "platformdirs>=4,<5",
+  "tzdata>=2025.2",
 ]
 
 [project.scripts]
 zentao-ai = "zentao_ai.cli.app:main"
+zentao-ai-state = "zentao_ai.state.cli:main"
+zentao-ai-repository = "zentao_ai.repository.cli:main"
+zentao-ai-render-report = "zentao_ai.reporting.cli:main"
 
 [project.optional-dependencies]
 dev = [

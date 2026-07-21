@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-try:
-    from zentao_ai.state.cli import main
-except ModuleNotFoundError as exc:
-    if exc.name and exc.name.startswith("zentao_ai"):
-        raise SystemExit('Install the CLI with: pipx install "git+https://github.com/wwtweiwenting/zentao-ai-assistant.git@feature/zentao-open-source". See docs/plugin-installation.md.') from exc
-    raise
+import shutil
+import subprocess
+import sys
 
-raise SystemExit(main())
+COMMAND = ("zentao-ai-state",)
+executable = shutil.which(COMMAND[0])
+if executable is None:
+    raise SystemExit('Install the CLI with: pipx install "git+https://github.com/wwtweiwenting/zentao-ai-assistant.git@feature/zentao-open-source". See docs/plugin-installation.md.')
+raise SystemExit(subprocess.call([executable, *COMMAND[1:], *sys.argv[1:]]))

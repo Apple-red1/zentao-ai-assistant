@@ -150,3 +150,69 @@ def test_repository_keys_that_collide_after_unicode_casefold_are_rejected(tmp_pa
     data["team"] = {"scopeNames": [" scope "], "members": []}
     result = validate_config(write_yaml(tmp_path / "bad.yaml", data))
     assert "repositories" in {error.field for error in result.errors}
+
+
+def with_title_routing() -> dict[str, object]:
+    data = minimal()
+    repositories = data["repositories"]  # type: ignore[assignment]
+    repositories["synthetic-backend"] = {  # type: ignore[index]
+        "repository": "synthetic-backend-repo",
+        "path": "repos/synthetic-backend",
+        "targetBranch": "feature/fix",
+        "testCommands": ["pytest"],
+    }
+    data["personal"]["scopeNames"].append("synthetic-backend")  # type: ignore[index,union-attr]
+    data["titleRouting"] = [
+        {
+            "marker": "【Synthetic Area】",
+            "frontendRepository": "example-personal",
+            "backendRepository": "synthetic-backend",
+            "frontendKeywords": ["widget"],
+            "backendKeywords": ["worker"],
+        }
+    ]
+    return data
+
+
+def test_local_title_routing_accepts_repository_keys(tmp_path: Path) -> None:
+    config = load_config(write_yaml(tmp_path / "valid.yaml", with_title_routing()))
+    assert config.titleRouting[0].marker == "【Synthetic Area】"
+    assert config.titleRouting[0].frontendRepository == "example-personal"
+    assert config.titleRouting[0].backendRepository == "synthetic-backend"
+
+
+@pytest.mark.parametrize(
+    ("mutate", "field"),
+    [
+        (
+            lambda data: data["titleRouting"].append(  # type: ignore[index,union-attr]
+                {
+                    "marker": " 【synthetic area】 ",
+                    "frontendRepository": "example-personal",
+                    "backendRepository": "synthetic-backend",
+                }
+            ),
+            "titleRouting",
+        ),
+        (
+            lambda data: data["titleRouting"][0].update(  # type: ignore[index,union-attr]
+                {"backendRepository": "example-personal"}
+            ),
+            "titleRouting",
+        ),
+        (
+            lambda data: data["titleRouting"][0].update(  # type: ignore[index,union-attr]
+                {"frontendRepository": "missing-repository"}
+            ),
+            "titleRouting",
+        ),
+    ],
+)
+def test_local_title_routing_rejects_unsafe_mappings(
+    tmp_path: Path, mutate: object, field: str
+) -> None:
+    data = with_title_routing()
+    mutate(data)  # type: ignore[operator]
+    result = validate_config(write_yaml(tmp_path / "bad.yaml", data))
+    assert result.valid is False
+    assert field in {error.field for error in result.errors}

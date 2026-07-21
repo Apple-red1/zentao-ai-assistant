@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 import hashlib
 import re
 import time
@@ -34,6 +33,11 @@ from .models import (
 
 
 class HttpZentaoProvider:
+    _CATALOG_PAGE_SIZE = 100
+    _MAX_CATALOG_PAGES = 100
+    _MAX_BUG_PAGES_PER_PRODUCT = 100
+    _MAX_USER_BUG_PAGES = 100
+
     def __init__(
         self,
         *,
@@ -46,10 +50,10 @@ class HttpZentaoProvider:
         retry_after_cap: float = 2.0,
     ) -> None:
         self._auth = auth or ZentaoAuth(apiToken=None, webCookie=None)
-        self._password_token: str | None = None
         self._endpoints = endpoints
         self._max_get_retries = max(0, max_get_retries)
         self._retry_after_cap = max(0.0, retry_after_cap)
+        self._password_token: str | None = None
         self._client = httpx.Client(
             base_url=base_url,
             transport=transport,
@@ -71,16 +75,346 @@ class HttpZentaoProvider:
     def query_my_bugs(
         self, *, scope_names: tuple[str, ...] = (), page: int = 1, page_size: int = 20
     ) -> BugPage:
-        if self._auth.username:
-            return self.query_user_bugs(
-                self._auth.username,
+        if (
+            isinstance(page, bool)
+            or not isinstance(page, int)
+            or page < 1
+            or isinstance(page_size, bool)
+            or not isinstance(page_size, int)
+            or not 1 <= page_size <= 1000
+        ):
+            raise ValueError("invalid pagination")
+        username = (self._auth.username or "").strip()
+        if username and self._endpoints.user_bugs == "/api.php/v2/bugs":
+            return self._query_official_user_bugs(
+                username,
                 scope_names=scope_names,
                 page=page,
                 page_size=page_size,
+                browse_type="assigntome",
             )
-        return self._bug_page(
-            "query_my_bugs", self._endpoints.my_bugs, page, page_size, scope_names
+        requested_page = page
+        requested_page_size = page_size
+        catalog, catalog_complete = self._load_complete_product_catalog()
+        products, incomplete = self._resolve_products(catalog, scope_names)
+        incomplete = incomplete or not catalog_complete
+        if not catalog_complete:
+            products = ()
+        snapshots: list[BugSnapshot] = []
+        seen_ids: set[str] = set()
+        start = (requested_page - 1) * requested_page_size
+        end = start + requested_page_size
+        all_products_complete = True
+        for product_index, product_id in enumerate(products):
+            product_complete, metadata_trustworthy = self._read_product_bugs(
+                product_id,
+                requested_page_size,
+                snapshots,
+                seen_ids,
+                stop_after=end,
+            )
+            if not product_complete or not metadata_trustworthy:
+                incomplete = True
+            if not product_complete:
+                all_products_complete = False
+                break
+            if len(snapshots) >= end and product_index + 1 < len(products):
+                all_products_complete = False
+                break
+        complete = not incomplete and all_products_complete
+        total = len(snapshots) if complete else -1
+        return BugPage(
+            items=tuple(snapshots[start:end]),
+            coverage=Coverage(
+                page=requested_page,
+                pageSize=requested_page_size,
+                total=total,
+                pages=(total + requested_page_size - 1) // requested_page_size
+                if complete
+                else None,
+            ),
         )
+
+    def _load_complete_product_catalog(
+        self,
+    ) -> tuple[tuple[tuple[str, str], ...], bool]:
+        catalog: list[tuple[str, str]] = []
+        seen_pages: set[tuple[tuple[str, str], ...]] = set()
+        fetched = 0
+        expected_total: int | None = None
+        expected_pages: int | None = None
+        metadata_trustworthy = True
+        invalid_metadata_seen = False
+        for page in range(1, self._MAX_CATALOG_PAGES + 1):
+            products, raw_count, total, pages, metadata_invalid = (
+                self._load_product_catalog_page(
+                    page=page, page_size=self._CATALOG_PAGE_SIZE
+                )
+            )
+            invalid_metadata_seen = invalid_metadata_seen or metadata_invalid
+            if raw_count == 0:
+                if invalid_metadata_seen:
+                    return tuple(catalog), False
+                if not metadata_trustworthy and (
+                    expected_total is not None or expected_pages is not None
+                ):
+                    return tuple(catalog), False
+                if expected_total is not None and fetched < expected_total:
+                    return tuple(catalog), False
+                if expected_pages is not None and page < expected_pages:
+                    return tuple(catalog), False
+                return tuple(catalog), True
+            if products in seen_pages:
+                return tuple(catalog), False
+            seen_pages.add(products)
+            catalog.extend(products)
+            fetched += raw_count
+            if total is None or pages is None:
+                metadata_trustworthy = False
+            elif expected_total is None and expected_pages is None:
+                expected_total, expected_pages = total, pages
+            elif total != expected_total or pages != expected_pages:
+                metadata_trustworthy = False
+            if (
+                metadata_trustworthy
+                and expected_total is not None
+                and expected_pages is not None
+                and fetched == expected_total
+                and page >= expected_pages
+            ):
+                return tuple(catalog), True
+            if expected_total is not None and fetched > expected_total:
+                metadata_trustworthy = False
+        return tuple(catalog), False
+
+    def _read_product_bugs(
+        self,
+        product_id: str,
+        page_size: int,
+        snapshots: list[BugSnapshot],
+        seen_ids: set[str],
+        *,
+        stop_after: int,
+    ) -> tuple[bool, bool]:
+        seen_pages: set[tuple[str, ...]] = set()
+        fetched = 0
+        expected_total: int | None = None
+        expected_pages: int | None = None
+        metadata_trustworthy = True
+        invalid_metadata_seen = False
+        for product_page in range(1, self._MAX_BUG_PAGES_PER_PRODUCT + 1):
+            data = self._request(
+                "GET",
+                self._endpoints.product_bugs.format(
+                    product_id=self._segment(product_id)
+                ),
+                "query_my_bugs",
+                params={
+                    "browseType": "assigntome",
+                    "recPerPage": page_size,
+                    "pageID": product_page,
+                },
+            )
+            bugs = data.get("bugs")
+            if not isinstance(bugs, list) or any(
+                not isinstance(bug, Mapping) for bug in bugs
+            ):
+                raise ContractError("query_my_bugs: invalid bugs contract")
+            if not bugs:
+                if invalid_metadata_seen:
+                    return False, False
+                if not metadata_trustworthy and (
+                    expected_total is not None or expected_pages is not None
+                ):
+                    return False, False
+                if expected_total is not None and fetched < expected_total:
+                    return False, False
+                if expected_pages is not None and product_page < expected_pages:
+                    return False, False
+                return True, True
+            page_ids = tuple(self._normalized_text(bug.get("id")) for bug in bugs)
+            if page_ids in seen_pages:
+                return False, False
+            seen_pages.add(page_ids)
+            total = data.get("total")
+            invalid_metadata_seen = invalid_metadata_seen or (
+                "total" in data
+                and (isinstance(total, bool) or not isinstance(total, int) or total < 0)
+            )
+            if isinstance(total, bool) or not isinstance(total, int) or total < 0:
+                metadata_trustworthy = False
+            elif expected_total is None:
+                expected_total = total
+            elif total != expected_total:
+                metadata_trustworthy = False
+            pages = data.get("pages")
+            invalid_metadata_seen = invalid_metadata_seen or (
+                "pages" in data
+                and (isinstance(pages, bool) or not isinstance(pages, int) or pages < 0)
+            )
+            if pages is None:
+                metadata_trustworthy = False
+            elif (
+                isinstance(pages, bool)
+                or not isinstance(pages, int)
+                or pages < 0
+                or (
+                    expected_total is not None
+                    and pages != (expected_total + page_size - 1) // page_size
+                )
+            ):
+                metadata_trustworthy = False
+            elif expected_pages is None:
+                expected_pages = pages
+            elif pages != expected_pages:
+                metadata_trustworthy = False
+            fetched += len(bugs)
+            for bug in bugs:
+                snapshot = self._official_snapshot(bug)
+                normalized_id = self._normalized_text(snapshot.id)
+                if normalized_id in seen_ids:
+                    continue
+                seen_ids.add(normalized_id)
+                snapshots.append(snapshot)
+            if expected_total is not None and fetched > expected_total:
+                metadata_trustworthy = False
+            if (
+                metadata_trustworthy
+                and expected_total is not None
+                and expected_pages is not None
+                and fetched == expected_total
+                and product_page >= expected_pages
+            ):
+                return True, metadata_trustworthy
+            if len(snapshots) >= stop_after:
+                return False, metadata_trustworthy
+        return False, False
+
+    @classmethod
+    def _resolve_products(
+        cls,
+        catalog: tuple[tuple[str, str], ...],
+        scope_names: tuple[str, ...],
+    ) -> tuple[tuple[str, ...], bool]:
+        by_name: dict[str, list[str]] = {}
+        for product_id, name in catalog:
+            ids = by_name.setdefault(cls._normalized_text(name), [])
+            if product_id not in ids:
+                ids.append(product_id)
+        resolved: list[str] = []
+        seen: set[str] = set()
+        incomplete = False
+        for scope_name in scope_names:
+            matches = by_name.get(cls._normalized_text(scope_name), [])
+            if len(matches) != 1:
+                incomplete = True
+                continue
+            product_id = matches[0]
+            if product_id not in seen:
+                seen.add(product_id)
+                resolved.append(product_id)
+        return tuple(resolved), incomplete
+
+    @staticmethod
+    def _normalized_text(value: object) -> str:
+        return unicodedata.normalize("NFKC", str(value).strip()).casefold()
+
+    @classmethod
+    def _account(cls, value: Any) -> str | None:
+        if isinstance(value, Mapping):
+            value = value.get("account")
+        if isinstance(value, bool) or not isinstance(value, (str, int)):
+            return None
+        account = str(value).strip()
+        return account or None
+
+    @classmethod
+    def _official_snapshot(
+        cls, data: Mapping[str, Any], operation: str = "query_my_bugs"
+    ) -> BugSnapshot:
+        last_edited = data.get("lastEditedDate")
+        version = (
+            last_edited
+            if isinstance(last_edited, (str, int)) and str(last_edited).strip()
+            else data.get("version")
+        )
+        if (
+            isinstance(version, bool)
+            or not isinstance(version, (str, int))
+            or not str(version).strip()
+        ):
+            raise ContractError(f"{operation}: missing stable version")
+        normalized = {
+            "id": data.get("id"),
+            "status": data.get("status"),
+            "title": data.get("title", ""),
+            "steps": data.get("steps", ""),
+            "creator": cls._account(data.get("openedBy")),
+            "assignee": cls._account(data.get("assignedTo")),
+            "version": str(version).strip(),
+            "snapshotVersion": str(version).strip(),
+            "raw": cls._sanitize(data),
+        }
+        try:
+            return BugSnapshot.model_validate(normalized)
+        except Exception:
+            raise ContractError(f"{operation}: invalid bug contract") from None
+
+    def _load_product_catalog(
+        self, *, page: int = 1, page_size: int = 100
+    ) -> tuple[tuple[str, str], ...]:
+        products, _, _, _, _ = self._load_product_catalog_page(
+            page=page, page_size=page_size
+        )
+        return products
+
+    def _load_product_catalog_page(
+        self, *, page: int, page_size: int
+    ) -> tuple[tuple[tuple[str, str], ...], int, int | None, int | None, bool]:
+        data = self._request(
+            "GET",
+            self._endpoints.products,
+            "product_catalog",
+            params={
+                "browseType": "all",
+                "recPerPage": min(max(page_size, 1), 100),
+                "pageID": max(page, 1),
+            },
+        )
+        products = data.get("products")
+        if not isinstance(products, list):
+            raise ContractError("product_catalog: invalid response contract")
+        result: list[tuple[str, str]] = []
+        for product in products:
+            if not isinstance(product, Mapping):
+                continue
+            product_id = self._catalog_text(product.get("id"))
+            name = self._catalog_text(product.get("name"))
+            if product_id is not None and name is not None:
+                result.append((product_id, name))
+        total = data.get("total")
+        pages = data.get("pages")
+        valid_total = (
+            total
+            if isinstance(total, int) and not isinstance(total, bool) and total >= 0
+            else None
+        )
+        valid_pages = (
+            pages
+            if isinstance(pages, int) and not isinstance(pages, bool) and pages >= 0
+            else None
+        )
+        metadata_invalid = ("total" in data and valid_total is None) or (
+            "pages" in data and valid_pages is None
+        )
+        return tuple(result), len(products), valid_total, valid_pages, metadata_invalid
+
+    @staticmethod
+    def _catalog_text(value: Any) -> str | None:
+        if isinstance(value, bool) or not isinstance(value, (str, int)):
+            return None
+        normalized = str(value).strip()
+        return normalized or None
 
     def query_user_bugs(
         self,
@@ -89,111 +423,329 @@ class HttpZentaoProvider:
         scope_names: tuple[str, ...] = (),
         page: int = 1,
         page_size: int = 20,
+        browse_type: str | None = None,
     ) -> BugPage:
+        operation = "query_user_bugs"
+        configured_official = self._endpoints.user_bugs == "/api.php/v2/bugs"
+        if configured_official:
+            return self._query_official_user_bugs(
+                user,
+                scope_names=scope_names,
+                page=page,
+                page_size=page_size,
+                browse_type=browse_type,
+            )
         path = self._endpoints.user_bugs
-        if "{user}" in path:
-            path = path.format(user=self._segment(user))
-            data = self._request(
-                "GET",
-                path,
-                "query_user_bugs",
-                params={"page": page, "pageSize": page_size},
-            )
+        params: dict[str, Any] = {"page": page, "pageSize": page_size}
+        if scope_names:
+            params["scopeNames"] = list(scope_names)
+        data = self._request(
+            "GET",
+            path.format(user=self._segment(user)),
+            operation,
+            params=params,
+        )
+        if "items" in data:
             items = tuple(
-                self._snapshot(item, "query_user_bugs")
-                if "items" in data
-                else self._official_snapshot(item, "query_user_bugs")
-                for item in self._bug_items(data, "query_user_bugs")
+                self._snapshot(item, operation) for item in self._items(data, operation)
             )
-            return BugPage(
-                items=items,
-                coverage=self._trusted_coverage(data, page, page_size, len(items)),
+        elif "bugs" in data:
+            bugs = data.get("bugs")
+            if isinstance(bugs, Mapping):
+                bugs = [
+                    value for _, value in sorted(bugs.items(), key=lambda x: str(x[0]))
+                ]
+            if not isinstance(bugs, list) or any(
+                not isinstance(item, Mapping) for item in bugs
+            ):
+                raise ContractError(f"{operation}: invalid items")
+            items = tuple(
+                self._official_snapshot(item, operation=operation) for item in bugs
             )
-        return self._official_user_bug_page(path, user, page, page_size)
+        else:
+            raise ContractError(f"{operation}: invalid items")
+        pager = data.get("pager")
+        coverage_data = data
+        if isinstance(pager, Mapping):
+            coverage_data = {
+                **data,
+                "page": pager.get("pageID"),
+                "pageSize": pager.get("recPerPage"),
+                "total": pager.get("recTotal"),
+                "pages": pager.get("pageTotal"),
+            }
+        return BugPage(
+            items=items,
+            coverage=self._safe_query_coverage(
+                coverage_data, page, page_size, len(items)
+            ),
+        )
 
-    def _official_user_bug_page(
-        self, path: str, user: str, page: int, page_size: int
+    def _query_official_user_bugs(
+        self,
+        user: str,
+        *,
+        scope_names: tuple[str, ...],
+        page: int,
+        page_size: int,
+        browse_type: str | None,
     ) -> BugPage:
-        raw_page_size = 100
-        start = (page - 1) * page_size
-        end = start + page_size
-        matched: list[BugSnapshot] = []
-        total_known = True
-        raw_page = 1
-        raw_pages: int | None = None
-        while raw_pages is None or raw_page <= raw_pages:
+        self._validate_pagination(page, page_size)
+        operation = "query_user_bugs"
+        requested_account = self._normalized_text(user)
+        snapshots: list[BugSnapshot] = []
+        seen_ids: set[str] = set()
+        upstream_seen_ids: set[str] = set()
+        seen_pages: set[tuple[str | None, ...]] = set()
+        expected_total: int | None = None
+        expected_pages: int | None = None
+        fetched = 0
+        complete = False
+
+        for upstream_page in range(1, self._MAX_USER_BUG_PAGES + 1):
+            params: dict[str, Any] = {
+                "pageID": upstream_page,
+                "recPerPage": page_size,
+            }
+            if browse_type is not None:
+                params["browseType"] = browse_type
+            if scope_names:
+                params["scopeNames"] = list(scope_names)
             data = self._request(
                 "GET",
-                path,
-                "query_user_bugs",
-                params={
-                    "assignedTo": user,
-                    "page": raw_page,
-                    "pageSize": raw_page_size,
-                    "recPerPage": raw_page_size,
-                    "pageID": raw_page,
-                },
+                self._endpoints.user_bugs,
+                operation,
+                params=params,
             )
-            raw_items = self._bug_items(data, "query_user_bugs")
-            for item in raw_items:
-                if self._assignee_matches(data, item, user):
-                    matched.append(self._official_snapshot(item, "query_user_bugs"))
-            raw_pages = self._official_page_total(data)
-            if raw_pages is None:
-                total_known = False
-            if not raw_items or (len(matched) >= end and raw_pages is None):
+            bugs = self._official_bug_rows(data, operation)
+            page_ids = tuple(self._normalized_bug_id(item.get("id")) for item in bugs)
+            repeated = page_ids in seen_pages
+            seen_pages.add(page_ids)
+            overlaps_prior_page = any(
+                bug_id in upstream_seen_ids for bug_id in page_ids if bug_id is not None
+            )
+            upstream_seen_ids.update(
+                bug_id for bug_id in page_ids if bug_id is not None
+            )
+
+            for item in bugs:
+                assignee = self._account(item.get("assignedTo"))
+                if (
+                    assignee is None
+                    or self._normalized_text(assignee) != requested_account
+                ):
+                    continue
+                normalized_id = self._normalized_bug_id(item.get("id"))
+                if normalized_id is None:
+                    if not self._has_stable_version(item):
+                        raise ContractError(f"{operation}: missing Bug id for detail")
+                    raise ContractError(f"{operation}: invalid bug contract")
+                if normalized_id in seen_ids:
+                    continue
+                seen_ids.add(normalized_id)
+                snapshots.append(
+                    self._official_user_snapshot(
+                        item,
+                        normalized_id=normalized_id,
+                        requested_account=requested_account,
+                    )
+                )
+
+            metadata = self._official_page_metadata(
+                data,
+                requested_page=upstream_page,
+                requested_page_size=page_size,
+                count=len(bugs),
+            )
+            fetched += len(bugs)
+            if repeated or overlaps_prior_page:
                 break
-            if raw_pages is not None and raw_page >= raw_pages:
+            if metadata is None:
+                if expected_total is not None or expected_pages is not None or not bugs:
+                    break
+                continue
+            total, pages = metadata
+            if expected_total is None and expected_pages is None:
+                expected_total, expected_pages = total, pages
+            elif total != expected_total or pages != expected_pages:
                 break
-            raw_page += 1
-            if raw_page > 100:
-                total_known = False
+            if fetched > total:
                 break
-        total = len(matched) if total_known else -1
-        pages = (
-            (total + page_size - 1) // page_size
-            if total_known and page_size > 0
-            else None
-        )
+            if fetched == total and (
+                (pages == 0 and upstream_page == 1) or upstream_page == pages
+            ):
+                complete = True
+                break
+            if upstream_page >= pages:
+                break
+
+        start = (page - 1) * page_size
+        total = len(snapshots) if complete else -1
         return BugPage(
-            items=tuple(matched[start:end]),
-            coverage=Coverage(page=page, pageSize=page_size, total=total, pages=pages),
+            items=tuple(snapshots[start : start + page_size]),
+            coverage=Coverage(
+                page=page,
+                pageSize=page_size,
+                total=total,
+                pages=(total + page_size - 1) // page_size if complete else None,
+            ),
         )
 
-    @classmethod
-    def _assignee_matches(
-        cls, data: Mapping[str, Any], bug: Mapping[str, Any], user: str
-    ) -> bool:
-        assignee = bug.get("assignedTo")
-        if not isinstance(assignee, str) or not assignee.strip():
-            return False
-        target = cls._normalized_text(user)
-        if cls._normalized_text(assignee) == target:
-            return True
-        for key in ("users", "memberPairs"):
-            pairs = data.get(key)
-            if isinstance(pairs, Mapping):
-                display = pairs.get(assignee)
-                if isinstance(display, str) and cls._normalized_text(display) == target:
-                    return True
+    @staticmethod
+    def _official_bug_rows(
+        data: Mapping[str, Any], operation: str
+    ) -> list[Mapping[str, Any]]:
+        bugs = data.get("bugs")
+        if isinstance(bugs, Mapping):
+            bugs = [
+                value
+                for _, value in sorted(bugs.items(), key=lambda item: str(item[0]))
+            ]
+        if not isinstance(bugs, list) or any(
+            not isinstance(item, Mapping) for item in bugs
+        ):
+            raise ContractError(f"{operation}: invalid items")
+        return bugs
+
+    @staticmethod
+    def _has_stable_version(data: Mapping[str, Any]) -> bool:
+        for field in ("lastEditedDate", "version"):
+            value = data.get(field)
+            if (
+                not isinstance(value, bool)
+                and isinstance(value, (str, int))
+                and str(value).strip()
+            ):
+                return True
         return False
 
-    @staticmethod
-    def _official_page_total(data: Mapping[str, Any]) -> int | None:
-        pager = data.get("pager")
-        if isinstance(pager, Mapping):
-            pages = pager.get("pageTotal")
-            if isinstance(pages, int) and not isinstance(pages, bool) and pages >= 0:
-                return pages
+    @classmethod
+    def _normalized_bug_id(cls, value: Any) -> str | None:
+        if isinstance(value, bool) or not isinstance(value, (str, int)):
             return None
-        pages = data.get("pages")
-        if isinstance(pages, int) and not isinstance(pages, bool) and pages >= 0:
-            return pages
-        return None
+        normalized = cls._normalized_text(value)
+        return normalized or None
+
+    def _official_user_snapshot(
+        self,
+        data: Mapping[str, Any],
+        *,
+        normalized_id: str,
+        requested_account: str,
+    ) -> BugSnapshot:
+        operation = "query_user_bugs"
+        if self._has_stable_version(data):
+            return self._official_snapshot(data, operation=operation)
+        try:
+            detail = self.query_bug_detail(data["id"])
+        except ContractError as error:
+            if str(error) == "query_bug_detail: missing stable version":
+                raise ContractError(
+                    f"{operation}: detail missing stable version"
+                ) from None
+            raise ContractError(f"{operation}: invalid detail snapshot") from None
+        if self._normalized_bug_id(detail.id) != normalized_id:
+            raise ContractError(f"{operation}: detail Bug id changed")
+        if (
+            detail.assignee is None
+            or self._normalized_text(detail.assignee) != requested_account
+        ):
+            raise ContractError(f"{operation}: detail assignee changed")
+        return detail
 
     @staticmethod
-    def _normalized_text(value: object) -> str:
-        return unicodedata.normalize("NFKC", str(value).strip()).casefold()
+    def _official_page_metadata(
+        data: Mapping[str, Any],
+        *,
+        requested_page: int,
+        requested_page_size: int,
+        count: int,
+    ) -> tuple[int, int] | None:
+        pager = data.get("pager")
+        if "pager" in data:
+            if not isinstance(pager, Mapping):
+                return None
+            response_page = pager.get("pageID")
+            response_page_size = pager.get("recPerPage")
+            total = pager.get("recTotal")
+            pages = pager.get("pageTotal")
+        else:
+            response_page = data.get("page")
+            response_page_size = data.get("limit", data.get("pageSize"))
+            total = data.get("total")
+            pages = data.get("pages")
+        if (
+            isinstance(response_page, bool)
+            or not isinstance(response_page, int)
+            or isinstance(response_page_size, bool)
+            or not isinstance(response_page_size, int)
+            or isinstance(total, bool)
+            or not isinstance(total, int)
+        ):
+            return None
+        if response_page < 1 or response_page_size < 1 or total < 0:
+            return None
+        calculated_pages = (total + response_page_size - 1) // response_page_size
+        if pages is None:
+            pages = calculated_pages
+        if (
+            isinstance(pages, bool)
+            or not isinstance(pages, int)
+            or pages < 0
+            or response_page != requested_page
+            or response_page_size != requested_page_size
+            or pages != calculated_pages
+        ):
+            return None
+        expected_count = min(
+            response_page_size,
+            max(total - (response_page - 1) * response_page_size, 0),
+        )
+        if count != expected_count or (pages > 0 and response_page > pages):
+            return None
+        return total, pages
+
+    @staticmethod
+    def _safe_query_coverage(
+        data: Mapping[str, Any], page: int, page_size: int, count: int
+    ) -> Coverage:
+        response_page = data.get("page")
+        response_page_size = data.get("pageSize")
+        total = data.get("total")
+        pages = data.get("pages")
+        valid_page = (
+            isinstance(response_page, int)
+            and not isinstance(response_page, bool)
+            and response_page >= 1
+        )
+        valid_page_size = (
+            isinstance(response_page_size, int)
+            and not isinstance(response_page_size, bool)
+            and response_page_size >= 1
+        )
+        valid_total: int | None = None
+        if isinstance(total, int) and not isinstance(total, bool) and total >= 0:
+            valid_total = total
+        valid_pages: int | None = None
+        if isinstance(pages, int) and not isinstance(pages, bool) and pages >= 0:
+            valid_pages = pages
+        metadata_valid = (
+            valid_page
+            and valid_page_size
+            and valid_total is not None
+            and valid_pages is not None
+            and response_page == page
+            and response_page_size == page_size
+            and valid_pages == (valid_total + page_size - 1) // page_size
+            and count == min(page_size, max(valid_total - (page - 1) * page_size, 0))
+            and (valid_pages == 0 or page <= valid_pages)
+        )
+        return Coverage(
+            page=page,
+            pageSize=page_size,
+            total=(valid_total if metadata_valid and valid_total is not None else -1),
+            pages=valid_pages if metadata_valid else None,
+        )
 
     def query_bug_detail(self, bug_id: int | str) -> BugSnapshot:
         data = self._request(
@@ -201,36 +753,64 @@ class HttpZentaoProvider:
             self._endpoints.bug_detail.format(bug_id=self._segment(bug_id)),
             "query_bug_detail",
         )
-        bug = data.get("bug")
-        if isinstance(bug, Mapping):
-            return self._official_snapshot(bug, "query_bug_detail")
+        if self._endpoints.bug_detail == "/api.php/v2/bugs/{bug_id}":
+            bug = data.get("bug")
+            if not isinstance(bug, Mapping):
+                raise ContractError("query_bug_detail: invalid bug contract")
+            return self._official_snapshot(bug, operation="query_bug_detail")
         return self._snapshot(data, "query_bug_detail")
 
     def query_bug_history(
         self, bug_id: int | str, *, page: int = 1, page_size: int = 20
     ) -> HistoryPage:
+        self._validate_pagination(page, page_size)
+        if self._endpoints.bug_history is None:
+            raise ContractError("query_bug_history: unsupported by official contract")
+        path = self._endpoints.bug_history.format(bug_id=self._segment(bug_id))
+        if self._endpoints.bug_history == "/api.php/v2/bugs/{bug_id}":
+            data = self._request("GET", path, "query_bug_history")
+            bug = data.get("bug")
+            requested_id = self._normalized_bug_id(bug_id)
+            if (
+                requested_id is None
+                or not isinstance(bug, Mapping)
+                or self._normalized_bug_id(bug.get("id")) != requested_id
+            ):
+                raise ContractError("query_bug_history: invalid bug contract")
+            all_items = tuple(
+                self._official_history(item, "query_bug_history")
+                for item in self._actions(data, "query_bug_history")
+            )
+            start = (page - 1) * page_size
+            total = len(all_items)
+            return HistoryPage(
+                items=all_items[start : start + page_size],
+                coverage=Coverage(
+                    page=page,
+                    pageSize=page_size,
+                    total=total,
+                    pages=(total + page_size - 1) // page_size,
+                ),
+            )
         data = self._request(
             "GET",
-            self._endpoints.bug_history.format(bug_id=self._segment(bug_id)),
+            path,
             "query_bug_history",
             params={"page": page, "pageSize": page_size},
         )
         items = tuple(
             self._history(x, "query_bug_history")
-            for x in self._history_items(data, "query_bug_history")
+            for x in self._items(data, "query_bug_history")
         )
         return HistoryPage(
             items=items, coverage=self._coverage(data, page, page_size, len(items))
         )
 
     def bug_statistics(self) -> BugStatistics:
-        data = self._request("GET", self._endpoints.statistics, "bug_statistics")
-        source = data.get("values", data.get("statistics", data))
-        if not isinstance(source, Mapping) or any(
-            not isinstance(v, int) for v in source.values()
-        ):
-            raise ContractError("bug_statistics: invalid response contract")
-        return BugStatistics(values=dict(source), raw=self._sanitize(data))
+        products = self._load_product_catalog(page=1, page_size=1)
+        return BugStatistics(
+            values={"validatedProducts": len(products), "complete": 0}, raw={}
+        )
 
     def add_bug_comment(
         self, bug_id: int | str, comment: str, confirm: bool, idempotency_key: str
@@ -355,22 +935,44 @@ class HttpZentaoProvider:
     def _headers(self, *, write: bool) -> dict[str, str]:
         result: dict[str, str] = {}
         mode = self._auth_mode()
-        if self._password_token is not None:
-            result["Authorization"] = f"Bearer {self._password_token}"
-            return result
-        if mode == "password" and not write and self._auth.password is not None:
-            username = self._auth.username or ""
-            token = base64.b64encode(
-                f"{username}:{self._auth.password.get_secret_value()}".encode()
-            ).decode("ascii")
-            result["Authorization"] = f"Basic {token}"
-        elif mode == "token" and (self._auth.api_token is not None or self._password_token is not None):
+        if mode == "password" and self._auth.password is not None:
+            result["Authorization"] = f"Bearer {self._ensure_password_token()}"
+        elif mode == "token" and self._auth.api_token is not None:
             result["Authorization"] = (
-                f"Bearer {self._auth.api_token.get_secret_value() if self._auth.api_token is not None else self._password_token}"
+                f"Bearer {self._auth.api_token.get_secret_value()}"
             )
         elif mode == "cookie" and self._auth.web_cookie is not None:
             result["Cookie"] = self._auth.web_cookie.get_secret_value()
         return result
+
+    @staticmethod
+    def _extract_login_token(payload: Mapping[str, Any]) -> str:
+        candidates: list[Any] = [payload.get("token")]
+        data = payload.get("data")
+        if isinstance(data, Mapping):
+            candidates.append(data.get("token"))
+        for candidate in candidates:
+            if isinstance(candidate, str) and candidate.strip():
+                return candidate
+        raise ContractError("login: missing token")
+
+    def _ensure_password_token(self) -> str:
+        if self._password_token is None:
+            assert self._auth.password is not None
+            try:
+                response = self._client.request(
+                    "POST",
+                    self._endpoints.login,
+                    json={
+                        "account": self._auth.username or "",
+                        "password": self._auth.password.get_secret_value(),
+                    },
+                )
+            except httpx.TransportError:
+                raise TransportError("login: transport failure") from None
+            payload = self._decode(response, "login")
+            self._password_token = self._extract_login_token(payload)
+        return self._password_token
 
     def _request(
         self,
@@ -381,12 +983,12 @@ class HttpZentaoProvider:
         write: bool = False,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        mode = self._auth_mode()
-        if mode == "password":
-            self._ensure_password_token()
-        kwargs["headers"] = {**self._headers(write=write), **kwargs.get("headers", {})}
+        supplied_headers = dict(kwargs.get("headers", {}))
+        kwargs["headers"] = {**self._headers(write=write), **supplied_headers}
         attempts = 1 if method != "GET" else self._max_get_retries + 1
-        for attempt in range(attempts):
+        reauthenticated = False
+        attempt = 0
+        while attempt < attempts:
             try:
                 response = self._client.request(method, path, **kwargs)
             except httpx.TransportError as exc:
@@ -398,32 +1000,36 @@ class HttpZentaoProvider:
                     isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout))
                     and attempt + 1 < attempts
                 ):
+                    attempt += 1
                     continue
                 raise TransportError(f"{operation}: transport failure") from None
+            if (
+                response.status_code in (401, 407)
+                and self._auth_mode() == "password"
+                and not reauthenticated
+            ):
+                self._password_token = None
+                refreshed_headers = {
+                    key: value
+                    for key, value in supplied_headers.items()
+                    if key.lower() != "authorization"
+                }
+                kwargs["headers"] = {
+                    **refreshed_headers,
+                    **self._headers(write=write),
+                }
+                reauthenticated = True
+                continue
             if (
                 method == "GET"
                 and response.status_code in (502, 503, 504)
                 and attempt + 1 < attempts
             ):
                 self._sleep_retry_after(response.headers.get("Retry-After"))
+                attempt += 1
                 continue
-            if response.status_code in (401, 407) and self._auth.password is not None and self._password_token is not None:
-                self._password_token = None
-                self._ensure_password_token()
-                kwargs["headers"] = {**self._headers(write=write), **kwargs.get("headers", {})}
-                response = self._client.request(method, path, **kwargs)
             return self._decode(response, operation)
         raise TransportError(f"{operation}: transport failure")
-
-    def _ensure_password_token(self) -> None:
-        if self._password_token is not None or self._auth.password is None or not self._auth.username:
-            return
-        response = self._client.post(self._endpoints.login, json={"account": self._auth.username, "password": self._auth.password.get_secret_value()})
-        data = self._decode(response, "login")
-        token = data.get("token")
-        if not isinstance(token, str) or not token.strip():
-            raise ContractError("login: missing token")
-        self._password_token = token
 
     def _decode(self, response: httpx.Response, operation: str) -> dict[str, Any]:
         request_id = response.headers.get("X-Request-Id")
@@ -483,34 +1089,29 @@ class HttpZentaoProvider:
         return items
 
     @staticmethod
-    def _bug_items(data: Mapping[str, Any], operation: str) -> list[Mapping[str, Any]]:
-        items = data.get("items")
-        bugs = data.get("bugs")
-        if items is None and bugs is None:
-            raise ContractError(f"{operation}: invalid items")
-        selected = items if items is not None else bugs
-        if isinstance(selected, Mapping):
-            selected = list(selected.values())
-        if not isinstance(selected, list) or any(
-            not isinstance(item, Mapping) for item in selected
-        ):
-            raise ContractError(f"{operation}: invalid items")
-        return selected
+    def _actions(data: Mapping[str, Any], operation: str) -> list[Mapping[str, Any]]:
+        actions = data.get("actions")
+        if isinstance(actions, Mapping):
+            items = list(actions.values())
+        elif isinstance(actions, list):
+            items = actions
+        else:
+            raise ContractError(f"{operation}: invalid actions")
+        if any(not isinstance(item, Mapping) for item in items):
+            raise ContractError(f"{operation}: invalid actions")
+        return items
 
     @staticmethod
-    def _history_items(
-        data: Mapping[str, Any], operation: str
-    ) -> list[Mapping[str, Any]]:
-        items = data.get("items")
-        actions = data.get("actions")
-        if items is None and actions is None:
-            raise ContractError(f"{operation}: invalid items")
-        selected = items if items is not None else actions
-        if not isinstance(selected, list) or any(
-            not isinstance(item, Mapping) for item in selected
+    def _validate_pagination(page: int, page_size: int) -> None:
+        if (
+            isinstance(page, bool)
+            or not isinstance(page, int)
+            or page < 1
+            or isinstance(page_size, bool)
+            or not isinstance(page_size, int)
+            or not 1 <= page_size <= 1000
         ):
-            raise ContractError(f"{operation}: invalid items")
-        return selected
+            raise ValueError("invalid pagination")
 
     @classmethod
     def _snapshot(cls, data: Mapping[str, Any], operation: str) -> BugSnapshot:
@@ -530,34 +1131,27 @@ class HttpZentaoProvider:
             raise ContractError(f"{operation}: invalid bug contract") from None
 
     @classmethod
-    def _official_snapshot(
-        cls, data: Mapping[str, Any], operation: str
-    ) -> BugSnapshot:
-        version = data.get("lastEditedDate") or data.get("version")
-        if version is None or not str(version).strip():
-            raise ContractError(f"{operation}: missing stable version")
-        normalized = {
-            "id": data.get("id"),
-            "status": data.get("status"),
-            "title": data.get("title", ""),
-            "steps": data.get("steps", ""),
-            "creator": data.get("openedBy"),
-            "assignee": data.get("assignedTo"),
-            "version": str(version).strip(),
-            "snapshotVersion": str(version).strip(),
-            "raw": cls._sanitize(data),
-        }
-        try:
-            return BugSnapshot.model_validate(normalized)
-        except Exception:
-            raise ContractError(f"{operation}: invalid bug contract") from None
-
-    @classmethod
     def _history(cls, data: Mapping[str, Any], operation: str) -> BugHistoryEntry:
         try:
             return BugHistoryEntry(**data, raw=cls._sanitize(data))
         except Exception:
             raise ContractError(f"{operation}: invalid history contract") from None
+
+    @classmethod
+    def _official_history(
+        cls, data: Mapping[str, Any], operation: str
+    ) -> BugHistoryEntry:
+        identifier = data.get("id")
+        action = data.get("action")
+        if (
+            isinstance(identifier, bool)
+            or not isinstance(identifier, (str, int))
+            or not str(identifier).strip()
+            or not isinstance(action, str)
+            or not action.strip()
+        ):
+            raise ContractError(f"{operation}: invalid history contract")
+        return cls._history(data, operation)
 
     @staticmethod
     def _coverage(
@@ -568,50 +1162,6 @@ class HttpZentaoProvider:
             pageSize=data.get("pageSize", page_size),
             total=data.get("total", count),
             pages=data.get("pages"),
-        )
-
-    @staticmethod
-    def _trusted_coverage(
-        data: Mapping[str, Any], page: int, page_size: int, count: int
-    ) -> Coverage:
-        reported_page = data.get("page", page)
-        reported_page_size = data.get("pageSize", page_size)
-        total = data.get("total", count)
-        pages = data.get("pages")
-        if (
-            isinstance(reported_page, bool)
-            or not isinstance(reported_page, int)
-            or reported_page < 1
-        ):
-            reported_page = page
-        if (
-            isinstance(reported_page_size, bool)
-            or not isinstance(reported_page_size, int)
-            or reported_page_size < 1
-        ):
-            reported_page_size = page_size
-        if isinstance(total, bool) or not isinstance(total, int) or total < count:
-            total = -1
-            pages = None
-        elif (
-            pages is not None
-            and (
-                isinstance(pages, bool)
-                or not isinstance(pages, int)
-                or pages < 0
-                or (
-                    reported_page_size > 0
-                    and pages != (total + reported_page_size - 1) // reported_page_size
-                )
-            )
-        ):
-            total = -1
-            pages = None
-        return Coverage(
-            page=reported_page,
-            pageSize=reported_page_size,
-            total=total,
-            pages=pages,
         )
 
     @staticmethod

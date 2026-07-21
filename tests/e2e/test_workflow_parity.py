@@ -236,7 +236,15 @@ class RecordingProvider:
         self.calls.append(("mine", tuple(scope_names)))
         return BugPage(items=(self._snapshot(7),), coverage=Coverage(total=1))
 
-    def query_user_bugs(self, user, *, scope_names, page=1, page_size=20):
+    def query_user_bugs(
+        self,
+        user,
+        *,
+        scope_names,
+        page=1,
+        page_size=20,
+        browse_type=None,
+    ):
         self.calls.append(("team", user, tuple(scope_names)))
         return BugPage(items=(self._snapshot(7),), coverage=Coverage(total=1))
 

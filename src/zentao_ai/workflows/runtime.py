@@ -1,12 +1,15 @@
 from __future__ import annotations
 from collections.abc import Callable, Iterator
 from typing import Any
+from zentao_ai.routing.models import BugSnapshot as RoutingSnapshot
+from zentao_ai.routing.router import route_bug
 from zentao_ai.zentao.models import BugPage, HistoryPage
 from zentao_ai.state.models import RunStatus
 from .analysis import analyze_bug
 from .models import (
     AnalysisPhase,
     BugRunResult,
+    Decision,
     Failure,
     RunContext,
     RunResult,
@@ -74,9 +77,19 @@ def execute_read_workflow(
     failures: list[Failure] = []
     seen: set[str] = set()
     discovered = 0
+    routing_incomplete = False
     try:
 
         def personal_source(page: int, page_size: int) -> BugPage:
+            account = context.config.zentao.account
+            if account:
+                return context.provider.query_user_bugs(
+                    account,
+                    scope_names=(),
+                    page=page,
+                    page_size=page_size,
+                    browse_type="assigntome",
+                )
             return context.provider.query_my_bugs(
                 scope_names=scope_names, page=page, page_size=page_size
             )
@@ -97,8 +110,9 @@ def execute_read_workflow(
         total = 0
         total_known = True
         limit = context.config.limits.maxBugsPerRun
+        discovery_page_size = min(20, limit)
         for source in sources:
-            first_page = source(1, min(100, max(1, limit - discovered)))
+            first_page = source(1, discovery_page_size)
             if first_page.coverage.total < len(first_page.items):
                 total_known = False
             else:
@@ -130,19 +144,62 @@ def execute_read_workflow(
                     discovered += 1
                     try:
                         detail = context.provider.query_bug_detail(key)
-                        history = _history(context, key)
+                        history_failed = False
+                        try:
+                            history = _history(context, key)
+                        except (KeyboardInterrupt, SystemExit):
+                            raise
+                        except Exception as exc:
+                            history = ()
+                            history_failed = True
+                            failures.append(Failure(key, type(exc).__name__, str(exc)))
                         signal = (
                             context.analysis(detail, history, AnalysisPhase.FINAL)
                             if context.analysis
                             else None
                         )
+                        provider_routing = detail.routing
+                        selected_repository: str | None
+                        if (
+                            provider_routing is not None
+                            and provider_routing.selected_repository is not None
+                        ):
+                            selected_repository = provider_routing.selected_repository
+                            layer = provider_routing.layer
+                            candidates = provider_routing.repositories
+                            matched_keywords = provider_routing.matched_keywords
+                        else:
+                            routing = route_bug(
+                                RoutingSnapshot(
+                                    identifier=key,
+                                    title=detail.title,
+                                    description=detail.steps,
+                                ),
+                                context.config,
+                            )
+                            selected_repository = routing.selectedRepository
+                            layer = routing.layer
+                            candidates = tuple(routing.candidates)
+                            matched_keywords = tuple(routing.matchedKeywords)
+                        decision = analyze_bug(
+                            detail, history, AnalysisPhase.FINAL, signal=signal
+                        ).decision
+                        routing_status = "ROUTED" if selected_repository else "UNKNOWN"
+                        if history_failed or (
+                            kind == "personal" and selected_repository is None
+                        ):
+                            routing_incomplete = True
+                            decision = Decision.NEEDS_ENGINEER_REVIEW
                         results.append(
                             BugRunResult(
                                 key,
                                 detail.snapshot_version,
-                                analyze_bug(
-                                    detail, history, AnalysisPhase.FINAL, signal=signal
-                                ).decision,
+                                decision,
+                                selectedRepository=selected_repository,
+                                layer=layer,
+                                candidates=candidates,
+                                matchedKeywords=matched_keywords,
+                                routingStatus=routing_status,
                             )
                         )
                     except (KeyboardInterrupt, SystemExit):
@@ -152,9 +209,13 @@ def execute_read_workflow(
                 page_number += 1
                 if not page.items or page_number > page_count or discovered >= limit:
                     break
-                page = source(page_number, min(100, limit - discovered))
+                page = source(page_number, discovery_page_size)
         truncated = (not total_known) or total > discovered
-        completeness = "COMPLETE" if not failures and not truncated else "PARTIAL"
+        completeness = (
+            "COMPLETE"
+            if not failures and not truncated and not routing_incomplete
+            else "PARTIAL"
+        )
         result = RunResult(
             str(business),
             cutoff,
