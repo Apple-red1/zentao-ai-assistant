@@ -362,6 +362,145 @@ def test_query_user_bugs_retains_valid_official_rows_when_matching_rows_are_malf
     assert result.coverage.pages == 1
 
 
+def _twenty_one_outcome_transport(
+    requested_pages: list[int],
+) -> httpx.MockTransport:
+    def handle(request: httpx.Request) -> httpx.Response:
+        requested_page = int(request.url.params["pageID"])
+        requested_pages.append(requested_page)
+        rows = (
+            [
+                {
+                    "id": True,
+                    "status": "active",
+                    "assignedTo": "xuli",
+                    "lastEditedDate": "invalid-id",
+                },
+                *[
+                    {
+                        "id": bug_id,
+                        "status": "active",
+                        "assignedTo": "xuli",
+                        "lastEditedDate": f"v{bug_id}",
+                    }
+                    for bug_id in range(2, 21)
+                ],
+            ]
+            if requested_page == 1
+            else [
+                {
+                    "id": 21,
+                    "status": "active",
+                    "assignedTo": "xuli",
+                    "lastEditedDate": "v21",
+                }
+            ]
+        )
+        return httpx.Response(
+            200,
+            json={
+                "bugs": rows,
+                "pager": {
+                    "pageID": requested_page,
+                    "recPerPage": 20,
+                    "recTotal": 21,
+                    "pageTotal": 2,
+                },
+            },
+        )
+
+    return httpx.MockTransport(handle)
+
+
+def test_query_user_bugs_slices_ordered_partial_outcomes_before_page_one_counts() -> (
+    None
+):
+    requested_pages: list[int] = []
+    result = provider(
+        _twenty_one_outcome_transport(requested_pages),
+        endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs"),
+    ).query_user_bugs("xuli", page=1, page_size=20)
+
+    assert requested_pages == [1, 2]
+    assert [item.id for item in result.items] == list(range(2, 21))
+    assert [failure.code for failure in result.item_failures] == [
+        "INVALID_BUG_CONTRACT"
+    ]
+    assert result.coverage.model_dump(by_alias=True) == {
+        "page": 1,
+        "pageSize": 20,
+        "total": 21,
+        "pages": 2,
+        "returned": 19,
+        "failed": 1,
+        "complete": False,
+    }
+
+
+def test_query_user_bugs_direct_page_two_does_not_repeat_page_one_failure() -> None:
+    requested_pages: list[int] = []
+    result = provider(
+        _twenty_one_outcome_transport(requested_pages),
+        endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs"),
+    ).query_user_bugs("xuli", page=2, page_size=20)
+
+    assert requested_pages == [1, 2]
+    assert [item.id for item in result.items] == [21]
+    assert result.item_failures == ()
+    assert result.coverage.model_dump(by_alias=True) == {
+        "page": 2,
+        "pageSize": 20,
+        "total": 21,
+        "pages": 2,
+        "returned": 1,
+        "failed": 0,
+        "complete": False,
+    }
+
+
+def test_query_user_bugs_same_page_duplicate_ids_fail_closed() -> None:
+    requested_pages: list[int] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requested_pages.append(int(request.url.params["pageID"]))
+        return httpx.Response(
+            200,
+            json={
+                "bugs": [
+                    {
+                        "id": 7,
+                        "status": "active",
+                        "assignedTo": "xuli",
+                        "lastEditedDate": "v7",
+                    },
+                    {
+                        "id": 7,
+                        "status": "active",
+                        "assignedTo": "xuli",
+                        "lastEditedDate": "v7-duplicate",
+                    },
+                ],
+                "pager": {
+                    "pageID": 1,
+                    "recPerPage": 20,
+                    "recTotal": 2,
+                    "pageTotal": 1,
+                },
+            },
+        )
+
+    result = provider(
+        httpx.MockTransport(handle),
+        endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs"),
+    ).query_user_bugs("xuli", page_size=20)
+
+    assert requested_pages == [1]
+    assert [item.id for item in result.items] == [7]
+    assert result.coverage.total == -1
+    assert result.coverage.pages is None
+    assert result.coverage.complete is False
+
+
 @pytest.mark.parametrize(
     ("detail_response", "message"),
     [

@@ -73,3 +73,62 @@ performed.
   comment authorization gates were not relaxed.
 - Confirmed no delete, state-transition, assignee, commit, push, merge, deploy,
   checkout, or reset capability was added or invoked.
+
+## Final Fix — Ordered Pagination Follow-up
+
+### Scope completed
+
+- Official assignee scans now retain one ordered sequence of matching
+  `BugSnapshot | ItemFailure` outcomes. The requested page is sliced from that
+  sequence before successes and failures are separated.
+- `coverage.returned` and `coverage.failed` are explicitly page-local.
+  Trustworthy `coverage.total` and `coverage.pages` describe the global matching
+  outcome sequence, while `coverage.complete` describes the global scan and is
+  false when any outcome failed.
+- A failure on page 1 is no longer repeated in page 2 `itemFailures`, and a
+  valid candidate following that failure remains reachable by direct page 2
+  retrieval.
+- Duplicate normalized IDs within one upstream page now make pagination
+  cardinality untrustworthy (`total=-1`, `pages=null`, `complete=false`) instead
+  of being silently reported as a complete deduplicated result.
+
+No write, repository, authorization, routing, snapshot, history, diff, Git, or
+deployment gate changed. No live Zentao or external repository operation was
+performed.
+
+### TDD evidence
+
+- RED command:
+  `.venv\Scripts\python.exe -m pytest -q tests/integration/zentao/test_http_provider.py::test_query_user_bugs_slices_ordered_partial_outcomes_before_page_one_counts tests/integration/zentao/test_http_provider.py::test_query_user_bugs_direct_page_two_does_not_repeat_page_one_failure tests/integration/zentao/test_http_provider.py::test_query_user_bugs_same_page_duplicate_ids_fail_closed`
+  -> `3 failed`. The failures showed page 1 leaking ID 21 across the outcome
+  boundary, direct page 2 returning no items, and a same-page duplicate being
+  reported as `total=1`, `complete=true`.
+- GREEN with the same focused command -> `3 passed in 0.39s`.
+- Affected-suite GREEN:
+  `.venv\Scripts\python.exe -m pytest -q tests/integration/zentao/test_http_provider.py tests/contract/test_mcp_tools.py tests/unit/zentao/test_models.py`
+  -> `197 passed in 1.51s`.
+
+### Final verification
+
+- `.venv\Scripts\python.exe -m pytest -q` ->
+  `636 passed, 3 skipped, 35 subtests passed in 59.28s`.
+- `.venv\Scripts\python.exe -m ruff check src tests` -> `All checks passed!`.
+- `.venv\Scripts\python.exe -m mypy src` ->
+  `Success: no issues found in 57 source files`.
+- `git diff --check` -> clean.
+
+### Self-review
+
+- Confirmed every matching row yields an ordered snapshot or failure before
+  page slicing, except duplicate IDs whose presence explicitly invalidates
+  cardinality and whose later copies remain deduplicated.
+- Confirmed page 1 contains one failure plus 19 successes for the 21-outcome
+  regression, while direct page 2 contains only Bug 21 with `failed=0` and no
+  repeated `itemFailures`; both retain global `total=21`, `pages=2`, and
+  `complete=false`.
+- Confirmed same-page and cross-page duplicate IDs both fail closed without
+  publishing trusted total/page cardinality.
+- Confirmed authentication, permission, request, envelope, detail-request, and
+  untrustworthy-pagination failures remain outside the row-isolation boundary.
+- Confirmed prior routing, public-error, identity, plugin wording, and all
+  existing write/safety-gate fixes remain intact.

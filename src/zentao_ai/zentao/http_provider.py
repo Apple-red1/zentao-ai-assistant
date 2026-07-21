@@ -536,8 +536,7 @@ class HttpZentaoProvider:
     ) -> BugPage:
         self._validate_pagination(page, page_size)
         operation = "query_user_bugs"
-        snapshots: list[BugSnapshot] = []
-        item_failures: list[ItemFailure] = []
+        outcomes: list[BugSnapshot | ItemFailure] = []
         seen_ids: set[str] = set()
         upstream_seen_ids: set[str] = set()
         seen_pages: set[tuple[str | None, ...]] = set()
@@ -573,6 +572,10 @@ class HttpZentaoProvider:
                 page_identity = resolved_identity
             bugs = self._official_bug_rows(data, operation)
             page_ids = tuple(self._normalized_bug_id(item.get("id")) for item in bugs)
+            valid_page_ids = tuple(
+                bug_id for bug_id in page_ids if bug_id is not None
+            )
+            same_page_duplicate = len(valid_page_ids) != len(set(valid_page_ids))
             repeated = page_ids in seen_pages
             seen_pages.add(page_ids)
             overlaps_prior_page = any(
@@ -601,11 +604,13 @@ class HttpZentaoProvider:
                     continue
                 snapshot, failure = self._snapshot_or_failure(item, operation)
                 if failure is not None:
-                    item_failures.append(failure)
+                    outcomes.append(failure)
+                    if normalized_id is not None:
+                        seen_ids.add(normalized_id)
                     continue
                 assert snapshot is not None and normalized_id is not None
                 seen_ids.add(normalized_id)
-                snapshots.append(snapshot)
+                outcomes.append(snapshot)
 
             metadata = self._official_page_metadata(
                 data,
@@ -614,7 +619,7 @@ class HttpZentaoProvider:
                 count=len(bugs),
             )
             fetched += len(bugs)
-            if repeated or overlaps_prior_page:
+            if same_page_duplicate or repeated or overlaps_prior_page:
                 break
             if metadata is None:
                 if not bugs:
@@ -639,10 +644,20 @@ class HttpZentaoProvider:
                 break
 
         start = (page - 1) * page_size
+        page_outcomes = outcomes[start : start + page_size]
+        items = tuple(
+            outcome for outcome in page_outcomes if isinstance(outcome, BugSnapshot)
+        )
+        item_failures = tuple(
+            outcome for outcome in page_outcomes if isinstance(outcome, ItemFailure)
+        )
         pagination_complete = complete
-        complete = pagination_complete and not item_failures
-        total = len(snapshots) + len(item_failures) if pagination_complete else -1
-        items = tuple(snapshots[start : start + page_size])
+        complete = pagination_complete and not any(
+            isinstance(outcome, ItemFailure) for outcome in outcomes
+        )
+        total = len(outcomes) if pagination_complete else -1
+        # returned/failed describe this requested page; total/pages/complete
+        # describe the globally scanned matching outcome sequence.
         return BugPage(
             items=items,
             coverage=Coverage(
@@ -656,7 +671,7 @@ class HttpZentaoProvider:
                 failed=len(item_failures),
                 complete=complete,
             ),
-            itemFailures=tuple(item_failures),
+            itemFailures=item_failures,
             resolvedIdentity=resolved_identity,
         )
 
