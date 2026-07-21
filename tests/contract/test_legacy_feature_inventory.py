@@ -51,6 +51,29 @@ class LegacyFeatureInventoryTests(unittest.TestCase):
         ):
             self.assertIn(phrase, text)
 
+    def test_ad_hoc_query_and_routing_contracts_remain_explicit(self):
+        expected = {
+            "SKILL.md": (
+                "`team.members` controls `team-report` only",
+                "`session-visible` is an explicit read-only query",
+                "`confidence=high` with exactly one candidate",
+            ),
+            "team-bug-report.md": (
+                "`scopeMode=team-report` is reserved for team reports",
+                "Temporary query results are never included directly in a team report",
+                "Any `itemFailures` entry makes the affected member and overall report partial",
+            ),
+            "personal-bug-agent.md": (
+                "`session-visible` results are never promoted into a personal report",
+                "Only high-confidence unique routing may enter the existing repository gates",
+            ),
+        }
+        for filename, phrases in expected.items():
+            text = (SKILL_ROOT / filename).read_text(encoding="utf-8")
+            for phrase in phrases:
+                with self.subTest(filename=filename, phrase=phrase):
+                    self.assertIn(phrase, text)
+
     def test_every_legacy_feature_has_concrete_contract_evidence(self):
         self.assertEqual(set(EVIDENCE), set(LEGACY_FEATURES))
         for feature, (filename, phrases) in EVIDENCE.items():

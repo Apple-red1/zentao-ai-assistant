@@ -20,6 +20,8 @@
 
 旧 MCP 签名、版本缺失、配置错误、范围零/多匹配或门禁失败时，只生成失败关闭报告，不修改代码、不添加评论。
 
+`session-visible` results are never promoted into a personal report; they remain explicit, read-only, and limited by the current Zentao session's permissions.
+
 ## 执行流程
 
 1. 个人发现以 `mcp__zentao__query_my_bugs` 为主工具，由内部解析配置的负责人身份，默认 `status=unclosed`，不得扩大到其他人，也不得依赖产品目录。可选业务过滤只匹配标题开头精确的全角标签（例如 `【AI建站】`）；必须如实保存总数、分页、截断和完整性。`personal.scopeNames` 不用于扩大或裁剪个人候选；团队流程仍按配置传递 `team.scopeNames`。
@@ -99,6 +101,7 @@ Protected tool names: `update_bug_steps`, `update_bug_steps_with_image`.
 - This exception does not permit Bug deletion; `delete_bug`, `remove_bug`, and equivalent permanent deletion remain absolutely forbidden.
 
 - Read `bug.routing` from every structured Bug snapshot before calling `direct-branch-guard.py`; do not require product/project names to be populated when the MCP routing evidence is high-confidence.
+- Only high-confidence unique routing may enter the existing repository gates: the single candidate must equal `selectedRepository`; every branch, lease, clean-worktree, whitelist, and snapshot gate remains mandatory.
 - Use the synthetic canonical mapping `example-web` = site frontend, `example-api` = site backend, `example-ai-web` = AI-site frontend, `example-ai-api` = AI-site backend. Synthetic site markers are `Example Site Admin` and `Example CMS`; the synthetic AI marker is `Example AI Builder`. Style/page/button/layout/interaction/link/click/login-page keywords mean frontend; API/service/database/permission/backend keywords mean backend.
 - BUG-1001 must route to `example-web`; BUG-1002 must route to `example-ai-web`.
 - A blocked code path is not a no-comment path. `NEEDS_REPORTER_INFO`, `NEEDS_ENGINEER_REVIEW`, and `TOOL_OR_PERMISSION_GAP` may each render one reporter-information comment when the real creator, stable snapshot, structured history, cooldown, and deterministic idempotency key are available. The comment must explain the block, state that code and Bug state are unchanged, and call `add_bug_comment` with `purpose=reporter-info`, `confirm:true`, and the fixed key.

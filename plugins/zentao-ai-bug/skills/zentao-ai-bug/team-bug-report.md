@@ -12,6 +12,8 @@
 
 团队模式要求组长和至少一个成员的可解析禅道账号、用户名或真实姓名。身份映射不唯一、成员重复、范围为空、接收者未授权或自研 MCP 缺少分页完整性时失败关闭完整报告声明；仍可输出字段级错误或已取得的部分结果。
 
+`scopeMode=team-report` is reserved for team reports and uses only configured `team.members` and `team.scopeNames`. Temporary query results are never included directly in a team report; only the validated member rows and their structured snapshots are report inputs. Any `itemFailures` entry makes the affected member and overall report partial.
+
 取得 `team:<businessDate>` 任务租约并固定 `snapshotCutoff`。当天 outbox 已存在时复用原始渲染内容，不重新查询并改变历史日报。
 
 ## 执行流程

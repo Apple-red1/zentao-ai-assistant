@@ -360,6 +360,26 @@ def test_query_user_bugs_session_visible_uses_explicit_user_without_team_scope()
     assert tools.runtime.config.model_dump() == config_before
 
 
+def test_query_user_bugs_keeps_team_report_and_session_visible_contracts_separate() -> (
+    None
+):
+    provider = AssigneeProvider()
+    tools = ZentaoTools(runtime(provider))
+
+    team_result = tools.call("query_user_bugs", {"user": "alice", "status": "unclosed"})
+    session_result = tools.call(
+        "query_user_bugs",
+        {"user": "周海韵", "scopeMode": "session-visible", "status": "unclosed"},
+    )
+
+    assert [item["id"] for item in team_result["data"]["items"]] == [2537, 3397]
+    assert [item["id"] for item in session_result["data"]["items"]] == [2537, 3397]
+    assert provider.calls == [
+        ("user", "alice", {"scope_names": ("team",), "page": 1, "page_size": 20}),
+        ("user", "周海韵", {"scope_names": (), "page": 1, "page_size": 20}),
+    ]
+
+
 def test_query_user_bugs_keeps_partial_metadata_after_status_filtering() -> None:
     provider = AssigneeProvider()
     provider.query_user_bugs = lambda user, **kwargs: BugPage(  # type: ignore[method-assign]
@@ -420,6 +440,7 @@ def test_query_user_bugs_keeps_partial_metadata_after_status_filtering() -> None
         "complete": False,
     }
     assert data["itemFailures"][0]["bugId"] == "3398"
+    assert data["itemFailures"][0]["code"] == "MISSING_STABLE_VERSION"
     assert data["resolvedIdentity"]["resolvedAccount"] == "zhouhaiyun"
 
 

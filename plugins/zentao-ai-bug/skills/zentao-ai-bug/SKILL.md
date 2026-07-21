@@ -24,6 +24,8 @@ description: Use when 需要处理禅道 Zentao 个人 Bug、生成团队或每�
 
 这里使用的是团队自研禅道 MCP Server，注册前缀为 `mcp__zentao__`，不是禅道自带功能。运行时必须确认它已暴露结构化快照、结构化历史和幂等评论契约。自研 MCP 返回的稳定字段 `version` 必须规范化为 Skill 内部 `snapshotVersion`；没有稳定版本时禁止副作用。旧版或能力不明的 MCP 只能查询并报告能力缺口，不修改代码、不添加评论。
 
+`team.members` controls `team-report` only. `session-visible` is an explicit read-only query limited by the current Zentao session's permissions; it does not expand team membership or authorize a report. Repository preflight may proceed only with `confidence=high` with exactly one candidate equal to the selected repository; all existing repository gates still apply.
+
 ## 执行流程
 
 1. 校验配置并取得北京时间业务日期；获取任务租约。同一业务日期已有有效租约时退出，禁止重入。
