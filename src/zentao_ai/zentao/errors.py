@@ -17,6 +17,14 @@ class ContractError(ZentaoError):
     pass
 
 
+class IdentityNotFoundError(ContractError):
+    pass
+
+
+class AmbiguousIdentityError(ContractError):
+    pass
+
+
 class TransportError(ZentaoError):
     pass
 

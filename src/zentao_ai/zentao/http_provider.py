@@ -12,8 +12,10 @@ from urllib.parse import quote
 import httpx
 
 from .errors import (
+    AmbiguousIdentityError,
     AuthenticationError,
     ContractError,
+    IdentityNotFoundError,
     PermissionDeniedError,
     TransportError,
     UnknownWriteResultError,
@@ -26,6 +28,8 @@ from .models import (
     CommentWriteResult,
     Coverage,
     HistoryPage,
+    ItemFailure,
+    ResolvedIdentity,
     StepUpdateResult,
     ZentaoAuth,
     ZentaoEndpoints,
@@ -357,38 +361,6 @@ class HttpZentaoProvider:
         return tuple(result)
 
     @classmethod
-    def _member_pair_aliases(cls, data: Mapping[str, Any], user: str) -> tuple[str, ...]:
-        requested = cls._normalized_text(user)
-        pairs = data.get("memberPairs")
-        aliases: list[str] = []
-        seen: set[str] = {requested}
-
-        def add(value: Any) -> None:
-            if isinstance(value, bool) or not isinstance(value, (str, int)):
-                return
-            normalized = cls._normalized_text(value)
-            if normalized and normalized not in seen:
-                seen.add(normalized)
-                aliases.append(normalized)
-
-        if isinstance(pairs, Mapping):
-            for account, display in pairs.items():
-                account_norm = cls._normalized_text(account)
-                display_norm = cls._normalized_text(display)
-                if requested in {account_norm, display_norm}:
-                    add(account)
-                    add(display)
-        elif isinstance(pairs, list):
-            for item in pairs:
-                if not isinstance(item, Mapping):
-                    continue
-                values = cls._identity_values(item)
-                if requested in values:
-                    for key in ("account", "realname", "realName", "name", "displayName"):
-                        add(item.get(key))
-        return tuple(aliases)
-
-    @classmethod
     def _official_snapshot(
         cls, data: Mapping[str, Any], operation: str = "query_my_bugs"
     ) -> BugSnapshot:
@@ -554,9 +526,8 @@ class HttpZentaoProvider:
     ) -> BugPage:
         self._validate_pagination(page, page_size)
         operation = "query_user_bugs"
-        requested_account = self._normalized_text(user)
-        requested_aliases: set[str] = {requested_account}
         snapshots: list[BugSnapshot] = []
+        item_failures: list[ItemFailure] = []
         seen_ids: set[str] = set()
         upstream_seen_ids: set[str] = set()
         seen_pages: set[tuple[str | None, ...]] = set()
@@ -564,6 +535,7 @@ class HttpZentaoProvider:
         expected_pages: int | None = None
         fetched = 0
         complete = False
+        resolved_identity: ResolvedIdentity | None = None
 
         for upstream_page in range(1, self._MAX_USER_BUG_PAGES + 1):
             params: dict[str, Any] = {
@@ -580,7 +552,12 @@ class HttpZentaoProvider:
                 operation,
                 params=params,
             )
-            requested_aliases.update(self._member_pair_aliases(data, user))
+            if resolved_identity is None or "memberPairs" in data:
+                page_identity = self._resolve_member_identity(data, user)
+                if resolved_identity is None:
+                    resolved_identity = page_identity
+            else:
+                page_identity = resolved_identity
             bugs = self._official_bug_rows(data, operation)
             page_ids = tuple(self._normalized_bug_id(item.get("id")) for item in bugs)
             repeated = page_ids in seen_pages
@@ -592,6 +569,10 @@ class HttpZentaoProvider:
                 bug_id for bug_id in page_ids if bug_id is not None
             )
 
+            expected_identities = {
+                self._normalized_text(page_identity.resolved_account or ""),
+                self._normalized_text(page_identity.resolved_display_name or ""),
+            }
             for item in bugs:
                 assignee = self._account(item.get("assignedTo"))
                 assignee_identities = set(self._identity_values(item.get("assignedTo")))
@@ -599,25 +580,19 @@ class HttpZentaoProvider:
                     assignee_identities.add(self._normalized_text(assignee))
                 if (
                     assignee is None
-                    or assignee_identities.isdisjoint(requested_aliases)
+                    or assignee_identities.isdisjoint(expected_identities)
                 ):
                     continue
-                expected_account = self._normalized_text(assignee)
                 normalized_id = self._normalized_bug_id(item.get("id"))
-                if normalized_id is None:
-                    if not self._has_stable_version(item):
-                        raise ContractError(f"{operation}: missing Bug id for detail")
-                    raise ContractError(f"{operation}: invalid bug contract")
-                if normalized_id in seen_ids:
+                if normalized_id is not None and normalized_id in seen_ids:
                     continue
+                snapshot, failure = self._snapshot_or_failure(item, operation)
+                if failure is not None:
+                    item_failures.append(failure)
+                    continue
+                assert snapshot is not None and normalized_id is not None
                 seen_ids.add(normalized_id)
-                snapshots.append(
-                    self._official_user_snapshot(
-                        item,
-                        normalized_id=normalized_id,
-                        requested_account=expected_account,
-                    )
-                )
+                snapshots.append(snapshot)
 
             metadata = self._official_page_metadata(
                 data,
@@ -651,6 +626,7 @@ class HttpZentaoProvider:
                 break
 
         start = (page - 1) * page_size
+        complete = complete and not item_failures
         total = len(snapshots) if complete else -1
         items = tuple(snapshots[start : start + page_size])
         return BugPage(
@@ -661,12 +637,78 @@ class HttpZentaoProvider:
                 total=total,
                 pages=(total + page_size - 1) // page_size if complete else None,
                 returned=len(items),
-                failed=0,
+                failed=len(item_failures),
                 complete=complete,
             ),
-            itemFailures=(),
-            resolvedIdentity=None,
+            itemFailures=tuple(item_failures),
+            resolvedIdentity=resolved_identity,
         )
+
+    @classmethod
+    def _resolve_member_identity(
+        cls, data: Mapping[str, Any], requested: str
+    ) -> ResolvedIdentity:
+        requested_normalized = cls._normalized_text(requested)
+        pairs = data.get("memberPairs")
+        if not isinstance(pairs, (Mapping, list)):
+            return ResolvedIdentity(
+                requestedIdentity=requested,
+                resolvedAccount=requested.strip(),
+                resolvedDisplayName=None,
+                matchType="account",
+            )
+
+        members: list[tuple[str, str, str | None]] = []
+        if isinstance(pairs, Mapping):
+            for account, display_name in pairs.items():
+                account_value = cls._catalog_text(account)
+                display_value = cls._catalog_text(display_name)
+                if account_value is not None:
+                    members.append((account_value, cls._normalized_text(account_value), display_value))
+        else:
+            for pair in pairs:
+                if not isinstance(pair, Mapping):
+                    continue
+                account_value = cls._account(pair)
+                if account_value is None:
+                    continue
+                display_value = next(
+                    (
+                        cls._catalog_text(pair.get(field))
+                        for field in ("realname", "realName", "name", "displayName")
+                        if cls._catalog_text(pair.get(field)) is not None
+                    ),
+                    None,
+                )
+                members.append((account_value, cls._normalized_text(account_value), display_value))
+
+        account_matches = [member for member in members if member[1] == requested_normalized]
+        if len(account_matches) == 1:
+            account, _, display_name = account_matches[0]
+            return ResolvedIdentity(
+                requestedIdentity=requested,
+                resolvedAccount=account,
+                resolvedDisplayName=display_name,
+                matchType="account",
+            )
+
+        display_matches = [
+            member
+            for member in members
+            if member[2] is not None
+            and cls._normalized_text(member[2]) == requested_normalized
+        ]
+        if len(display_matches) == 1:
+            account, _, display_name = display_matches[0]
+            return ResolvedIdentity(
+                requestedIdentity=requested,
+                resolvedAccount=account,
+                resolvedDisplayName=display_name,
+                matchType="display_name",
+            )
+        if len(display_matches) > 1:
+            raise AmbiguousIdentityError("query_user_bugs: ambiguous display name")
+        raise IdentityNotFoundError("query_user_bugs: identity not found")
 
     @staticmethod
     def _official_bug_rows(
@@ -713,14 +755,7 @@ class HttpZentaoProvider:
         operation = "query_user_bugs"
         if self._has_stable_version(data):
             return self._official_snapshot(data, operation=operation)
-        try:
-            detail = self.query_bug_detail(data["id"])
-        except ContractError as error:
-            if str(error) == "query_bug_detail: missing stable version":
-                raise ContractError(
-                    f"{operation}: detail missing stable version"
-                ) from None
-            raise ContractError(f"{operation}: invalid detail snapshot") from None
+        detail = self.query_bug_detail(data["id"])
         if self._normalized_bug_id(detail.id) != normalized_id:
             raise ContractError(f"{operation}: detail Bug id changed")
         if (
@@ -729,6 +764,57 @@ class HttpZentaoProvider:
         ):
             raise ContractError(f"{operation}: detail assignee changed")
         return detail
+
+    def _snapshot_or_failure(
+        self, item: Mapping[str, Any], operation: str
+    ) -> tuple[BugSnapshot | None, ItemFailure | None]:
+        normalized_id = self._normalized_bug_id(item.get("id"))
+        if normalized_id is None:
+            return None, ItemFailure(
+                bugId=None,
+                code="INVALID_BUG_CONTRACT",
+                field="id",
+                message="invalid bug contract",
+            )
+        if self._has_stable_version(item):
+            try:
+                return self._official_snapshot(item, operation=operation), None
+            except ContractError:
+                return self._invalid_bug_failure(normalized_id)
+        assignee = self._account(item.get("assignedTo"))
+        if assignee is None:
+            return self._invalid_bug_failure(normalized_id)
+        try:
+            return (
+                self._official_user_snapshot(
+                    item,
+                    normalized_id=normalized_id,
+                    requested_account=self._normalized_text(assignee),
+                ),
+                None,
+            )
+        except ContractError as error:
+            if str(error) == "query_bug_detail: missing stable version":
+                return None, ItemFailure(
+                    bugId=normalized_id,
+                    code="MISSING_STABLE_VERSION",
+                    field="version",
+                    message="missing stable version",
+                )
+            if str(error).startswith("query_bug_detail"):
+                raise
+            return self._invalid_bug_failure(normalized_id)
+
+    @staticmethod
+    def _invalid_bug_failure(
+        normalized_id: str,
+    ) -> tuple[None, ItemFailure]:
+        return None, ItemFailure(
+            bugId=normalized_id,
+            code="INVALID_BUG_CONTRACT",
+            field=None,
+            message="invalid bug contract",
+        )
 
     @staticmethod
     def _official_page_metadata(
