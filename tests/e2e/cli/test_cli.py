@@ -109,10 +109,13 @@ class Provider:
 
 
 def factory(
-    tmp_path: Path, provider: Provider | None = None, store: Store | None = None
+    tmp_path: Path,
+    provider: Provider | None = None,
+    store: Store | None = None,
+    config: AppConfig = CONFIG,
 ) -> DependencyFactory:
     runtime = AppRuntime(
-        CONFIG,
+        config,
         provider or Provider(),
         object(),
         lambda: None,
@@ -351,6 +354,23 @@ def test_doctor_json_passes_with_injected_dependencies_and_redacts_secret() -> N
     assert json.loads(result.stdout)["ok"] is True
     assert "doctor-token-secret" not in result.stdout
     assert store.reads == [CredentialName.API_TOKEN]
+
+
+def test_doctor_without_configured_account_uses_current_user_provider_query() -> None:
+    provider = Provider()
+    store = TokenOnlyStore()
+    config = CONFIG.model_copy(
+        update={"zentao": CONFIG.zentao.model_copy(update={"account": None})}
+    )
+
+    result = CliRunner().invoke(
+        app,
+        ["doctor", "--json", "--project", str(Path.cwd())],
+        obj=factory(Path.cwd(), provider=provider, store=store, config=config),
+    )
+
+    assert result.exit_code == 0
+    assert ("mine", ("demo",), 1, 1) in provider.calls
 
 
 def test_doctor_passes_with_password_only_and_redacts_secret() -> None:

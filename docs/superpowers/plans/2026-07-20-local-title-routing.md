@@ -82,4 +82,3 @@
 - [ ] **Step 4: Run full verification:** `pytest -q`, `ruff check src tests`, and `mypy src`.
 - [ ] **Step 5: Run a fresh read-only personal report/query** and verify the two live assigned Bugs are retained with the expected candidate repositories, without comments or code writes.
 - [ ] **Step 6: Review** `git diff --check`, `git status --short`, and ensure the real mapping is absent from committed/worktree files.
-

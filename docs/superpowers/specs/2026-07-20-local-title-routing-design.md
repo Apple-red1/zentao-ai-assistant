@@ -45,4 +45,3 @@ Title-derived routing selects only a candidate repository. Existing code-write a
 - Workflow regression tests prove an unroutable assigned Bug remains in results and makes completeness partial.
 - CLI/report tests prove title-routed candidates appear and incomplete empty results are not represented as a successful zero-Bug run.
 - No committed test or document contains the user's real account-specific mapping.
-

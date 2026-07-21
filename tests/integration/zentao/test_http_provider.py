@@ -358,6 +358,50 @@ def test_query_my_bugs_accepts_official_page_size_upper_bound() -> None:
     assert observed == ["/api.php/v2/products"]
 
 
+def test_query_my_bugs_with_username_uses_official_current_user_contract() -> None:
+    observations: list[tuple[str, dict[str, str]]] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        observations.append((request.url.path, dict(request.url.params)))
+        return httpx.Response(
+            200,
+            json={
+                "bugs": [
+                    {
+                        "id": 7,
+                        "status": "active",
+                        "assignedTo": "alice",
+                        "lastEditedDate": "v7",
+                    }
+                ],
+                "pager": {
+                    "pageID": 1,
+                    "recPerPage": 20,
+                    "recTotal": 1,
+                    "pageTotal": 1,
+                },
+            },
+        )
+
+    result = provider(
+        httpx.MockTransport(handle),
+        endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs"),
+        auth=ZentaoAuth(username=" alice ", apiToken="token"),
+    ).query_my_bugs()
+
+    assert [item.id for item in result.items] == [7]
+    assert observations == [
+        (
+            "/api.php/v2/bugs",
+            {
+                "pageID": "1",
+                "recPerPage": "20",
+                "browseType": "assigntome",
+            },
+        )
+    ]
+
+
 def test_product_catalog_uses_official_pagination_and_preserves_valid_order() -> None:
     observations: list[tuple[str, dict[str, str]]] = []
 
@@ -399,7 +443,7 @@ def test_product_catalog_rejects_malformed_envelopes(payload: object) -> None:
         provider(transport)._load_product_catalog()
 
 
-def test_query_my_bugs_resolves_unicode_trimmed_casefolded_scope_and_params() -> None:
+def test_query_my_bugs_without_username_uses_exact_product_fallback_filter() -> None:
     observations: list[tuple[str, dict[str, str]]] = []
 
     def handle(request: httpx.Request) -> httpx.Response:
@@ -438,7 +482,7 @@ def test_query_my_bugs_resolves_unicode_trimmed_casefolded_scope_and_params() ->
 
     assert observations[1] == (
         "/api.php/v2/products/7/bugs",
-        {"browseType": "assignedtome", "recPerPage": "5", "pageID": "1"},
+        {"browseType": "assigntome", "recPerPage": "5", "pageID": "1"},
     )
     bug = result.items[0]
     assert (bug.id, bug.creator.account, bug.assignee) == (3, "alice", "bob")

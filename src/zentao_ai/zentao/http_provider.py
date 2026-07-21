@@ -84,6 +84,15 @@ class HttpZentaoProvider:
             or not 1 <= page_size <= 1000
         ):
             raise ValueError("invalid pagination")
+        username = (self._auth.username or "").strip()
+        if username and self._endpoints.user_bugs == "/api.php/v2/bugs":
+            return self._query_official_user_bugs(
+                username,
+                scope_names=scope_names,
+                page=page,
+                page_size=page_size,
+                browse_type="assigntome",
+            )
         requested_page = page
         requested_page_size = page_size
         catalog, catalog_complete = self._load_complete_product_catalog()
@@ -201,7 +210,7 @@ class HttpZentaoProvider:
                 ),
                 "query_my_bugs",
                 params={
-                    "browseType": "assignedtome",
+                    "browseType": "assigntome",
                     "recPerPage": page_size,
                     "pageID": product_page,
                 },
