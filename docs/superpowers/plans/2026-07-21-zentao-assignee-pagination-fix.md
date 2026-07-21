@@ -153,3 +153,33 @@ git commit -m "fix: scan assignee bugs without pagination metadata"
 ```
 
 Do not stage `.superpowers/sdd/task-2-report.md`, `.superpowers/sdd/task-4-report.md`, `uv.lock`, or any unrelated file.
+
+### Task 3: Correct the production assignee-filter and pagination contract
+
+**Files:**
+- Modify: `tests/integration/zentao/test_http_provider.py`
+- Modify: `src/zentao_ai/zentao/http_provider.py`
+
+**Interfaces:**
+- Consumes: official `/api.php/v2/bugs` response with `pager.pageID`, `pager.recPerPage`, `pager.recTotal`, and `pager.pageTotal`.
+- Produces: `query_user_bugs` requests with `browseType=assigntome`, `pageID`, and `recPerPage` for the configured personal account.
+
+- [ ] **Step 1: Add failing contract tests**
+
+Add one test asserting the official request uses `pageID` and `recPerPage` rather than `page` and `limit`, and another asserting the personal account path supplies `browseType=assigntome`. The transport must return a matching Bug and trustworthy pager.
+
+- [ ] **Step 2: Verify RED**
+
+Run the two new tests and confirm failure messages show the existing incorrect request parameters or missing filter.
+
+- [ ] **Step 3: Implement the minimal request correction**
+
+Use `pageID` and `recPerPage` in `_query_official_user_bugs`. Add an optional provider argument for the server-side browse type, and have the personal-query adapter pass the exact `assigntome` value without applying it to arbitrary team-member queries.
+
+- [ ] **Step 4: Verify GREEN and regression coverage**
+
+Run the new tests, all `query_user_bugs` tests, MCP tool contract tests, full pytest, Ruff, mypy, format check, and `git diff --check`.
+
+- [ ] **Step 5: Reinstall and production-verify**
+
+Stop only active Zentao MCP processes if they lock the venv, reinstall the worktree package, then run the read-only CLI personal query. Require returned IDs to include 2537 and 3397. Do not call any write operation.

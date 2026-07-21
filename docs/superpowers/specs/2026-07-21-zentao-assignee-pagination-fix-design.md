@@ -4,7 +4,7 @@
 
 禅道页面显示 Bug 2537、3397 均处于激活状态且负责人为账号 `weiwenting`。结构化详情查询也确认这两个 Bug 的负责人正确，但 `query_my_bugs` 与 `query_user_bugs("weiwenting")` 返回空列表，并给出 `total=-1`、`pages=null`。
 
-根因位于官方 `/api.php/v2/bugs` 适配路径：服务端返回的列表缺少可验证分页元数据时，客户端在第一页后立即停止。负责人筛选在客户端执行，因此目标 Bug 不在首批数据时会被遗漏。
+生产诊断确认根因位于官方 `/api.php/v2/bugs` 适配路径的请求契约：负责人筛选值误写为 `assignedtome`，而服务端实际接受 `assigntome`；分页参数误用 `page`、`limit`，而服务端实际接受 `pageID`、`recPerPage`。错误分页参数会被忽略并重复返回第一页，导致客户端本地过滤遗漏目标 Bug。
 
 ## 目标
 
@@ -16,7 +16,9 @@
 
 ## 方案
 
-在 `_query_official_user_bugs` 中区分“分页元数据不可用”和“分页元数据矛盾”。
+首先对本人查询使用服务端契约 `browseType=assigntome`，并统一使用 `pageID`、`recPerPage` 读取官方 Bug 集合。生产验证表明该筛选精确返回 Bug 2537、3397，且分页元数据完整。
+
+在 `_query_official_user_bugs` 中仍区分“分页元数据不可用”和“分页元数据矛盾”。
 
 当元数据从第一页起不可用时，进入未知分页模式，继续请求后续页，直到出现空页、重复页、跨页 ID 重叠或达到 `_MAX_USER_BUG_PAGES`。该模式收集所有已验证为目标负责人的 Bug，但由于无法证明上游全集完整，覆盖信息保持未知。
 
