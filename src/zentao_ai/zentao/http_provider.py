@@ -11,6 +11,10 @@ from urllib.parse import quote
 
 import httpx
 
+from zentao_ai.config.models import AppConfig
+from zentao_ai.routing import BugSnapshot as RoutingSnapshot
+from zentao_ai.routing import route_bug
+
 from .errors import (
     AmbiguousIdentityError,
     AuthenticationError,
@@ -30,6 +34,7 @@ from .models import (
     HistoryPage,
     ItemFailure,
     ResolvedIdentity,
+    RoutingData,
     StepUpdateResult,
     ZentaoAuth,
     ZentaoEndpoints,
@@ -52,11 +57,13 @@ class HttpZentaoProvider:
         timeout: httpx.Timeout | None = None,
         max_get_retries: int = 2,
         retry_after_cap: float = 2.0,
+        routing_config: AppConfig | None = None,
     ) -> None:
         self._auth = auth or ZentaoAuth(apiToken=None, webCookie=None)
         self._endpoints = endpoints
         self._max_get_retries = max(0, max_get_retries)
         self._retry_after_cap = max(0.0, retry_after_cap)
+        self._routing_config = routing_config
         self._password_token: str | None = None
         self._client = httpx.Client(
             base_url=base_url,
@@ -360,9 +367,8 @@ class HttpZentaoProvider:
                 result.append(normalized)
         return tuple(result)
 
-    @classmethod
     def _official_snapshot(
-        cls, data: Mapping[str, Any], operation: str = "query_my_bugs"
+        self, data: Mapping[str, Any], operation: str = "query_my_bugs"
     ) -> BugSnapshot:
         last_edited = data.get("lastEditedDate")
         version = (
@@ -381,14 +387,14 @@ class HttpZentaoProvider:
             "status": data.get("status"),
             "title": data.get("title", ""),
             "steps": data.get("steps", ""),
-            "creator": cls._account(data.get("openedBy")),
-            "assignee": cls._account(data.get("assignedTo")),
+            "creator": self._account(data.get("openedBy")),
+            "assignee": self._account(data.get("assignedTo")),
             "version": str(version).strip(),
             "snapshotVersion": str(version).strip(),
-            "raw": cls._sanitize(data),
+            "raw": self._sanitize(data),
         }
         try:
-            return BugSnapshot.model_validate(normalized)
+            return self._with_routing(BugSnapshot.model_validate(normalized))
         except Exception:
             raise ContractError(f"{operation}: invalid bug contract") from None
 
@@ -1287,12 +1293,11 @@ class HttpZentaoProvider:
         ):
             raise ValueError("invalid pagination")
 
-    @classmethod
-    def _snapshot(cls, data: Mapping[str, Any], operation: str) -> BugSnapshot:
+    def _snapshot(self, data: Mapping[str, Any], operation: str) -> BugSnapshot:
         version = data.get("version")
         if version is None or not str(version).strip():
             raise ContractError(f"{operation}: missing stable version")
-        safe = cls._sanitize(data)
+        safe = self._sanitize(data)
         normalized = {
             **data,
             "version": str(version).strip(),
@@ -1300,9 +1305,36 @@ class HttpZentaoProvider:
             "raw": safe,
         }
         try:
-            return BugSnapshot.model_validate(normalized)
+            return self._with_routing(BugSnapshot.model_validate(normalized))
         except Exception:
             raise ContractError(f"{operation}: invalid bug contract") from None
+
+    def _with_routing(self, snapshot: BugSnapshot) -> BugSnapshot:
+        if self._routing_config is None:
+            routing = RoutingData(
+                selectedRepository=None,
+                matchedKeywords=(),
+                confidence="none",
+                evidence=("ROUTING_CONFIG_UNAVAILABLE",),
+            )
+        else:
+            decision = route_bug(
+                RoutingSnapshot(
+                    identifier=str(snapshot.id),
+                    title=snapshot.title,
+                    description=snapshot.steps,
+                ),
+                self._routing_config,
+            )
+            routing = RoutingData(
+                repositories=tuple(decision.candidates),
+                selectedRepository=decision.selectedRepository,
+                layer=decision.layer,
+                matchedKeywords=tuple(decision.matchedKeywords),
+                confidence=decision.confidence,
+                evidence=tuple(decision.evidence),
+            )
+        return snapshot.model_copy(update={"routing": routing})
 
     @classmethod
     def _history(cls, data: Mapping[str, Any], operation: str) -> BugHistoryEntry:

@@ -225,7 +225,7 @@ def test_lease_unavailable_skips_work_and_success_releases() -> None:
                     repositories=("example-repo",),
                     selectedRepository="example-repo",
                     layer="frontend",
-                    confidence=1.0,
+                    confidence="high",
                 ),
             )
 

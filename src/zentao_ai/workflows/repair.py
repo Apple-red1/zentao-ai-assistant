@@ -89,7 +89,7 @@ def repair_bug(context: RunContext, bug_id: int | str) -> RepairResult:
     if (
         routing is None
         or routing.selected_repository is None
-        or routing.confidence != 1.0
+        or routing.confidence != "high"
         or len(routing.repositories) != 1
         or routing.repositories[0] != routing.selected_repository
     ):

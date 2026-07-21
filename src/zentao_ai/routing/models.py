@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -13,5 +15,5 @@ class RoutingDecision(BaseModel):
     layer: str | None = None
     selectedRepository: str | None = None
     matchedKeywords: list[str] = Field(default_factory=list)
-    confidence: float = 0.0
-    reasons: list[str] = Field(default_factory=list)
+    confidence: Literal["high", "none"] = "none"
+    evidence: list[str] = Field(default_factory=list)

@@ -236,6 +236,7 @@ class DependencyFactory:
                 apiToken=token,
                 webCookie=None,
             ),
+            routing_config=config,
         )
         ledger = Ledger(project / ".codex" / "zentao-ai-state.sqlite3")
         ledger.__enter__()

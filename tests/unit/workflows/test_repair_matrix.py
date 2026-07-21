@@ -157,7 +157,7 @@ def bug(**changes):
         routing={
             "repositories": ["repo"],
             "selectedRepository": "repo",
-            "confidence": 1.0,
+            "confidence": "high",
         },
     )
     values.update(changes)
@@ -406,9 +406,9 @@ def test_candidate_comment_skipped_is_not_delivery_or_overall_success():
     "routing",
     [
         None,
-        {"repositories": [], "selectedRepository": None, "confidence": None},
-        {"repositories": ["a", "b"], "selectedRepository": "a", "confidence": 1.0},
-        {"repositories": ["repo"], "selectedRepository": "repo", "confidence": .9},
+        {"repositories": [], "selectedRepository": None, "confidence": "none"},
+        {"repositories": ["a", "b"], "selectedRepository": "a", "confidence": "high"},
+        {"repositories": ["repo"], "selectedRepository": "repo", "confidence": "none"},
     ],
 )
 def test_untrusted_routing_stops_before_repository(routing):

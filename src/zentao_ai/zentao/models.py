@@ -39,7 +39,8 @@ class RoutingData(FrozenModel):
     selected_repository: str | None = Field(None, alias="selectedRepository")
     layer: str | None = None
     matched_keywords: tuple[str, ...] = Field((), alias="matchedKeywords")
-    confidence: float | None = None
+    confidence: Literal["high", "none"] = "none"
+    evidence: tuple[str, ...] = ()
 
 
 class CreatorAccount(FrozenModel):

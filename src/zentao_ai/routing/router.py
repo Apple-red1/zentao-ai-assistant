@@ -1,109 +1,128 @@
+from __future__ import annotations
+
 import re
 import unicodedata
-from zentao_ai.config.models import AppConfig
+
+from zentao_ai.config.models import AppConfig, TitleRoutingConfig
+
 from .models import BugSnapshot, RoutingDecision
 
-FRONTEND = (
-    "ui", "style", "page", "link", "button", "layout", "interaction", "click",
-    "页面", "样式", "链接", "按钮", "布局", "交互", "点击", "前端",
+FRONTEND_KEYWORDS = (
+    "ui",
+    "style",
+    "page",
+    "link",
+    "button",
+    "layout",
+    "interaction",
+    "click",
+    "frontend",
+    "页面",
+    "样式",
+    "链接",
+    "按钮",
+    "布局",
+    "交互",
+    "点击",
+    "前端",
 )
-BACKEND = ("api", "service", "database", "permission", "接口", "服务", "数据库", "权限", "后端")
+BACKEND_KEYWORDS = (
+    "api",
+    "service",
+    "database",
+    "permission",
+    "backend",
+    "接口",
+    "服务",
+    "数据库",
+    "权限",
+    "后端",
+)
+_FENCED_CODE = re.compile(r"```.*?```", re.DOTALL)
+_INLINE_CODE = re.compile(r"`[^`]*`")
+_URL = re.compile(r"https?://[^\s`]+", re.IGNORECASE)
+
+
+def _normalize(value: str) -> str:
+    return unicodedata.normalize("NFC", value).casefold()
 
 
 def normalize_scope_name(value: str) -> str:
-    return unicodedata.normalize("NFC", value).strip().lower()
+    """Normalize repository scope names for existing repository safety checks."""
+    return unicodedata.normalize("NFC", value).strip().casefold()
+
+
+def _classification_text(title: str, description: str) -> str:
+    """Return normalized prose only; Bug commands and URLs are inert input."""
+    description_without_code = _FENCED_CODE.sub(" ", description)
+    description_without_code = _INLINE_CODE.sub(" ", description_without_code)
+    description_without_urls = _URL.sub(" ", description_without_code)
+    return _normalize(f"{title}\n{description_without_urls}")
+
+
+def _matches_keyword(text: str, keyword: str) -> bool:
+    normalized = _normalize(keyword)
+    if not normalized:
+        return False
+    if normalized.isascii() and normalized.replace("_", "").isalnum():
+        return re.search(rf"(?<![\w]){re.escape(normalized)}(?![\w])", text) is not None
+    return normalized in text
+
+
+def _layer_keywords(mapping: TitleRoutingConfig) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    frontend = tuple(dict.fromkeys((*FRONTEND_KEYWORDS, *mapping.frontendKeywords)))
+    backend = tuple(dict.fromkeys((*BACKEND_KEYWORDS, *mapping.backendKeywords)))
+    return frontend, backend
+
+
+def _decision_without_marker(evidence: str) -> RoutingDecision:
+    return RoutingDecision(evidence=[evidence])
 
 
 def route_bug(snapshot: BugSnapshot, config: AppConfig) -> RoutingDecision:
-    text = unicodedata.normalize("NFC", f"{snapshot.title} {snapshot.description}").casefold()
-    title_text = unicodedata.normalize("NFC", snapshot.title).casefold()
-    front = [word for word in FRONTEND if word.casefold() in text]
-    back = [word for word in BACKEND if word.casefold() in text]
-    layer = "frontend" if front and not back else "backend" if back and not front else None
-    matches = front + back
-    exact_keys = [key for key in config.repositories if snapshot.scope and normalize_scope_name(key) == normalize_scope_name(snapshot.scope)]
-    candidates = [config.repositories[key].repository for key in exact_keys]
-    if len(candidates) == 1:
-        return RoutingDecision(candidates=candidates, layer=layer, selectedRepository=candidates[0], matchedKeywords=matches, confidence=1.0, reasons=["EXACT_CONFIGURED_SCOPE"])
-    title_matches = [
-        mapping
-        for mapping in config.titleRouting
-        if unicodedata.normalize("NFC", mapping.marker).casefold() in text
+    """Route untrusted Bug text using one configured title marker and one layer."""
+    title = _normalize(snapshot.title)
+    matches = [mapping for mapping in config.titleRouting if _normalize(mapping.marker) in title]
+    if not matches:
+        return _decision_without_marker("TITLE_MARKER_MISSING")
+    if len(matches) != 1:
+        return _decision_without_marker("TITLE_MARKER_AMBIGUOUS")
+
+    mapping = matches[0]
+    text = _classification_text(snapshot.title, snapshot.description)
+    frontend_keywords, backend_keywords = _layer_keywords(mapping)
+    frontend = [keyword for keyword in frontend_keywords if _matches_keyword(text, keyword)]
+    backend = [keyword for keyword in backend_keywords if _matches_keyword(text, keyword)]
+    evidence = ["TITLE_MARKER_MATCHED"]
+    if frontend:
+        evidence.append("FRONTEND_KEYWORD_MATCHED")
+    if backend:
+        evidence.append("BACKEND_KEYWORD_MATCHED")
+
+    candidates = [
+        config.repositories[mapping.frontendRepository].repository,
+        config.repositories[mapping.backendRepository].repository,
     ]
-    if title_matches:
-        title_front = [word for word in FRONTEND if word.casefold() in title_text]
-        title_back = [word for word in BACKEND if word.casefold() in title_text]
-        local_front = list(front)
-        local_back = list(back)
-        for title_mapping in title_matches:
-            title_front.extend(
-                keyword
-                for keyword in title_mapping.frontendKeywords
-                if keyword.casefold() in title_text
-            )
-            title_back.extend(
-                keyword
-                for keyword in title_mapping.backendKeywords
-                if keyword.casefold() in title_text
-            )
-            local_front.extend(
-                keyword
-                for keyword in title_mapping.frontendKeywords
-                if keyword.casefold() in text
-            )
-            local_back.extend(
-                keyword
-                for keyword in title_mapping.backendKeywords
-                if keyword.casefold() in text
-            )
-        local_front = list(dict.fromkeys(local_front))
-        local_back = list(dict.fromkeys(local_back))
-        title_front = list(dict.fromkeys(title_front))
-        title_back = list(dict.fromkeys(title_back))
-        if bool(title_front) != bool(title_back):
-            local_front, local_back = title_front, title_back
-        local_layer = (
-            "frontend"
-            if local_front and not local_back
-            else "backend"
-            if local_back and not local_front
-            else None
-        )
-        title_candidates = list(
-            dict.fromkeys(
-                repository
-                for title_mapping in title_matches
-                for repository in (
-                    config.repositories[title_mapping.frontendRepository].repository,
-                    config.repositories[title_mapping.backendRepository].repository,
-                )
-            )
-        )
-        selected = None
-        if len(title_matches) == 1 and local_layer is not None:
-            repository_key = (
-                title_matches[0].frontendRepository
-                if local_layer == "frontend"
-                else title_matches[0].backendRepository
-            )
-            selected = config.repositories[repository_key].repository
+    if frontend and backend:
         return RoutingDecision(
-            candidates=title_candidates,
-            layer=local_layer,
-            selectedRepository=selected,
-            matchedKeywords=local_front + local_back,
-            confidence=0.9 if selected else 0.0,
-            reasons=["LOCAL_TITLE_MARKER_AND_LAYER"] if selected else ["LOCAL_TITLE_ROUTING_AMBIGUOUS"],
+            candidates=candidates,
+            matchedKeywords=frontend + backend,
+            evidence=[*evidence, "LAYER_AMBIGUOUS"],
         )
-    for scope, repository_mapping in config.repositories.items():
-        markers = {scope.casefold(), repository_mapping.repository.casefold()}
-        def present(marker: str) -> bool:
-            if marker.isascii():
-                return re.search(rf"(?<![\w@.]){re.escape(marker)}(?![\w@.])", text) is not None
-            return marker in text
-        if any(marker and present(marker) for marker in markers):
-            candidates.append(repository_mapping.repository)
-    candidates = list(dict.fromkeys(candidates))
-    selected = candidates[0] if len(candidates) == 1 and (bool(exact_keys) or layer is not None) else None
-    exact_selected = selected is not None and bool(exact_keys)
-    return RoutingDecision(candidates=candidates, layer=layer, selectedRepository=selected, matchedKeywords=matches, confidence=1.0 if exact_selected else 0.8 if selected else 0.0, reasons=["EXACT_CONFIGURED_SCOPE"] if exact_selected else ["UNIQUE_MARKER_AND_LAYER"] if selected else ["ROUTING_NOT_UNIQUE"])
+    if not frontend and not backend:
+        return RoutingDecision(candidates=candidates, evidence=[*evidence, "LAYER_MISSING"])
+
+    layer = "frontend" if frontend else "backend"
+    selected = (
+        config.repositories[mapping.frontendRepository].repository
+        if layer == "frontend"
+        else config.repositories[mapping.backendRepository].repository
+    )
+    return RoutingDecision(
+        candidates=candidates,
+        layer=layer,
+        selectedRepository=selected,
+        matchedKeywords=frontend if layer == "frontend" else backend,
+        confidence="high",
+        evidence=evidence,
+    )

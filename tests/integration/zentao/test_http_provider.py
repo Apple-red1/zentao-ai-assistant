@@ -8,6 +8,7 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
+from zentao_ai.config.models import AppConfig
 from zentao_ai.zentao import (
     AuthenticationError,
     ContractError,
@@ -32,6 +33,63 @@ def provider(handler: httpx.MockTransport, **kwargs: object) -> HttpZentaoProvid
         endpoints=endpoints,
         transport=handler,
         **kwargs,
+    )
+
+
+def routing_config(tmp_path) -> AppConfig:
+    repositories = {
+        key: {
+            "repository": key,
+            "path": str(tmp_path / key),
+            "targetBranch": "main",
+            "testCommands": ["pytest"],
+        }
+        for key in ("ai-site-builder", "ai-site-backend")
+    }
+    return AppConfig.model_validate(
+        {
+            "personal": {"scopeNames": list(repositories)},
+            "team": {"scopeNames": list(repositories)},
+            "repositories": repositories,
+            "titleRouting": [
+                {
+                    "marker": "【AI建站】",
+                    "frontendRepository": "ai-site-builder",
+                    "backendRepository": "ai-site-backend",
+                }
+            ],
+        }
+    )
+
+
+def test_normalized_snapshots_include_configured_routing_before_mcp_output(tmp_path) -> None:
+    instance = provider(
+        httpx.MockTransport(
+            lambda request: httpx.Response(
+                200,
+                json={
+                    "bug": {
+                        "id": 2537,
+                        "status": "active",
+                        "version": "v1",
+                        "title": "【AI建站】 发布页",
+                        "steps": "页面按钮无法点击",
+                    }
+                },
+            )
+        ),
+        routing_config=routing_config(tmp_path),
+    )
+
+    snapshot = instance.query_bug_detail(2537)
+
+    assert snapshot.routing is not None
+    assert snapshot.routing.selected_repository == "ai-site-builder"
+    assert snapshot.routing.layer == "frontend"
+    assert snapshot.routing.confidence == "high"
+    assert snapshot.routing.evidence == (
+        "TITLE_MARKER_MATCHED",
+        "FRONTEND_KEYWORD_MATCHED",
     )
 
 
