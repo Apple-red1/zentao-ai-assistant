@@ -24,6 +24,8 @@ from zentao_ai.zentao.models import (
     CommentWriteResult,
     Coverage,
     HistoryPage,
+    ItemFailure,
+    ResolvedIdentity,
     StepUpdateResult,
 )
 
@@ -347,7 +349,74 @@ def test_query_my_bugs_keeps_filtered_candidates_with_unknown_incomplete_coverag
         "data"
     ]
     assert [item["id"] for item in data["items"]] == [2537]
-    assert data["coverage"] == {"page": 1, "pageSize": 20, "total": -1, "pages": None}
+    assert data["coverage"] == {
+        "page": 1,
+        "pageSize": 20,
+        "total": -1,
+        "pages": None,
+        "returned": 1,
+        "failed": 0,
+        "complete": False,
+    }
+
+
+def test_query_my_bugs_preserves_partial_result_metadata() -> None:
+    provider = AssigneeProvider()
+    provider.query_user_bugs = lambda user, **kwargs: BugPage(  # type: ignore[method-assign]
+        items=(
+            BugSnapshot(
+                id=2537,
+                title="AI candidate",
+                status="active",
+                version="v1",
+                snapshotVersion="s1",
+            ),
+        ),
+        coverage=Coverage(
+            page=1,
+            pageSize=20,
+            total=-1,
+            pages=None,
+            returned=1,
+            failed=1,
+            complete=False,
+        ),
+        itemFailures=(
+            ItemFailure(
+                bugId="3397",
+                code="MISSING_STABLE_VERSION",
+                field="version",
+                message="missing stable version",
+            ),
+        ),
+        resolvedIdentity=ResolvedIdentity(
+            requestedIdentity="weiwenting",
+            resolvedAccount="wwt",
+            resolvedDisplayName="Wei Wen Ting",
+            matchType="display_name",
+        ),
+    )
+
+    data = ZentaoTools(runtime(provider)).call("query_my_bugs", {})["data"]
+
+    assert data["coverage"] == {
+        "page": 1,
+        "pageSize": 20,
+        "total": -1,
+        "pages": None,
+        "returned": 1,
+        "failed": 1,
+        "complete": False,
+    }
+    assert data["itemFailures"] == [
+        {
+            "bugId": "3397",
+            "code": "MISSING_STABLE_VERSION",
+            "field": "version",
+            "message": "missing stable version",
+        }
+    ]
+    assert data["resolvedIdentity"]["resolvedAccount"] == "wwt"
 
 
 def test_query_my_bugs_distrusts_multi_page_total_when_visible_items_all_pass() -> None:
@@ -375,7 +444,15 @@ def test_query_my_bugs_distrusts_multi_page_total_when_visible_items_all_pass() 
         "query_my_bugs", {"status": "unclosed", "pageSize": 2}
     )["data"]
     assert [item["id"] for item in data["items"]] == [2537, 3397]
-    assert data["coverage"] == {"page": 1, "pageSize": 2, "total": -1, "pages": None}
+    assert data["coverage"] == {
+        "page": 1,
+        "pageSize": 2,
+        "total": -1,
+        "pages": None,
+        "returned": 2,
+        "failed": 0,
+        "complete": False,
+    }
 
 
 def test_query_my_bugs_distrusts_zero_pages_with_nonempty_items() -> None:
@@ -394,7 +471,15 @@ def test_query_my_bugs_distrusts_zero_pages_with_nonempty_items() -> None:
     )
     data = ZentaoTools(runtime(provider)).call("query_my_bugs", {})["data"]
     assert [item["id"] for item in data["items"]] == [2537]
-    assert data["coverage"] == {"page": 1, "pageSize": 20, "total": -1, "pages": None}
+    assert data["coverage"] == {
+        "page": 1,
+        "pageSize": 20,
+        "total": -1,
+        "pages": None,
+        "returned": 1,
+        "failed": 0,
+        "complete": False,
+    }
 
 
 @pytest.mark.parametrize("status", ["CREATED", "ALREADY_EXISTS", "UNKNOWN"])

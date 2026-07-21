@@ -123,8 +123,9 @@ class HttpZentaoProvider:
                 break
         complete = not incomplete and all_products_complete
         total = len(snapshots) if complete else -1
+        items = tuple(snapshots[start:end])
         return BugPage(
-            items=tuple(snapshots[start:end]),
+            items=items,
             coverage=Coverage(
                 page=requested_page,
                 pageSize=requested_page_size,
@@ -132,7 +133,12 @@ class HttpZentaoProvider:
                 pages=(total + requested_page_size - 1) // requested_page_size
                 if complete
                 else None,
+                returned=len(items),
+                failed=0,
+                complete=complete,
             ),
+            itemFailures=(),
+            resolvedIdentity=None,
         )
 
     def _load_complete_product_catalog(
@@ -533,6 +539,8 @@ class HttpZentaoProvider:
             coverage=self._safe_query_coverage(
                 coverage_data, page, page_size, len(items)
             ),
+            itemFailures=(),
+            resolvedIdentity=None,
         )
 
     def _query_official_user_bugs(
@@ -644,14 +652,20 @@ class HttpZentaoProvider:
 
         start = (page - 1) * page_size
         total = len(snapshots) if complete else -1
+        items = tuple(snapshots[start : start + page_size])
         return BugPage(
-            items=tuple(snapshots[start : start + page_size]),
+            items=items,
             coverage=Coverage(
                 page=page,
                 pageSize=page_size,
                 total=total,
                 pages=(total + page_size - 1) // page_size if complete else None,
+                returned=len(items),
+                failed=0,
+                complete=complete,
             ),
+            itemFailures=(),
+            resolvedIdentity=None,
         )
 
     @staticmethod
@@ -808,6 +822,9 @@ class HttpZentaoProvider:
             pageSize=page_size,
             total=(valid_total if metadata_valid and valid_total is not None else -1),
             pages=valid_pages if metadata_valid else None,
+            returned=count,
+            failed=0,
+            complete=metadata_valid,
         )
 
     def query_bug_detail(self, bug_id: int | str) -> BugSnapshot:
@@ -1139,7 +1156,10 @@ class HttpZentaoProvider:
             self._snapshot(x, operation) for x in self._items(data, operation)
         )
         return BugPage(
-            items=items, coverage=self._coverage(data, page, page_size, len(items))
+            items=items,
+            coverage=self._bug_coverage(data, page, page_size, len(items)),
+            itemFailures=(),
+            resolvedIdentity=None,
         )
 
     @staticmethod
@@ -1215,6 +1235,11 @@ class HttpZentaoProvider:
         ):
             raise ContractError(f"{operation}: invalid history contract")
         return cls._history(data, operation)
+
+    def _bug_coverage(
+        self, data: Mapping[str, Any], page: int, page_size: int, count: int
+    ) -> Coverage:
+        return self._safe_query_coverage(data, page, page_size, count)
 
     @staticmethod
     def _coverage(

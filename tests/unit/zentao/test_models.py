@@ -1,3 +1,6 @@
+import pytest
+from pydantic import ValidationError
+
 from zentao_ai.zentao.models import (
     BugPage,
     BugSnapshot,
@@ -60,3 +63,24 @@ def test_bug_page_serializes_partial_item_failures_and_resolved_identity() -> No
         "resolvedDisplayName": "Alice Example",
         "matchType": "display_name",
     }
+
+
+def test_coverage_rejects_failures_claimed_as_complete() -> None:
+    with pytest.raises(ValidationError, match="failed results cannot be complete"):
+        Coverage(returned=1, failed=1, complete=True)
+
+
+def test_bug_page_rejects_item_failures_claimed_as_complete() -> None:
+    with pytest.raises(ValidationError, match="item failures require incomplete coverage"):
+        BugPage(
+            items=(),
+            coverage=Coverage(returned=0, failed=0, complete=True),
+            itemFailures=(
+                ItemFailure(
+                    bugId="43",
+                    code="MISSING_STABLE_VERSION",
+                    field="version",
+                    message="missing stable version",
+                ),
+            ),
+        )

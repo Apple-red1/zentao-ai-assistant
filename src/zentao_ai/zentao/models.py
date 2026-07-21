@@ -2,9 +2,16 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from types import MappingProxyType
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    field_validator,
+    model_validator,
+)
 
 
 def deep_freeze(value: Any) -> Any:
@@ -79,6 +86,12 @@ class Coverage(FrozenModel):
     failed: int = 0
     complete: bool = True
 
+    @model_validator(mode="after")
+    def reject_complete_failures(self) -> Self:
+        if self.complete and self.failed:
+            raise ValueError("failed results cannot be complete")
+        return self
+
 
 class ItemFailure(FrozenModel):
     bug_id: str | None = Field(None, alias="bugId")
@@ -99,6 +112,12 @@ class BugPage(FrozenModel):
     coverage: Coverage
     item_failures: tuple[ItemFailure, ...] = Field((), alias="itemFailures")
     resolved_identity: ResolvedIdentity | None = Field(None, alias="resolvedIdentity")
+
+    @model_validator(mode="after")
+    def reject_complete_item_failures(self) -> Self:
+        if self.coverage.complete and self.item_failures:
+            raise ValueError("item failures require incomplete coverage")
+        return self
 
 
 class HistoryPage(FrozenModel):

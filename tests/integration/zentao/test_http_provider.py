@@ -138,6 +138,9 @@ def test_official_bug_history_adapts_actions_and_paginates_locally() -> None:
         "pageSize": 2,
         "total": 3,
         "pages": 2,
+        "returned": 0,
+        "failed": 0,
+        "complete": True,
     }
     assert "apiToken" not in result.items[0].raw
 
@@ -519,6 +522,11 @@ def test_query_my_bugs_unknown_and_ambiguous_scopes_are_incomplete() -> None:
     assert paths == ["/api.php/v2/products"]
     assert result.items == ()
     assert result.coverage.total == -1 and result.coverage.pages is None
+    assert (result.coverage.returned, result.coverage.failed, result.coverage.complete) == (
+        0,
+        0,
+        False,
+    )
 
 
 def test_query_my_bugs_deduplicates_in_configured_scope_order_and_tracks_totals() -> (

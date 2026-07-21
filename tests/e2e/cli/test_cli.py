@@ -12,7 +12,13 @@ from zentao_ai.cli.runtime import AppRuntime, DependencyFactory, RunPlan
 from zentao_ai.config.models import AppConfig
 from zentao_ai.config.loader import load_config
 from zentao_ai.credentials.store import CredentialName
-from zentao_ai.zentao.models import BugPage, BugSnapshot, Coverage
+from zentao_ai.zentao.models import (
+    BugPage,
+    BugSnapshot,
+    Coverage,
+    ItemFailure,
+    ResolvedIdentity,
+)
 
 
 CONFIG = AppConfig.model_validate(
@@ -238,7 +244,76 @@ def test_bugs_mine_distrusts_multi_page_total_when_visible_items_all_pass(
         "pageSize": 20,
         "total": -1,
         "pages": None,
+        "returned": 2,
+        "failed": 0,
+        "complete": False,
     }
+
+
+def test_bugs_mine_preserves_partial_result_metadata(tmp_path: Path) -> None:
+    class PartialProvider(Provider):
+        def query_user_bugs(
+            self,
+            user: str,
+            *,
+            scope_names: tuple[str, ...],
+            page: int,
+            page_size: int,
+            browse_type: str | None = None,
+        ) -> BugPage:
+            source = super().query_user_bugs(
+                user,
+                scope_names=scope_names,
+                page=page,
+                page_size=page_size,
+                browse_type=browse_type,
+            )
+            return BugPage(
+                items=source.items,
+                coverage=Coverage(
+                    page=1,
+                    pageSize=20,
+                    total=-1,
+                    pages=None,
+                    returned=2,
+                    failed=1,
+                    complete=False,
+                ),
+                itemFailures=(
+                    ItemFailure(
+                        bugId="3398",
+                        code="MISSING_STABLE_VERSION",
+                        field="version",
+                        message="missing stable version",
+                    ),
+                ),
+                resolvedIdentity=ResolvedIdentity(
+                    requestedIdentity="weiwenting",
+                    resolvedAccount="wwt",
+                    resolvedDisplayName="Wei Wen Ting",
+                    matchType="display_name",
+                ),
+            )
+
+    result = CliRunner().invoke(
+        app,
+        ["bugs", "mine", "--json"],
+        obj=factory(tmp_path, provider=PartialProvider()),
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)["data"]
+    assert payload["coverage"] == {
+        "page": 1,
+        "pageSize": 20,
+        "total": -1,
+        "pages": None,
+        "returned": 2,
+        "failed": 1,
+        "complete": False,
+    }
+    assert payload["itemFailures"][0]["bugId"] == "3398"
+    assert payload["resolvedIdentity"]["resolvedAccount"] == "wwt"
 
 
 def test_bugs_mine_distrusts_zero_pages_with_nonempty_items(tmp_path: Path) -> None:
@@ -277,6 +352,9 @@ def test_bugs_mine_distrusts_zero_pages_with_nonempty_items(tmp_path: Path) -> N
         "pageSize": 20,
         "total": -1,
         "pages": None,
+        "returned": 1,
+        "failed": 0,
+        "complete": False,
     }
 
 
