@@ -122,6 +122,68 @@ def test_query_user_bugs_rejects_ambiguous_member_pair_display_name() -> None:
         ).query_user_bugs("\u5468\u6d77\u97f3")
 
 
+@pytest.mark.parametrize("member_pairs", [None, "malformed"])
+def test_query_user_bugs_rejects_explicitly_malformed_member_pairs(
+    member_pairs: object,
+) -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            json={
+                "memberPairs": member_pairs,
+                "bugs": [
+                    {
+                        "id": 1,
+                        "status": "active",
+                        "assignedTo": {"account": "zhouhaiyin"},
+                        "lastEditedDate": "v1",
+                    }
+                ],
+                "page": 1,
+                "limit": 20,
+                "total": 1,
+            },
+        )
+    )
+
+    with pytest.raises(ContractError, match="^query_user_bugs: invalid member pairs$"):
+        provider(
+            transport, endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs")
+        ).query_user_bugs("zhouhaiyin")
+
+
+def test_query_user_bugs_rejects_changed_member_pair_identity_on_later_page() -> None:
+    def handle(request: httpx.Request) -> httpx.Response:
+        requested_page = int(request.url.params["pageID"])
+        account = "zhouhaiyin" if requested_page == 1 else "zhouhaiyin2"
+        return httpx.Response(
+            200,
+            json={
+                "memberPairs": {account: "\u5468\u6d77\u97f3"},
+                "bugs": [
+                    {
+                        "id": requested_page,
+                        "status": "active",
+                        "assignedTo": {"account": account},
+                        "lastEditedDate": f"v{requested_page}",
+                    }
+                ],
+                "page": requested_page,
+                "limit": 1,
+                "total": 2,
+                "pages": 2,
+            },
+        )
+
+    with pytest.raises(
+        ContractError, match="^query_user_bugs: resolved identity changed$"
+    ):
+        provider(
+            httpx.MockTransport(handle),
+            endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs"),
+        ).query_user_bugs("\u5468\u6d77\u97f3", page_size=1)
+
+
 def test_query_user_bugs_retains_valid_official_rows_when_matching_rows_are_malformed() -> None:
     def handle(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/api.php/v2/bugs/2":

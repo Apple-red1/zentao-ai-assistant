@@ -552,10 +552,13 @@ class HttpZentaoProvider:
                 operation,
                 params=params,
             )
-            if resolved_identity is None or "memberPairs" in data:
+            if resolved_identity is None:
                 page_identity = self._resolve_member_identity(data, user)
-                if resolved_identity is None:
-                    resolved_identity = page_identity
+                resolved_identity = page_identity
+            elif "memberPairs" in data:
+                page_identity = self._resolve_member_identity(data, user)
+                if page_identity != resolved_identity:
+                    raise ContractError("query_user_bugs: resolved identity changed")
             else:
                 page_identity = resolved_identity
             bugs = self._official_bug_rows(data, operation)
@@ -649,14 +652,16 @@ class HttpZentaoProvider:
         cls, data: Mapping[str, Any], requested: str
     ) -> ResolvedIdentity:
         requested_normalized = cls._normalized_text(requested)
-        pairs = data.get("memberPairs")
-        if not isinstance(pairs, (Mapping, list)):
+        if "memberPairs" not in data:
             return ResolvedIdentity(
                 requestedIdentity=requested,
                 resolvedAccount=requested.strip(),
                 resolvedDisplayName=None,
                 matchType="account",
             )
+        pairs = data["memberPairs"]
+        if not isinstance(pairs, (Mapping, list)):
+            raise ContractError("query_user_bugs: invalid member pairs")
 
         members: list[tuple[str, str, str | None]] = []
         if isinstance(pairs, Mapping):
