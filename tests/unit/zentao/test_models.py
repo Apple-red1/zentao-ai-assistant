@@ -1,0 +1,62 @@
+from zentao_ai.zentao.models import (
+    BugPage,
+    BugSnapshot,
+    Coverage,
+    ItemFailure,
+    ResolvedIdentity,
+)
+
+
+def test_bug_page_serializes_partial_item_failures_and_resolved_identity() -> None:
+    page = BugPage(
+        items=(
+            BugSnapshot(
+                id="42",
+                status="active",
+                version="2026-07-21T08:00:00Z",
+                snapshotVersion="2026-07-21T08:00:00Z",
+            ),
+        ),
+        coverage=Coverage(
+            page=1,
+            pageSize=20,
+            total=2,
+            pages=1,
+            returned=1,
+            failed=1,
+            complete=False,
+        ),
+        itemFailures=(
+            ItemFailure(
+                bugId="43",
+                code="MISSING_STABLE_VERSION",
+                field="version",
+                message="missing stable version",
+            ),
+        ),
+        resolvedIdentity=ResolvedIdentity(
+            requestedIdentity="Alice Example",
+            resolvedAccount="alice",
+            resolvedDisplayName="Alice Example",
+            matchType="display_name",
+        ),
+    )
+
+    assert page.coverage.complete is False
+    assert page.coverage.returned == 1
+    assert page.coverage.failed == 1
+    serialized = page.model_dump(by_alias=True, exclude={"items"})
+    assert serialized["itemFailures"] == (
+        {
+            "bugId": "43",
+            "code": "MISSING_STABLE_VERSION",
+            "field": "version",
+            "message": "missing stable version",
+        },
+    )
+    assert serialized["resolvedIdentity"] == {
+        "requestedIdentity": "Alice Example",
+        "resolvedAccount": "alice",
+        "resolvedDisplayName": "Alice Example",
+        "matchType": "display_name",
+    }

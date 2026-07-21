@@ -75,11 +75,30 @@ class Coverage(FrozenModel):
     page_size: int = Field(20, alias="pageSize")
     total: int = 0
     pages: int | None = None
+    returned: int = 0
+    failed: int = 0
+    complete: bool = True
+
+
+class ItemFailure(FrozenModel):
+    bug_id: str | None = Field(None, alias="bugId")
+    code: str
+    field: str | None = None
+    message: str
+
+
+class ResolvedIdentity(FrozenModel):
+    requested_identity: str = Field(alias="requestedIdentity")
+    resolved_account: str | None = Field(None, alias="resolvedAccount")
+    resolved_display_name: str | None = Field(None, alias="resolvedDisplayName")
+    match_type: str | None = Field(None, alias="matchType")
 
 
 class BugPage(FrozenModel):
     items: tuple[BugSnapshot, ...]
     coverage: Coverage
+    item_failures: tuple[ItemFailure, ...] = Field((), alias="itemFailures")
+    resolved_identity: ResolvedIdentity | None = Field(None, alias="resolvedIdentity")
 
 
 class HistoryPage(FrozenModel):
