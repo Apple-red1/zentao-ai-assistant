@@ -36,6 +36,7 @@ class HttpZentaoProvider:
     _CATALOG_PAGE_SIZE = 100
     _MAX_CATALOG_PAGES = 100
     _MAX_BUG_PAGES_PER_PRODUCT = 100
+    _MAX_USER_BUG_PAGES = 100
 
     def __init__(
         self,
@@ -83,6 +84,15 @@ class HttpZentaoProvider:
             or not 1 <= page_size <= 1000
         ):
             raise ValueError("invalid pagination")
+        username = (self._auth.username or "").strip()
+        if username and self._endpoints.user_bugs == "/api.php/v2/bugs":
+            return self._query_official_user_bugs(
+                username,
+                scope_names=scope_names,
+                page=page,
+                page_size=page_size,
+                browse_type="assigntome",
+            )
         requested_page = page
         requested_page_size = page_size
         catalog, catalog_complete = self._load_complete_product_catalog()
@@ -200,7 +210,7 @@ class HttpZentaoProvider:
                 ),
                 "query_my_bugs",
                 params={
-                    "browseType": "assignedtome",
+                    "browseType": "assigntome",
                     "recPerPage": page_size,
                     "pageID": product_page,
                 },
@@ -310,6 +320,15 @@ class HttpZentaoProvider:
         return unicodedata.normalize("NFKC", str(value).strip()).casefold()
 
     @classmethod
+    def _account(cls, value: Any) -> str | None:
+        if isinstance(value, Mapping):
+            value = value.get("account")
+        if isinstance(value, bool) or not isinstance(value, (str, int)):
+            return None
+        account = str(value).strip()
+        return account or None
+
+    @classmethod
     def _official_snapshot(
         cls, data: Mapping[str, Any], operation: str = "query_my_bugs"
     ) -> BugSnapshot:
@@ -330,8 +349,8 @@ class HttpZentaoProvider:
             "status": data.get("status"),
             "title": data.get("title", ""),
             "steps": data.get("steps", ""),
-            "creator": data.get("openedBy"),
-            "assignee": data.get("assignedTo"),
+            "creator": cls._account(data.get("openedBy")),
+            "assignee": cls._account(data.get("assignedTo")),
             "version": str(version).strip(),
             "snapshotVersion": str(version).strip(),
             "raw": cls._sanitize(data),
@@ -404,25 +423,20 @@ class HttpZentaoProvider:
         scope_names: tuple[str, ...] = (),
         page: int = 1,
         page_size: int = 20,
+        browse_type: str | None = None,
     ) -> BugPage:
         operation = "query_user_bugs"
-        authenticated_user = self._auth.username
         configured_official = self._endpoints.user_bugs == "/api.php/v2/bugs"
-        official_assignee_list = (
-            configured_official
-            and isinstance(authenticated_user, str)
-            and authenticated_user.strip() == user.strip()
-        )
-        path = (
-            "/api/bugs/user/{user}"
-            if configured_official and not official_assignee_list
-            else self._endpoints.user_bugs
-        )
-        params: dict[str, Any] = (
-            {"browseType": "assigntome", "page": page, "limit": page_size}
-            if official_assignee_list
-            else {"page": page, "pageSize": page_size}
-        )
+        if configured_official:
+            return self._query_official_user_bugs(
+                user,
+                scope_names=scope_names,
+                page=page,
+                page_size=page_size,
+                browse_type=browse_type,
+            )
+        path = self._endpoints.user_bugs
+        params: dict[str, Any] = {"page": page, "pageSize": page_size}
         if scope_names:
             params["scopeNames"] = list(scope_names)
         data = self._request(
@@ -433,15 +447,13 @@ class HttpZentaoProvider:
         )
         if "items" in data:
             items = tuple(
-                self._snapshot(item, operation)
-                for item in self._items(data, operation)
+                self._snapshot(item, operation) for item in self._items(data, operation)
             )
         elif "bugs" in data:
             bugs = data.get("bugs")
             if isinstance(bugs, Mapping):
                 bugs = [
-                    value
-                    for _, value in sorted(bugs.items(), key=lambda x: str(x[0]))
+                    value for _, value in sorted(bugs.items(), key=lambda x: str(x[0]))
                 ]
             if not isinstance(bugs, list) or any(
                 not isinstance(item, Mapping) for item in bugs
@@ -468,6 +480,230 @@ class HttpZentaoProvider:
                 coverage_data, page, page_size, len(items)
             ),
         )
+
+    def _query_official_user_bugs(
+        self,
+        user: str,
+        *,
+        scope_names: tuple[str, ...],
+        page: int,
+        page_size: int,
+        browse_type: str | None,
+    ) -> BugPage:
+        self._validate_pagination(page, page_size)
+        operation = "query_user_bugs"
+        requested_account = self._normalized_text(user)
+        snapshots: list[BugSnapshot] = []
+        seen_ids: set[str] = set()
+        upstream_seen_ids: set[str] = set()
+        seen_pages: set[tuple[str | None, ...]] = set()
+        expected_total: int | None = None
+        expected_pages: int | None = None
+        fetched = 0
+        complete = False
+
+        for upstream_page in range(1, self._MAX_USER_BUG_PAGES + 1):
+            params: dict[str, Any] = {
+                "pageID": upstream_page,
+                "recPerPage": page_size,
+            }
+            if browse_type is not None:
+                params["browseType"] = browse_type
+            if scope_names:
+                params["scopeNames"] = list(scope_names)
+            data = self._request(
+                "GET",
+                self._endpoints.user_bugs,
+                operation,
+                params=params,
+            )
+            bugs = self._official_bug_rows(data, operation)
+            page_ids = tuple(self._normalized_bug_id(item.get("id")) for item in bugs)
+            repeated = page_ids in seen_pages
+            seen_pages.add(page_ids)
+            overlaps_prior_page = any(
+                bug_id in upstream_seen_ids for bug_id in page_ids if bug_id is not None
+            )
+            upstream_seen_ids.update(
+                bug_id for bug_id in page_ids if bug_id is not None
+            )
+
+            for item in bugs:
+                assignee = self._account(item.get("assignedTo"))
+                if (
+                    assignee is None
+                    or self._normalized_text(assignee) != requested_account
+                ):
+                    continue
+                normalized_id = self._normalized_bug_id(item.get("id"))
+                if normalized_id is None:
+                    if not self._has_stable_version(item):
+                        raise ContractError(f"{operation}: missing Bug id for detail")
+                    raise ContractError(f"{operation}: invalid bug contract")
+                if normalized_id in seen_ids:
+                    continue
+                seen_ids.add(normalized_id)
+                snapshots.append(
+                    self._official_user_snapshot(
+                        item,
+                        normalized_id=normalized_id,
+                        requested_account=requested_account,
+                    )
+                )
+
+            metadata = self._official_page_metadata(
+                data,
+                requested_page=upstream_page,
+                requested_page_size=page_size,
+                count=len(bugs),
+            )
+            fetched += len(bugs)
+            if repeated or overlaps_prior_page:
+                break
+            if metadata is None:
+                if expected_total is not None or expected_pages is not None or not bugs:
+                    break
+                continue
+            total, pages = metadata
+            if expected_total is None and expected_pages is None:
+                expected_total, expected_pages = total, pages
+            elif total != expected_total or pages != expected_pages:
+                break
+            if fetched > total:
+                break
+            if fetched == total and (
+                (pages == 0 and upstream_page == 1) or upstream_page == pages
+            ):
+                complete = True
+                break
+            if upstream_page >= pages:
+                break
+
+        start = (page - 1) * page_size
+        total = len(snapshots) if complete else -1
+        return BugPage(
+            items=tuple(snapshots[start : start + page_size]),
+            coverage=Coverage(
+                page=page,
+                pageSize=page_size,
+                total=total,
+                pages=(total + page_size - 1) // page_size if complete else None,
+            ),
+        )
+
+    @staticmethod
+    def _official_bug_rows(
+        data: Mapping[str, Any], operation: str
+    ) -> list[Mapping[str, Any]]:
+        bugs = data.get("bugs")
+        if isinstance(bugs, Mapping):
+            bugs = [
+                value
+                for _, value in sorted(bugs.items(), key=lambda item: str(item[0]))
+            ]
+        if not isinstance(bugs, list) or any(
+            not isinstance(item, Mapping) for item in bugs
+        ):
+            raise ContractError(f"{operation}: invalid items")
+        return bugs
+
+    @staticmethod
+    def _has_stable_version(data: Mapping[str, Any]) -> bool:
+        for field in ("lastEditedDate", "version"):
+            value = data.get(field)
+            if (
+                not isinstance(value, bool)
+                and isinstance(value, (str, int))
+                and str(value).strip()
+            ):
+                return True
+        return False
+
+    @classmethod
+    def _normalized_bug_id(cls, value: Any) -> str | None:
+        if isinstance(value, bool) or not isinstance(value, (str, int)):
+            return None
+        normalized = cls._normalized_text(value)
+        return normalized or None
+
+    def _official_user_snapshot(
+        self,
+        data: Mapping[str, Any],
+        *,
+        normalized_id: str,
+        requested_account: str,
+    ) -> BugSnapshot:
+        operation = "query_user_bugs"
+        if self._has_stable_version(data):
+            return self._official_snapshot(data, operation=operation)
+        try:
+            detail = self.query_bug_detail(data["id"])
+        except ContractError as error:
+            if str(error) == "query_bug_detail: missing stable version":
+                raise ContractError(
+                    f"{operation}: detail missing stable version"
+                ) from None
+            raise ContractError(f"{operation}: invalid detail snapshot") from None
+        if self._normalized_bug_id(detail.id) != normalized_id:
+            raise ContractError(f"{operation}: detail Bug id changed")
+        if (
+            detail.assignee is None
+            or self._normalized_text(detail.assignee) != requested_account
+        ):
+            raise ContractError(f"{operation}: detail assignee changed")
+        return detail
+
+    @staticmethod
+    def _official_page_metadata(
+        data: Mapping[str, Any],
+        *,
+        requested_page: int,
+        requested_page_size: int,
+        count: int,
+    ) -> tuple[int, int] | None:
+        pager = data.get("pager")
+        if "pager" in data:
+            if not isinstance(pager, Mapping):
+                return None
+            response_page = pager.get("pageID")
+            response_page_size = pager.get("recPerPage")
+            total = pager.get("recTotal")
+            pages = pager.get("pageTotal")
+        else:
+            response_page = data.get("page")
+            response_page_size = data.get("limit", data.get("pageSize"))
+            total = data.get("total")
+            pages = data.get("pages")
+        if (
+            isinstance(response_page, bool)
+            or not isinstance(response_page, int)
+            or isinstance(response_page_size, bool)
+            or not isinstance(response_page_size, int)
+            or isinstance(total, bool)
+            or not isinstance(total, int)
+        ):
+            return None
+        if response_page < 1 or response_page_size < 1 or total < 0:
+            return None
+        calculated_pages = (total + response_page_size - 1) // response_page_size
+        if pages is None:
+            pages = calculated_pages
+        if (
+            isinstance(pages, bool)
+            or not isinstance(pages, int)
+            or pages < 0
+            or response_page != requested_page
+            or response_page_size != requested_page_size
+            or pages != calculated_pages
+        ):
+            return None
+        expected_count = min(
+            response_page_size,
+            max(total - (response_page - 1) * response_page_size, 0),
+        )
+        if count != expected_count or (pages > 0 and response_page > pages):
+            return None
+        return total, pages
 
     @staticmethod
     def _safe_query_coverage(
@@ -501,18 +737,13 @@ class HttpZentaoProvider:
             and response_page == page
             and response_page_size == page_size
             and valid_pages == (valid_total + page_size - 1) // page_size
-            and count
-            == min(page_size, max(valid_total - (page - 1) * page_size, 0))
+            and count == min(page_size, max(valid_total - (page - 1) * page_size, 0))
             and (valid_pages == 0 or page <= valid_pages)
         )
         return Coverage(
             page=page,
             pageSize=page_size,
-            total=(
-                valid_total
-                if metadata_valid and valid_total is not None
-                else -1
-            ),
+            total=(valid_total if metadata_valid and valid_total is not None else -1),
             pages=valid_pages if metadata_valid else None,
         )
 
@@ -532,11 +763,38 @@ class HttpZentaoProvider:
     def query_bug_history(
         self, bug_id: int | str, *, page: int = 1, page_size: int = 20
     ) -> HistoryPage:
+        self._validate_pagination(page, page_size)
         if self._endpoints.bug_history is None:
             raise ContractError("query_bug_history: unsupported by official contract")
+        path = self._endpoints.bug_history.format(bug_id=self._segment(bug_id))
+        if self._endpoints.bug_history == "/api.php/v2/bugs/{bug_id}":
+            data = self._request("GET", path, "query_bug_history")
+            bug = data.get("bug")
+            requested_id = self._normalized_bug_id(bug_id)
+            if (
+                requested_id is None
+                or not isinstance(bug, Mapping)
+                or self._normalized_bug_id(bug.get("id")) != requested_id
+            ):
+                raise ContractError("query_bug_history: invalid bug contract")
+            all_items = tuple(
+                self._official_history(item, "query_bug_history")
+                for item in self._actions(data, "query_bug_history")
+            )
+            start = (page - 1) * page_size
+            total = len(all_items)
+            return HistoryPage(
+                items=all_items[start : start + page_size],
+                coverage=Coverage(
+                    page=page,
+                    pageSize=page_size,
+                    total=total,
+                    pages=(total + page_size - 1) // page_size,
+                ),
+            )
         data = self._request(
             "GET",
-            self._endpoints.bug_history.format(bug_id=self._segment(bug_id)),
+            path,
             "query_bug_history",
             params={"page": page, "pageSize": page_size},
         )
@@ -830,6 +1088,31 @@ class HttpZentaoProvider:
             raise ContractError(f"{operation}: invalid items")
         return items
 
+    @staticmethod
+    def _actions(data: Mapping[str, Any], operation: str) -> list[Mapping[str, Any]]:
+        actions = data.get("actions")
+        if isinstance(actions, Mapping):
+            items = list(actions.values())
+        elif isinstance(actions, list):
+            items = actions
+        else:
+            raise ContractError(f"{operation}: invalid actions")
+        if any(not isinstance(item, Mapping) for item in items):
+            raise ContractError(f"{operation}: invalid actions")
+        return items
+
+    @staticmethod
+    def _validate_pagination(page: int, page_size: int) -> None:
+        if (
+            isinstance(page, bool)
+            or not isinstance(page, int)
+            or page < 1
+            or isinstance(page_size, bool)
+            or not isinstance(page_size, int)
+            or not 1 <= page_size <= 1000
+        ):
+            raise ValueError("invalid pagination")
+
     @classmethod
     def _snapshot(cls, data: Mapping[str, Any], operation: str) -> BugSnapshot:
         version = data.get("version")
@@ -853,6 +1136,22 @@ class HttpZentaoProvider:
             return BugHistoryEntry(**data, raw=cls._sanitize(data))
         except Exception:
             raise ContractError(f"{operation}: invalid history contract") from None
+
+    @classmethod
+    def _official_history(
+        cls, data: Mapping[str, Any], operation: str
+    ) -> BugHistoryEntry:
+        identifier = data.get("id")
+        action = data.get("action")
+        if (
+            isinstance(identifier, bool)
+            or not isinstance(identifier, (str, int))
+            or not str(identifier).strip()
+            or not isinstance(action, str)
+            or not action.strip()
+        ):
+            raise ContractError(f"{operation}: invalid history contract")
+        return cls._history(data, operation)
 
     @staticmethod
     def _coverage(

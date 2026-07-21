@@ -38,4 +38,3 @@ The cached plugin copy is refreshed through the normal plugin packaging/install 
 - Wrapper contract tests place synthetic companion executables on a temporary `PATH`, run each wrapper under isolated Python (`-I -S`), and assert exact argv forwarding plus child exit-code propagation.
 - Missing-command tests assert the supported GitHub/pipx instruction and a nonzero exit code.
 - Existing plugin, CLI, MCP, state, repository, and report tests remain green.
-

@@ -82,6 +82,7 @@ class Provider(Protocol):
         scope_names: tuple[str, ...],
         page: int = 1,
         page_size: int = 20,
+        browse_type: str | None = None,
     ) -> BugPage: ...
     def query_bug_detail(self, bug_id: int | str) -> BugSnapshot: ...
     def query_bug_history(

@@ -103,7 +103,11 @@ def mine(
         if account is None or not account.strip():
             raise RuntimeError("configuration error")
         source = runtime.provider.query_user_bugs(
-            account.strip(), scope_names=(), page=1, page_size=20
+            account.strip(),
+            scope_names=(),
+            page=1,
+            page_size=20,
+            browse_type="assigntome",
         )
         items = filter_assignee_bugs(source.items, title_tag=title_tag, status=status)
         coverage = source.coverage

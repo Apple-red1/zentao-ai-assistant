@@ -225,7 +225,7 @@ class DependencyFactory:
                 myBugs="/api/bugs/mine",
                 userBugs="/api.php/v2/bugs",
                 bugDetail="/api.php/v2/bugs/{bug_id}",
-                bugHistory=None,
+                bugHistory="/api.php/v2/bugs/{bug_id}",
                 statistics="/api/bugs/statistics",
                 addComment="/api/bugs/{bug_id}/comments",
                 updateSteps="/api/bugs/{bug_id}/steps",

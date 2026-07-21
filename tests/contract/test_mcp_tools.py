@@ -116,8 +116,20 @@ class AssigneeProvider(Provider):
         self.calls.append(("user", user, kwargs))
         return BugPage(
             items=(
-                BugSnapshot(id=2537, title="【AI建站】 first", status="active", version="v1", snapshotVersion="s1"),
-                BugSnapshot(id=3397, title="【站点后台】 second", status="open", version="v1", snapshotVersion="s2"),
+                BugSnapshot(
+                    id=2537,
+                    title="【AI建站】 first",
+                    status="active",
+                    version="v1",
+                    snapshotVersion="s1",
+                ),
+                BugSnapshot(
+                    id=3397,
+                    title="【站点后台】 second",
+                    status="open",
+                    version="v1",
+                    snapshotVersion="s2",
+                ),
             ),
             coverage=Coverage(page=1, pageSize=20, total=2, pages=1),
         )
@@ -255,29 +267,85 @@ def test_query_my_bugs_routes_through_configured_assignee_and_filters(
     result = ZentaoTools(runtime(provider)).call("query_my_bugs", arguments)
     assert [item["id"] for item in result["data"]["items"]] == expected
     assert provider.calls == [
-        ("user", "weiwenting", {"scope_names": (), "page": 1, "page_size": 20})
+        (
+            "user",
+            "weiwenting",
+            {
+                "scope_names": (),
+                "page": 1,
+                "page_size": 20,
+                "browse_type": "assigntome",
+            },
+        )
+    ]
+
+
+def test_personal_tool_sets_assignee_filter_but_arbitrary_user_tool_does_not() -> None:
+    provider = AssigneeProvider()
+
+    ZentaoTools(runtime(provider)).call("query_my_bugs", {})
+    ZentaoTools(runtime(provider)).call("query_user_bugs", {"user": "alice"})
+
+    assert provider.calls == [
+        (
+            "user",
+            "weiwenting",
+            {
+                "scope_names": (),
+                "page": 1,
+                "page_size": 20,
+                "browse_type": "assigntome",
+            },
+        ),
+        (
+            "user",
+            "alice",
+            {"scope_names": ("team",), "page": 1, "page_size": 20},
+        ),
     ]
 
 
 @pytest.mark.parametrize("account", [None, "", "   "])
-def test_query_my_bugs_fails_closed_without_configured_account(account: str | None) -> None:
-    config = CONFIG.model_copy(update={"zentao": CONFIG.zentao.model_copy(update={"account": account})})
+def test_query_my_bugs_fails_closed_without_configured_account(
+    account: str | None,
+) -> None:
+    config = CONFIG.model_copy(
+        update={"zentao": CONFIG.zentao.model_copy(update={"account": account})}
+    )
     provider = AssigneeProvider()
     with pytest.raises(RuntimeError, match="configuration"):
-        ZentaoTools(AppRuntime(config, provider, Ledger(), lambda: datetime(2026, 7, 15), "mcp")).call("query_my_bugs", {})
+        ZentaoTools(
+            AppRuntime(config, provider, Ledger(), lambda: datetime(2026, 7, 15), "mcp")
+        ).call("query_my_bugs", {})
     assert provider.calls == []
 
 
-def test_query_my_bugs_keeps_filtered_candidates_with_unknown_incomplete_coverage() -> None:
+def test_query_my_bugs_keeps_filtered_candidates_with_unknown_incomplete_coverage() -> (
+    None
+):
     provider = AssigneeProvider()
     provider.query_user_bugs = lambda user, **kwargs: BugPage(  # type: ignore[method-assign]
         items=(
-            BugSnapshot(id=2537, title="【AI建站】 first", status="active", version="v1", snapshotVersion="s1"),
-            BugSnapshot(id=3397, title="【站点后台】 second", status="open", version="v1", snapshotVersion="s2"),
+            BugSnapshot(
+                id=2537,
+                title="【AI建站】 first",
+                status="active",
+                version="v1",
+                snapshotVersion="s1",
+            ),
+            BugSnapshot(
+                id=3397,
+                title="【站点后台】 second",
+                status="open",
+                version="v1",
+                snapshotVersion="s2",
+            ),
         ),
         coverage=Coverage(page=1, pageSize=20, total=99, pages=None),
     )
-    data = ZentaoTools(runtime(provider)).call("query_my_bugs", {"titleTag": "AI建站"})["data"]
+    data = ZentaoTools(runtime(provider)).call("query_my_bugs", {"titleTag": "AI建站"})[
+        "data"
+    ]
     assert [item["id"] for item in data["items"]] == [2537]
     assert data["coverage"] == {"page": 1, "pageSize": 20, "total": -1, "pages": None}
 
@@ -286,12 +354,26 @@ def test_query_my_bugs_distrusts_multi_page_total_when_visible_items_all_pass() 
     provider = AssigneeProvider()
     provider.query_user_bugs = lambda user, **kwargs: BugPage(  # type: ignore[method-assign]
         items=(
-            BugSnapshot(id=2537, title="【AI建站】 first", status="active", version="v1", snapshotVersion="s1"),
-            BugSnapshot(id=3397, title="【站点后台】 second", status="open", version="v1", snapshotVersion="s2"),
+            BugSnapshot(
+                id=2537,
+                title="【AI建站】 first",
+                status="active",
+                version="v1",
+                snapshotVersion="s1",
+            ),
+            BugSnapshot(
+                id=3397,
+                title="【站点后台】 second",
+                status="open",
+                version="v1",
+                snapshotVersion="s2",
+            ),
         ),
         coverage=Coverage(page=1, pageSize=2, total=4, pages=2),
     )
-    data = ZentaoTools(runtime(provider)).call("query_my_bugs", {"status": "unclosed", "pageSize": 2})["data"]
+    data = ZentaoTools(runtime(provider)).call(
+        "query_my_bugs", {"status": "unclosed", "pageSize": 2}
+    )["data"]
     assert [item["id"] for item in data["items"]] == [2537, 3397]
     assert data["coverage"] == {"page": 1, "pageSize": 2, "total": -1, "pages": None}
 
@@ -299,7 +381,15 @@ def test_query_my_bugs_distrusts_multi_page_total_when_visible_items_all_pass() 
 def test_query_my_bugs_distrusts_zero_pages_with_nonempty_items() -> None:
     provider = AssigneeProvider()
     provider.query_user_bugs = lambda user, **kwargs: BugPage(  # type: ignore[method-assign]
-        items=(BugSnapshot(id=2537, title="【AI建站】 first", status="active", version="v1", snapshotVersion="s1"),),
+        items=(
+            BugSnapshot(
+                id=2537,
+                title="【AI建站】 first",
+                status="active",
+                version="v1",
+                snapshotVersion="s1",
+            ),
+        ),
         coverage=Coverage(page=1, pageSize=20, total=1, pages=0),
     )
     data = ZentaoTools(runtime(provider)).call("query_my_bugs", {})["data"]

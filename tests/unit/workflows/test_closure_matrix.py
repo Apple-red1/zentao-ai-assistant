@@ -35,7 +35,15 @@ class RecordingProvider:
             items=tuple(self._bug(x) for x in range(1, 6)), coverage=Coverage(total=5)
         )
 
-    def query_user_bugs(self, user, *, scope_names, page=1, page_size=20):
+    def query_user_bugs(
+        self,
+        user,
+        *,
+        scope_names,
+        page=1,
+        page_size=20,
+        browse_type=None,
+    ):
         self.queries.append((user, scope_names, page, page_size))
         base = 1 if user == "a" else 4
         return BugPage(
