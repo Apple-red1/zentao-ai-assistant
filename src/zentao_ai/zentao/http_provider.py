@@ -149,6 +149,7 @@ class HttpZentaoProvider:
                 returned=len(items),
                 failed=0,
                 complete=complete,
+                unstableSnapshots=sum(not item.snapshot_stable for item in items),
             ),
             itemFailures=(),
             resolvedIdentity=None,
@@ -289,7 +290,7 @@ class HttpZentaoProvider:
                 metadata_trustworthy = False
             fetched += len(bugs)
             for bug in bugs:
-                snapshot = self._official_snapshot(bug)
+                snapshot = self._official_snapshot(bug, allow_unstable=True)
                 normalized_id = self._normalized_text(snapshot.id)
                 if normalized_id in seen_ids:
                     continue
@@ -520,7 +521,10 @@ class HttpZentaoProvider:
             ):
                 raise ContractError(f"{operation}: invalid items")
             items = tuple(
-                self._official_snapshot(item, operation=operation) for item in bugs
+                self._official_snapshot(
+                    item, operation=operation, allow_unstable=True
+                )
+                for item in bugs
             )
         else:
             raise ContractError(f"{operation}: invalid items")
@@ -537,7 +541,11 @@ class HttpZentaoProvider:
         return BugPage(
             items=items,
             coverage=self._safe_query_coverage(
-                coverage_data, page, page_size, len(items)
+                coverage_data,
+                page,
+                page_size,
+                len(items),
+                unstable_snapshots=sum(not item.snapshot_stable for item in items),
             ),
             itemFailures=(),
             resolvedIdentity=None,
@@ -902,7 +910,12 @@ class HttpZentaoProvider:
 
     @staticmethod
     def _safe_query_coverage(
-        data: Mapping[str, Any], page: int, page_size: int, count: int
+        data: Mapping[str, Any],
+        page: int,
+        page_size: int,
+        count: int,
+        *,
+        unstable_snapshots: int = 0,
     ) -> Coverage:
         response_page = data.get("page")
         response_page_size = data.get("pageSize")
@@ -943,6 +956,7 @@ class HttpZentaoProvider:
             returned=count,
             failed=0,
             complete=metadata_valid,
+            unstableSnapshots=unstable_snapshots,
         )
 
     def query_bug_detail(

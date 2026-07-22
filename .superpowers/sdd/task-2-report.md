@@ -85,3 +85,30 @@ supplies `unstableSnapshots`, so it is not among those failures.
 - The production contract assertion checks that coverage's unstable count
   matches returned versionless rows. Its live execution remains opt-in via
   `ZENTAO_PRODUCTION_CONTRACT_TEST=1` and was skipped locally.
+
+## Review Fix: Remaining List Paths
+
+The Important review finding was valid. Two list paths still invoked the
+official normalizer in strict mode and their coverage omitted unstable rows:
+
+- the product-list fallback used by `query_my_bugs`;
+- the `bugs` envelope on a custom `query_user_bugs` endpoint.
+
+Both list paths now pass `allow_unstable=True` and count unstable snapshots in
+their returned page coverage. `query_bug_detail` remains strict by default.
+
+Review-fix RED command:
+
+```powershell
+.venv\Scripts\python.exe -m pytest tests/integration/zentao/test_http_provider.py -k "versionless_product_row or custom_user_bugs_bugs_envelope" -q
+```
+
+Observed: `2 failed, 148 deselected`; both failures were the expected
+`MissingStableVersionError` from strict list normalization.
+
+Review-fix GREEN results:
+
+- Same focused selection: `2 passed, 148 deselected`.
+- Provider plus production-shape tests: `150 passed, 1 skipped`.
+- Full suite: `641 passed, 3 skipped, 35 subtests passed`.
+- Ruff on the changed provider and integration test: `All checks passed!`.

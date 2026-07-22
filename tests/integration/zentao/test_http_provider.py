@@ -1544,7 +1544,7 @@ def test_query_my_bugs_rejects_malformed_bugs_envelope_without_raw_values(
     assert "raw-secret" not in str(caught.value)
 
 
-def test_query_my_bugs_missing_stable_version_is_sanitized() -> None:
+def test_query_my_bugs_retains_versionless_product_row() -> None:
     def handle(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("/products"):
             return httpx.Response(
@@ -1552,13 +1552,19 @@ def test_query_my_bugs_missing_stable_version_is_sanitized() -> None:
             )
         return httpx.Response(
             200,
-            json={"bugs": [{"id": "raw-id", "status": "open", "title": "raw-title"}]},
+            json={
+                "bugs": [{"id": 7, "status": "open", "title": "versionless"}],
+                "total": 1,
+                "pages": 1,
+            },
         )
 
-    with pytest.raises(ContractError) as caught:
-        provider(httpx.MockTransport(handle)).query_my_bugs(scope_names=("A",))
-    assert str(caught.value) == "query_my_bugs: missing stable version"
-    assert "raw-id" not in str(caught.value) and "raw-title" not in str(caught.value)
+    result = provider(httpx.MockTransport(handle)).query_my_bugs(scope_names=("A",))
+
+    assert [item.id for item in result.items] == [7]
+    assert result.items[0].snapshot_version is None
+    assert result.items[0].snapshot_stable is False
+    assert result.coverage.unstable_snapshots == 1
 
 
 @pytest.mark.parametrize(
@@ -2543,6 +2549,31 @@ def test_custom_user_bugs_endpoint_is_preserved_with_requested_user_and_scopes()
     assert requests[0].url.params["page"] == "2"
     assert requests[0].url.params["pageSize"] == "20"
     assert "browseType" not in requests[0].url.params
+
+
+def test_custom_user_bugs_bugs_envelope_retains_versionless_row() -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            json={
+                "bugs": [{"id": 8, "status": "active", "title": "custom"}],
+                "page": 1,
+                "pageSize": 20,
+                "total": 1,
+                "pages": 1,
+            },
+        )
+    )
+
+    result = provider(
+        transport,
+        endpoints=ZentaoEndpoints(userBugs="/custom/users/{user}/assigned"),
+    ).query_user_bugs("alice")
+
+    assert [item.id for item in result.items] == [8]
+    assert result.items[0].snapshot_version is None
+    assert result.items[0].snapshot_stable is False
+    assert result.coverage.unstable_snapshots == 1
 
 
 def test_query_user_bugs_rejects_unknown_envelope() -> None:
