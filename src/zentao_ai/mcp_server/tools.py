@@ -81,6 +81,7 @@ def _filtered_assignee_page(
             returned=len(items),
             failed=coverage.failed,
             complete=complete,
+            unstableSnapshots=sum(not item.snapshot_stable for item in items),
         ),
         itemFailures=source.item_failures,
         resolvedIdentity=source.resolved_identity,
@@ -179,6 +180,7 @@ class ZentaoTools:
                 returned=len(items),
                 failed=coverage.failed,
                 complete=complete,
+                unstableSnapshots=sum(not item.snapshot_stable for item in items),
             )
             data = BugPage(
                 items=items,

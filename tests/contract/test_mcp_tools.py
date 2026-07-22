@@ -373,6 +373,57 @@ def test_query_user_bugs_session_visible_uses_explicit_user_without_team_scope()
     assert tools.runtime.config.model_dump() == config_before
 
 
+def test_session_visible_mcp_keeps_unstable_rows_with_display_fields() -> None:
+    provider = AssigneeProvider()
+    provider.query_user_bugs = lambda user, **kwargs: BugPage(  # type: ignore[method-assign]
+        items=(
+            BugSnapshot(
+                id=2537,
+                title="stable first",
+                priority="P1",
+                status="open",
+                assignee="zhouhaiyin",
+                version="v1",
+                snapshotVersion="v1",
+                snapshotStable=True,
+            ),
+            BugSnapshot(
+                id=3422,
+                title="SEO Rule-twitter",
+                priority="P3",
+                status="active",
+                assignee="zhouhaiyin",
+                version=None,
+                snapshotVersion=None,
+                snapshotStable=False,
+            ),
+        ),
+        coverage=Coverage(
+            total=2,
+            pages=1,
+            returned=2,
+            complete=True,
+            unstableSnapshots=1,
+        ),
+    )
+
+    data = ZentaoTools(runtime(provider)).call(
+        "query_user_bugs",
+        {"user": "zhouhaiyin", "status": "unclosed", "scopeMode": "session-visible"},
+    )["data"]
+
+    assert [row["id"] for row in data["items"]] == [2537, 3422]
+    row = data["items"][1]
+    assert row["title"] == "SEO Rule-twitter"
+    assert row["priority"] == "P3"
+    assert row["status"] == "active"
+    assert row["assignee"] == "zhouhaiyin"
+    assert row["snapshotVersion"] is None
+    assert row["snapshotStable"] is False
+    assert data["coverage"]["unstableSnapshots"] == 1
+    assert data["itemFailures"] == []
+
+
 def test_query_user_bugs_keeps_team_report_and_session_visible_contracts_separate() -> (
     None
 ):
@@ -451,7 +502,7 @@ def test_query_user_bugs_keeps_partial_metadata_after_status_filtering() -> None
         "returned": 1,
         "failed": 1,
         "complete": False,
-        "unstableSnapshots": 0,
+        "unstableSnapshots": 1,
     }
     assert data["itemFailures"][0]["bugId"] == "3398"
     assert data["itemFailures"][0]["code"] == "MISSING_STABLE_VERSION"
@@ -508,8 +559,51 @@ def test_query_my_bugs_keeps_filtered_candidates_with_unknown_incomplete_coverag
         "returned": 1,
         "failed": 0,
         "complete": False,
-        "unstableSnapshots": 0,
+        "unstableSnapshots": 1,
     }
+
+
+def test_query_my_bugs_recounts_unstable_rows_after_filtering() -> None:
+    provider = AssigneeProvider()
+    provider.query_user_bugs = lambda user, **kwargs: BugPage(  # type: ignore[method-assign]
+        items=(
+            BugSnapshot(
+                id=3422,
+                title="AI candidate",
+                priority="P3",
+                status="active",
+                assignee="weiwenting",
+                version=None,
+                snapshotVersion=None,
+                snapshotStable=False,
+            ),
+            BugSnapshot(
+                id=3423,
+                title="excluded",
+                status="closed",
+                version="v2",
+                snapshotVersion="v2",
+                snapshotStable=True,
+            ),
+        ),
+        coverage=Coverage(
+            page=1,
+            pageSize=20,
+            total=2,
+            pages=1,
+            returned=2,
+            complete=True,
+            unstableSnapshots=1,
+        ),
+    )
+
+    data = ZentaoTools(runtime(provider)).call("query_my_bugs", {"status": "unclosed"})[
+        "data"
+    ]
+
+    assert [row["id"] for row in data["items"]] == [3422]
+    assert data["coverage"]["unstableSnapshots"] == 1
+    assert data["itemFailures"] == []
 
 
 def test_query_my_bugs_preserves_partial_result_metadata() -> None:
@@ -559,7 +653,7 @@ def test_query_my_bugs_preserves_partial_result_metadata() -> None:
         "returned": 1,
         "failed": 1,
         "complete": False,
-        "unstableSnapshots": 0,
+        "unstableSnapshots": 1,
     }
     assert data["itemFailures"] == [
         {
@@ -605,7 +699,7 @@ def test_query_my_bugs_distrusts_multi_page_total_when_visible_items_all_pass() 
         "returned": 2,
         "failed": 0,
         "complete": False,
-        "unstableSnapshots": 0,
+        "unstableSnapshots": 2,
     }
 
 
@@ -633,7 +727,7 @@ def test_query_my_bugs_distrusts_zero_pages_with_nonempty_items() -> None:
         "returned": 1,
         "failed": 0,
         "complete": False,
-        "unstableSnapshots": 0,
+        "unstableSnapshots": 1,
     }
 
 
