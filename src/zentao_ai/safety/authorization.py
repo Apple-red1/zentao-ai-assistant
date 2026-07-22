@@ -26,12 +26,18 @@ def authorize(action: ActionRequest, context: AuthorizationContext) -> Authoriza
         for record in context.authorizationRecords
     )
     if name == "comment":
-        gates = (context.commentEnabled, context.snapshotStable, context.historyChecked, context.cooldownPassed, context.idempotencyPassed)
+        gates = (
+            context.commentEnabled,
+            context.historyChecked,
+            context.cooldownPassed,
+            context.idempotencyPassed,
+        )
         allowed = all(gates) and exact_record
         return AuthorizationDecision(allowed=allowed, reason="COMMENT_GATES_PASSED" if allowed else "COMMENT_GATES_FAILED")
     if name == "write_code":
         code_gates = context.codeWriteEnabled and context.routingUnique and context.repositoryGuardPassed
-        return AuthorizationDecision(allowed=code_gates, reason="CODE_WRITE_GATES_PASSED" if code_gates else "CODE_WRITE_GATES_FAILED")
+        allowed = code_gates and (context.snapshotStable or exact_record)
+        return AuthorizationDecision(allowed=allowed, reason="CODE_WRITE_GATES_PASSED" if allowed else "CODE_WRITE_GATES_FAILED")
     if name in {"update_steps", "update_steps_with_image"} and not context.stepUpdateEnabled:
         return AuthorizationDecision(allowed=False, reason="STEP_UPDATE_DISABLED")
     exact = exact_record

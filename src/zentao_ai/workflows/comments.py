@@ -9,6 +9,7 @@ from .models import CommentResult, ResolutionCommentPayload, RunContext
 from zentao_ai.reporting.renderer import render_resolution_comment
 from zentao_ai.safety.actions import ActionRequest, AuthorizationContext
 from zentao_ai.safety.authorization import authorize
+from .snapshot_guard import unstable_snapshot_matches
 
 
 def canonical_comment(creator: str, text: str) -> str:
@@ -28,13 +29,14 @@ def _write_comment(
     *,
     idempotency_key: str | None = None,
 ) -> CommentResult:
+    snapshot_stable = context.snapshotStable and snapshot.snapshot_stable
     key = idempotency_key or hashlib.sha256(
         f"{snapshot.id}\0{snapshot.snapshot_version}\0{body}".encode()
     ).hexdigest()
     auth = AuthorizationContext(
         scheduled=context.scheduled,
         commentEnabled=context.config.permissions.commentEnabled,
-        snapshotStable=context.snapshotStable,
+        snapshotStable=snapshot_stable,
         historyChecked=context.historyChecked,
         cooldownPassed=context.cooldownPassed,
         idempotencyPassed=context.idempotencyPassed,
@@ -72,6 +74,19 @@ def _write_comment(
         return CommentResult(str(snapshot.id), key, status.value)
     if record.status is not OutboxStatus.PENDING:
         return CommentResult(str(snapshot.id), key, record.status.value)
+    if not snapshot_stable:
+        try:
+            fresh_snapshot = context.provider.query_bug_detail(
+                snapshot.id, allow_unstable=True
+            )
+        except Exception:
+            return CommentResult(
+                str(snapshot.id), key, "UNSTABLE_SNAPSHOT_CHANGED"
+            )
+        if not unstable_snapshot_matches(snapshot, fresh_snapshot):
+            return CommentResult(
+                str(snapshot.id), key, "UNSTABLE_SNAPSHOT_CHANGED"
+            )
     try:
         written = context.provider.add_bug_comment(snapshot.id, body, True, key)
     except (TimeoutError, ConnectionError):

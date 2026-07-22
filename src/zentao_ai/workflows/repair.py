@@ -3,6 +3,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TypeVar
 
+from zentao_ai.safety.actions import ActionRequest, AuthorizationContext
+from zentao_ai.safety.authorization import authorize
+
 from .analysis import analyze_bug
 from .comments import write_resolution_comment
 from .models import (
@@ -14,6 +17,7 @@ from .models import (
     RunContext,
     TestResult,
 )
+from .snapshot_guard import unstable_snapshot_matches
 
 
 def _failure(
@@ -51,9 +55,17 @@ def repair_bug(context: RunContext, bug_id: int | str) -> RepairResult:
             bug_id, Decision.TOOL_OR_PERMISSION_GAP, "CODE_WRITE_DISABLED"
         )
 
-    ok, first = _attempt(lambda: context.provider.query_bug_detail(bug_id))
+    ok, first = _attempt(
+        lambda: context.provider.query_bug_detail(bug_id, allow_unstable=True)
+    )
     if not ok:
         return _failure(bug_id, Decision.TOOL_OR_PERMISSION_GAP, "SNAPSHOT_QUERY_FAILED")
+    assert first is not None
+    if str(first.id) != str(bug_id):
+        return _failure(
+            bug_id, Decision.NEEDS_ENGINEER_REVIEW, "BUG_ID_MISMATCH"
+        )
+    snapshot_stable = context.snapshotStable and first.snapshot_stable
     ok, history_page = _attempt(
         lambda: context.provider.query_bug_history(bug_id, page=1, page_size=100)
     )
@@ -84,7 +96,6 @@ def repair_bug(context: RunContext, bug_id: int | str) -> RepairResult:
             reasons=pre.reasons,
         )
 
-    assert first is not None
     routing = first.routing
     if (
         routing is None
@@ -136,7 +147,44 @@ def repair_bug(context: RunContext, bug_id: int | str) -> RepairResult:
             bug_id, Decision.NEEDS_ENGINEER_REVIEW, "REPRODUCTION_DID_NOT_FAIL"
         )
 
-    ok, outcome = _attempt(lambda: patch_executor.apply(lease, first))
+    write_authorized = authorize(
+        ActionRequest(action="write_code", bugId=str(bug_id)),
+        AuthorizationContext(
+            codeWriteEnabled=context.config.permissions.codeWriteEnabled,
+            routingUnique=True,
+            repositoryGuardPassed=True,
+            snapshotStable=snapshot_stable,
+            currentTurnId=context.currentTurnId,
+            authorizationRecords=context.authorizationRecords,
+        ),
+    ).allowed
+    if not write_authorized:
+        return _failure(
+            bug_id,
+            Decision.TOOL_OR_PERMISSION_GAP,
+            "CODE_WRITE_AUTHORIZATION_REQUIRED",
+        )
+
+    write_snapshot = first
+    if not snapshot_stable:
+        ok, guarded_snapshot = _attempt(
+            lambda: context.provider.query_bug_detail(
+                bug_id, allow_unstable=True
+            )
+        )
+        if (
+            not ok
+            or guarded_snapshot is None
+            or not unstable_snapshot_matches(first, guarded_snapshot)
+        ):
+            return _failure(
+                bug_id,
+                Decision.NEEDS_ENGINEER_REVIEW,
+                "UNSTABLE_SNAPSHOT_CHANGED",
+            )
+        write_snapshot = guarded_snapshot
+
+    ok, outcome = _attempt(lambda: patch_executor.apply(lease, write_snapshot))
     if not ok or outcome is PatchOutcome.FAILED:
         return _failure(
             bug_id,
@@ -184,7 +232,11 @@ def repair_bug(context: RunContext, bug_id: int | str) -> RepairResult:
             tests=tests,
         )
 
-    ok, second = _attempt(lambda: context.provider.query_bug_detail(bug_id))
+    ok, second = _attempt(
+        lambda: context.provider.query_bug_detail(
+            bug_id, allow_unstable=not snapshot_stable
+        )
+    )
     if not ok:
         return _failure(
             bug_id,
@@ -194,11 +246,11 @@ def repair_bug(context: RunContext, bug_id: int | str) -> RepairResult:
             tests=tests,
         )
     assert second is not None
-    if second.snapshot_version != first.snapshot_version:
+    if second.snapshot_version != write_snapshot.snapshot_version:
         return _failure(bug_id, Decision.NEEDS_ENGINEER_REVIEW, "SNAPSHOT_VERSION_CHANGED", retained=True, tests=tests)
-    if second.status != first.status:
+    if second.status != write_snapshot.status:
         return _failure(bug_id, Decision.NEEDS_ENGINEER_REVIEW, "STATUS_CHANGED", retained=True, tests=tests)
-    if second.assignee != first.assignee:
+    if second.assignee != write_snapshot.assignee:
         return _failure(bug_id, Decision.NEEDS_ENGINEER_REVIEW, "ASSIGNEE_CHANGED", retained=True, tests=tests)
 
     ok, fresh_history_page = _attempt(

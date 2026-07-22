@@ -97,7 +97,9 @@ class ZentaoTools:
         return {name: INPUT_MODELS[name].model_json_schema() for name in TOOL_NAMES}
 
     def _normalized(self, value: AddCommentInput | UpdateStepsInput) -> WorkflowRequest:
-        snapshot = self.runtime.provider.query_bug_detail(value.bugId)
+        snapshot = self.runtime.provider.query_bug_detail(
+            value.bugId, allow_unstable=isinstance(value, AddCommentInput)
+        )
         authorization = value.authorization
         record = {
             "turnId": authorization.turnId,

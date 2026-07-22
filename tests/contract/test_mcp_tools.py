@@ -758,7 +758,7 @@ def test_comment_uses_shared_gated_writer_and_preserves_trimmed_key(
 
 
 @pytest.mark.parametrize(
-    "field", ["snapshotStable", "historyChecked", "cooldownPassed", "idempotencyPassed"]
+    "field", ["historyChecked", "cooldownPassed", "idempotencyPassed"]
 )
 def test_comment_rejects_each_missing_gate(field: str) -> None:
     args = {
@@ -775,6 +775,34 @@ def test_comment_rejects_each_missing_gate(field: str) -> None:
     args[field] = False
     result = ZentaoTools(runtime()).call("add_bug_comment", args)
     assert result["data"]["status"] == "SKIPPED"
+
+
+def test_unstable_comment_uses_exact_authorization_and_matching_fresh_snapshot() -> None:
+    class UnstableOnlyProvider(Provider):
+        def query_bug_detail(
+            self, bug_id: int | str, *, allow_unstable: bool = False
+        ) -> BugSnapshot:
+            assert allow_unstable
+            self.calls.append(("detail", bug_id))
+            return BugSnapshot(id=bug_id, status="active", creator="alice")
+
+    provider = UnstableOnlyProvider()
+    args = {
+        "bugId": 7,
+        "comment": "hello",
+        "confirm": True,
+        "idempotencyKey": "request-key",
+        **authorization("comment", {"comment": "hello"}),
+        "snapshotStable": False,
+        "historyChecked": True,
+        "cooldownPassed": True,
+        "idempotencyPassed": True,
+    }
+
+    result = ZentaoTools(runtime(provider)).call("add_bug_comment", args)
+
+    assert result["data"]["status"] == "CREATED"
+    assert [call[0] for call in provider.calls] == ["detail", "detail", "comment"]
 
 
 def test_steps_require_exact_current_turn_authorization() -> None:

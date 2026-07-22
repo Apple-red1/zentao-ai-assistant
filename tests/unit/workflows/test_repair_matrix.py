@@ -35,6 +35,8 @@ class RecordingProvider:
         self.calls = calls
         self.snapshots = list(snapshots)
         self.histories = list(histories)
+        self.allow_unstable_calls = []
+        self.detail_queries = 0
         self.comment_status = "CREATED"
         self.fail_at = None
 
@@ -43,7 +45,14 @@ class RecordingProvider:
             raise RuntimeError(name)
 
     def query_bug_detail(self, bug_id, *, allow_unstable=False):
-        name = "snapshot" if len(self.snapshots) > 1 else "fresh_snapshot"
+        self.allow_unstable_calls.append(allow_unstable)
+        if self.detail_queries == 0:
+            name = "snapshot"
+        elif allow_unstable:
+            name = "unstable_guard_snapshot"
+        else:
+            name = "fresh_snapshot"
+        self.detail_queries += 1
         self.calls.append(name)
         self._raise(name)
         return self.snapshots.pop(0)
@@ -154,8 +163,9 @@ def bug(**changes):
         id=7,
         status="active",
         assignee="alice",
-        version="v1",
+        version="s1",
         snapshotVersion="s1",
+        snapshotStable=True,
         routing={
             "repositories": ["repo"],
             "selectedRepository": "repo",
@@ -163,7 +173,21 @@ def bug(**changes):
         },
     )
     values.update(changes)
+    if "snapshotStable" not in changes:
+        values["snapshotStable"] = (
+            values["version"] is not None
+            and values["version"] == values["snapshotVersion"]
+        )
     return BugSnapshot(**values)
+
+
+def unstable_bug(**changes):
+    return bug(
+        version=None,
+        snapshotVersion=None,
+        snapshotStable=False,
+        **changes,
+    )
 
 
 def harness(*, final_candidate=True, snapshots=None, histories=((), ())):
@@ -453,6 +477,101 @@ def test_candidate_comment_skipped_is_not_delivery_or_overall_success():
     assert calls[-1] == "final"
 
 
+def test_unstable_repair_requires_exact_write_authorization_before_patch() -> None:
+    before = unstable_bug(title="Broken button", priority="2")
+    context, *_rest, calls = harness(snapshots=(before, before.model_copy()))
+    context = replace(context, snapshotStable=False)
+
+    result = repair_bug(context, 7)
+
+    assert result.reasons == ("CODE_WRITE_AUTHORIZATION_REQUIRED",)
+    assert "apply" not in calls
+
+
+def test_unstable_repair_requeries_before_patch_and_fails_closed_on_drift() -> None:
+    before = unstable_bug(title="Broken button", priority="2")
+    changed = before.model_copy(update={"priority": "1"})
+    context, provider, *_rest, calls = harness(snapshots=(before, changed))
+    context = replace(
+        context,
+        snapshotStable=False,
+        authorizationRecords=context.authorizationRecords
+        + (
+            AuthorizationRecord(
+                turnId="turn-1",
+                source="user",
+                action="write_code",
+                bugId="7",
+                parameters={},
+            ),
+        ),
+    )
+
+    result = repair_bug(context, 7)
+
+    assert result.reasons == ("UNSTABLE_SNAPSHOT_CHANGED",)
+    assert provider.allow_unstable_calls == [True, True]
+    assert calls[-1] == "unstable_guard_snapshot"
+    assert "apply" not in calls
+
+
+def test_unstable_repair_requeries_before_patch_and_comment_when_unchanged() -> None:
+    before = unstable_bug(title="Broken button", priority="2")
+    context, provider, *_rest, calls = harness(
+        snapshots=(
+            before,
+            before.model_copy(),
+            before.model_copy(),
+            before.model_copy(),
+        )
+    )
+    context = replace(
+        context,
+        snapshotStable=False,
+        authorizationRecords=context.authorizationRecords
+        + (
+            AuthorizationRecord(
+                turnId="turn-1",
+                source="user",
+                action="write_code",
+                bugId="7",
+                parameters={},
+            ),
+        ),
+    )
+
+    result = repair_bug(context, 7)
+
+    assert result.success
+    assert provider.allow_unstable_calls == [True, True, True, True]
+    assert calls.index("unstable_guard_snapshot") < calls.index("apply")
+    assert calls[-4:] == [
+        "outbox",
+        "unstable_guard_snapshot",
+        "comment",
+        ("outbox_result", OutboxStatus.CREATED),
+    ]
+
+
+def test_claimed_stable_repair_cannot_bypass_actual_unstable_authorization() -> None:
+    before = unstable_bug(title="Broken button", priority="2")
+    context, *_rest, calls = harness(snapshots=(before, before.model_copy()))
+
+    result = repair_bug(context, 7)
+
+    assert result.reasons == ("CODE_WRITE_AUTHORIZATION_REQUIRED",)
+    assert "apply" not in calls
+
+
+def test_repair_rejects_provider_snapshot_for_a_different_bug() -> None:
+    context, *_rest, calls = harness(snapshots=(bug(id=8), bug(id=8)))
+
+    result = repair_bug(context, 7)
+
+    assert result.reasons == ("BUG_ID_MISMATCH",)
+    assert calls == ["snapshot"]
+
+
 @pytest.mark.parametrize(
     "routing",
     [
@@ -502,7 +621,7 @@ def test_all_operational_errors_are_classified(stage, reason):
 def test_control_flow_exceptions_propagate(exc):
     context, provider, *_ = harness()
 
-    def stop(_bug_id):
+    def stop(_bug_id, **_kwargs):
         raise exc
 
     provider.query_bug_detail = stop
