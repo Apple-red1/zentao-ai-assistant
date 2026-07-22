@@ -503,6 +503,7 @@ def test_query_user_bugs_keeps_partial_metadata_after_status_filtering() -> None
         "failed": 1,
         "complete": False,
         "unstableSnapshots": 1,
+        "missingPresentationFields": {},
     }
     assert data["itemFailures"][0]["bugId"] == "3398"
     assert data["itemFailures"][0]["code"] == "MISSING_STABLE_VERSION"
@@ -560,6 +561,7 @@ def test_query_my_bugs_keeps_filtered_candidates_with_unknown_incomplete_coverag
         "failed": 0,
         "complete": False,
         "unstableSnapshots": 1,
+        "missingPresentationFields": {},
     }
 
 
@@ -604,6 +606,71 @@ def test_query_my_bugs_recounts_unstable_rows_after_filtering() -> None:
     assert [row["id"] for row in data["items"]] == [3422]
     assert data["coverage"]["unstableSnapshots"] == 1
     assert data["itemFailures"] == []
+
+
+@pytest.mark.parametrize(
+    ("tool_name", "arguments"),
+    [
+        ("query_my_bugs", {"status": "unclosed"}),
+        (
+            "query_user_bugs",
+            {
+                "user": "alice",
+                "scopeMode": "session-visible",
+                "status": "unclosed",
+            },
+        ),
+    ],
+)
+def test_mcp_filtered_pages_recompute_missing_presentation_field_coverage(
+    tool_name: str, arguments: dict[str, object]
+) -> None:
+    provider = AssigneeProvider()
+    provider.query_user_bugs = lambda user, **kwargs: BugPage(  # type: ignore[method-assign]
+        items=(
+            BugSnapshot(
+                id=3422,
+                title="unknown",
+                priority="P3",
+                status="active",
+                assignee=None,
+                version=None,
+                snapshotVersion=None,
+                snapshotStable=False,
+                missingPresentationFields=("title", "assignee"),
+            ),
+            BugSnapshot(
+                id=3423,
+                title="excluded",
+                priority="unknown",
+                status="closed",
+                assignee="alice",
+                version="v2",
+                snapshotVersion="v2",
+                snapshotStable=True,
+                missingPresentationFields=("priority",),
+            ),
+        ),
+        coverage=Coverage(
+            page=1,
+            pageSize=20,
+            total=2,
+            pages=1,
+            returned=2,
+            complete=True,
+            unstableSnapshots=1,
+            missingPresentationFields={"title": 1, "priority": 1, "assignee": 1},
+        ),
+    )
+
+    data = ZentaoTools(runtime(provider)).call(tool_name, arguments)["data"]
+
+    assert [row["id"] for row in data["items"]] == [3422]
+    assert data["items"][0]["missingPresentationFields"] == ["title", "assignee"]
+    assert data["coverage"]["missingPresentationFields"] == {
+        "title": 1,
+        "assignee": 1,
+    }
 
 
 def test_query_my_bugs_preserves_partial_result_metadata() -> None:
@@ -654,6 +721,7 @@ def test_query_my_bugs_preserves_partial_result_metadata() -> None:
         "failed": 1,
         "complete": False,
         "unstableSnapshots": 1,
+        "missingPresentationFields": {},
     }
     assert data["itemFailures"] == [
         {
@@ -700,6 +768,7 @@ def test_query_my_bugs_distrusts_multi_page_total_when_visible_items_all_pass() 
         "failed": 0,
         "complete": False,
         "unstableSnapshots": 2,
+        "missingPresentationFields": {},
     }
 
 
@@ -728,6 +797,7 @@ def test_query_my_bugs_distrusts_zero_pages_with_nonempty_items() -> None:
         "failed": 0,
         "complete": False,
         "unstableSnapshots": 1,
+        "missingPresentationFields": {},
     }
 
 

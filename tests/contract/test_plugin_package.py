@@ -265,6 +265,10 @@ def test_packaged_skill_documents_degraded_bug_query_contract() -> None:
         for phrase in (
             "snapshotVersion=null",
             "snapshotStable=false",
+            "items[].missingPresentationFields",
+            "coverage.missingPresentationFields",
+            '"title" | "priority" | "status" | "assignee"',
+            "字段名到缺失行数的映射",
             "Bug号 | 标题 | 优先级 | 状态 | 负责人 | 快照稳定性",
             "当前轮次",
             "具体 Bug",

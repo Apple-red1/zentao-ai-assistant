@@ -17,7 +17,12 @@ from zentao_ai.workflows.steps import (
     replace_steps,
     replace_steps_with_image,
 )
-from zentao_ai.zentao.models import BugPage, BugSnapshot, Coverage
+from zentao_ai.zentao.models import (
+    BugPage,
+    BugSnapshot,
+    Coverage,
+    missing_presentation_field_counts,
+)
 from zentao_ai.zentao.query_filters import filter_assignee_bugs
 
 from .bug_table import render_bug_table
@@ -63,6 +68,7 @@ def _placeholder(bug_id: str = "0") -> BugSnapshot:
         version="transport",
         snapshotVersion="transport",
         snapshotStable=True,
+        missingPresentationFields=(),
     )
 
 
@@ -87,6 +93,8 @@ def _filtered_assignee_page(source: BugPage, *, status: str) -> BugPage:
             returned=len(items),
             failed=coverage.failed,
             complete=complete,
+            unstableSnapshots=sum(not item.snapshot_stable for item in items),
+            missingPresentationFields=missing_presentation_field_counts(items),
         ),
         itemFailures=source.item_failures,
         resolvedIdentity=source.resolved_identity,
@@ -157,6 +165,8 @@ def mine(
             returned=len(items),
             failed=coverage.failed,
             complete=complete,
+            unstableSnapshots=sum(not item.snapshot_stable for item in items),
+            missingPresentationFields=missing_presentation_field_counts(items),
         )
         page = BugPage(
             items=items,

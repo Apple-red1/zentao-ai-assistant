@@ -35,11 +35,13 @@ from .models import (
     Coverage,
     HistoryPage,
     ItemFailure,
+    PresentationField,
     ResolvedIdentity,
     RoutingData,
     StepUpdateResult,
     ZentaoAuth,
     ZentaoEndpoints,
+    missing_presentation_field_counts,
 )
 
 
@@ -150,6 +152,7 @@ class HttpZentaoProvider:
                 failed=0,
                 complete=complete,
                 unstableSnapshots=sum(not item.snapshot_stable for item in items),
+                missingPresentationFields=missing_presentation_field_counts(items),
             ),
             itemFailures=(),
             resolvedIdentity=None,
@@ -404,6 +407,9 @@ class HttpZentaoProvider:
             "version": version,
             "snapshotVersion": version,
             "snapshotStable": version is not None,
+            "missingPresentationFields": self._missing_presentation_fields(
+                data, assignee_key="assignedTo"
+            ),
             "raw": self._sanitize(data),
         }
         try:
@@ -477,6 +483,28 @@ class HttpZentaoProvider:
         normalized = str(value).strip()
         return f"P{normalized}" if normalized.isdigit() else (normalized or "unknown")
 
+    @classmethod
+    def _missing_presentation_fields(
+        cls, data: Mapping[str, Any], *, assignee_key: str
+    ) -> tuple[PresentationField, ...]:
+        missing: list[PresentationField] = []
+        priority_value = data.get("pri") if "pri" in data else data.get("priority")
+        values: tuple[tuple[PresentationField, Any], ...] = (
+            ("title", data.get("title")),
+            ("priority", priority_value),
+            ("status", data.get("status")),
+            ("assignee", data.get(assignee_key)),
+        )
+        for field, value in values:
+            available = (
+                cls._account(value) is not None
+                if field == "assignee"
+                else cls._catalog_text(value) is not None
+            )
+            if not available:
+                missing.append(field)
+        return tuple(missing)
+
     def query_user_bugs(
         self,
         user: str,
@@ -508,7 +536,8 @@ class HttpZentaoProvider:
         )
         if "items" in data:
             items = tuple(
-                self._snapshot(item, operation) for item in self._items(data, operation)
+                self._snapshot(item, operation, allow_unstable=True)
+                for item in self._items(data, operation)
             )
         elif "bugs" in data:
             bugs = data.get("bugs")
@@ -546,6 +575,7 @@ class HttpZentaoProvider:
                 page_size,
                 len(items),
                 unstable_snapshots=sum(not item.snapshot_stable for item in items),
+                missing_presentation_fields=missing_presentation_field_counts(items),
             ),
             itemFailures=(),
             resolvedIdentity=None,
@@ -696,6 +726,7 @@ class HttpZentaoProvider:
                 failed=len(item_failures),
                 complete=complete,
                 unstableSnapshots=sum(not item.snapshot_stable for item in items),
+                missingPresentationFields=missing_presentation_field_counts(items),
             ),
             itemFailures=item_failures,
             resolvedIdentity=resolved_identity,
@@ -916,6 +947,7 @@ class HttpZentaoProvider:
         count: int,
         *,
         unstable_snapshots: int = 0,
+        missing_presentation_fields: Mapping[PresentationField, int] | None = None,
     ) -> Coverage:
         response_page = data.get("page")
         response_page_size = data.get("pageSize")
@@ -957,6 +989,7 @@ class HttpZentaoProvider:
             failed=0,
             complete=metadata_valid,
             unstableSnapshots=unstable_snapshots,
+            missingPresentationFields=missing_presentation_fields or {},
         )
 
     def query_bug_detail(
@@ -978,7 +1011,9 @@ class HttpZentaoProvider:
                 operation="query_bug_detail",
                 allow_unstable=allow_unstable,
             )
-        return self._snapshot(data, "query_bug_detail")
+        return self._snapshot(
+            data, "query_bug_detail", allow_unstable=allow_unstable
+        )
 
     def query_bug_history(
         self, bug_id: int | str, *, page: int = 1, page_size: int = 20
@@ -1012,6 +1047,7 @@ class HttpZentaoProvider:
                     pageSize=page_size,
                     total=total,
                     pages=(total + page_size - 1) // page_size,
+                    unstableSnapshots=0,
                 ),
             )
         data = self._request(
@@ -1295,11 +1331,19 @@ class HttpZentaoProvider:
             },
         )
         items = tuple(
-            self._snapshot(x, operation) for x in self._items(data, operation)
+            self._snapshot(x, operation, allow_unstable=True)
+            for x in self._items(data, operation)
         )
         return BugPage(
             items=items,
-            coverage=self._bug_coverage(data, page, page_size, len(items)),
+            coverage=self._bug_coverage(
+                data,
+                page,
+                page_size,
+                len(items),
+                unstable_snapshots=sum(not item.snapshot_stable for item in items),
+                missing_presentation_fields=missing_presentation_field_counts(items),
+            ),
             itemFailures=(),
             resolvedIdentity=None,
         )
@@ -1338,15 +1382,40 @@ class HttpZentaoProvider:
         ):
             raise ValueError("invalid pagination")
 
-    def _snapshot(self, data: Mapping[str, Any], operation: str) -> BugSnapshot:
-        version = data.get("version")
-        if version is None or not str(version).strip():
+    def _snapshot(
+        self,
+        data: Mapping[str, Any],
+        operation: str,
+        *,
+        allow_unstable: bool = False,
+    ) -> BugSnapshot:
+        version = self._catalog_text(data.get("version"))
+        if version is None and not allow_unstable:
             raise MissingStableVersionError(f"{operation}: missing stable version")
+        supplied_snapshot_version = (
+            self._catalog_text(data.get("snapshotVersion"))
+            if "snapshotVersion" in data
+            else version
+        )
+        if supplied_snapshot_version != version:
+            raise InvalidBugContractError(
+                f"{operation}: invalid bug contract"
+            )
         safe = self._sanitize(data)
+        assignee_value = data.get("assignee", data.get("assignedTo"))
         normalized = {
             **data,
-            "version": str(version).strip(),
-            "snapshotVersion": str(version).strip(),
+            "status": self._catalog_text(data.get("status")) or "unknown",
+            "title": self._catalog_text(data.get("title")) or "unknown",
+            "priority": self._priority(data),
+            "assignee": self._account(assignee_value),
+            "version": version,
+            "snapshotVersion": version,
+            "snapshotStable": version is not None,
+            "missingPresentationFields": self._missing_presentation_fields(
+                data,
+                assignee_key=("assignee" if "assignee" in data else "assignedTo"),
+            ),
             "raw": safe,
         }
         try:
@@ -1407,9 +1476,23 @@ class HttpZentaoProvider:
         return cls._history(data, operation)
 
     def _bug_coverage(
-        self, data: Mapping[str, Any], page: int, page_size: int, count: int
+        self,
+        data: Mapping[str, Any],
+        page: int,
+        page_size: int,
+        count: int,
+        *,
+        unstable_snapshots: int = 0,
+        missing_presentation_fields: Mapping[PresentationField, int] | None = None,
     ) -> Coverage:
-        return self._safe_query_coverage(data, page, page_size, count)
+        return self._safe_query_coverage(
+            data,
+            page,
+            page_size,
+            count,
+            unstable_snapshots=unstable_snapshots,
+            missing_presentation_fields=missing_presentation_fields,
+        )
 
     @staticmethod
     def _coverage(
@@ -1420,6 +1503,7 @@ class HttpZentaoProvider:
             pageSize=data.get("pageSize", page_size),
             total=data.get("total", count),
             pages=data.get("pages"),
+            unstableSnapshots=0,
         )
 
     @staticmethod

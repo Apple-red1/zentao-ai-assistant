@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from types import MappingProxyType
 from typing import Any, Literal, Self
 
@@ -9,6 +9,7 @@ from pydantic import (
     ConfigDict,
     Field,
     SecretStr,
+    field_serializer,
     field_validator,
     model_validator,
 )
@@ -47,6 +48,9 @@ class CreatorAccount(FrozenModel):
     account: str
 
 
+PresentationField = Literal["title", "priority", "status", "assignee"]
+
+
 class BugSnapshot(FrozenModel):
     id: int | str
     status: str = "unknown"
@@ -57,6 +61,9 @@ class BugSnapshot(FrozenModel):
     snapshot_stable: bool = Field(False, alias="snapshotStable")
     title: str = "unknown"
     priority: str = "unknown"
+    missing_presentation_fields: tuple[PresentationField, ...] = Field(
+        (), alias="missingPresentationFields"
+    )
     steps: str = ""
     routing: RoutingData | None = None
     raw: Mapping[str, Any] = Field(default_factory=dict)
@@ -75,6 +82,16 @@ class BugSnapshot(FrozenModel):
         if value is None or isinstance(value, Mapping):
             return value
         return {"account": str(value)}
+
+
+def missing_presentation_field_counts(
+    items: Iterable[BugSnapshot],
+) -> dict[PresentationField, int]:
+    counts: dict[PresentationField, int] = {}
+    for item in items:
+        for field in item.missing_presentation_fields:
+            counts[field] = counts.get(field, 0) + 1
+    return counts
 
 
 class BugHistoryEntry(FrozenModel):
@@ -97,6 +114,15 @@ class Coverage(FrozenModel):
     failed: int = 0
     complete: bool = True
     unstable_snapshots: int = Field(0, alias="unstableSnapshots")
+    missing_presentation_fields: Mapping[PresentationField, int] = Field(
+        default_factory=dict, alias="missingPresentationFields"
+    )
+
+    @field_serializer("missing_presentation_fields")
+    def serialize_missing_presentation_fields(
+        self, value: Mapping[PresentationField, int]
+    ) -> dict[PresentationField, int]:
+        return dict(value)
 
     @model_validator(mode="after")
     def reject_complete_failures(self) -> Self:

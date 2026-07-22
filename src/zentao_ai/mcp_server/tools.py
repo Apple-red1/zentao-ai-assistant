@@ -17,7 +17,11 @@ from zentao_ai.workflows.steps import (
     replace_steps_with_image,
 )
 from zentao_ai.zentao.errors import ContractError
-from zentao_ai.zentao.models import BugPage, Coverage
+from zentao_ai.zentao.models import (
+    BugPage,
+    Coverage,
+    missing_presentation_field_counts,
+)
 from zentao_ai.zentao.query_filters import filter_assignee_bugs
 
 from .schemas import (
@@ -83,6 +87,7 @@ def _filtered_assignee_page(
             failed=coverage.failed,
             complete=complete,
             unstableSnapshots=sum(not item.snapshot_stable for item in items),
+            missingPresentationFields=missing_presentation_field_counts(items),
         ),
         itemFailures=source.item_failures,
         resolvedIdentity=source.resolved_identity,
@@ -188,6 +193,7 @@ class ZentaoTools:
                 failed=coverage.failed,
                 complete=complete,
                 unstableSnapshots=sum(not item.snapshot_stable for item in items),
+                missingPresentationFields=missing_presentation_field_counts(items),
             )
             data = BugPage(
                 items=items,

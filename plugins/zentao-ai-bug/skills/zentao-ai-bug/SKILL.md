@@ -30,6 +30,8 @@ description: Use when 需要处理禅道 Zentao 个人 Bug、生成团队或每�
 
 缺少稳定版本的只读 Bug 仍保留在查询结果中，字段包括 Bug 号、标题、优先级、状态、负责人，且固定标记 `snapshotVersion=null`、`snapshotStable=false`。CLI 默认使用 Markdown 表格展示，表头为 `Bug号 | 标题 | 优先级 | 状态 | 负责人 | 快照稳定性`，此类行显示“不稳定”。此类 Bug 的评论或本地代码修复必须取得当前轮次针对具体 Bug 和具体动作的精确人工确认，并在副作用前重新查询；其余历史、冷却、幂等、仓库和测试门禁不得绕过。团队报告仍为只读，永久删除仍绝对禁止。
 
+展示字段完整性使用两个附加 JSON 字段：`items[].missingPresentationFields: list["title" | "priority" | "status" | "assignee"]` 记录该行由规范化器补缺的字段；`coverage.missingPresentationFields: object` 是字段名到缺失行数的映射，只统计当前返回页。上游真实值 `unknown` 不等同于补缺，只有原始字段缺失、空白或类型无效时才记录。
+
 ## 执行流程
 
 1. 校验配置并取得北京时间业务日期；获取任务租约。同一业务日期已有有效租约时退出，禁止重入。

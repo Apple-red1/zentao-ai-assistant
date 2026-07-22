@@ -455,6 +455,89 @@ def test_bugs_user_json_preserves_structured_data_items(tmp_path: Path) -> None:
     assert [item["id"] for item in payload["data"]["items"]] == [2537, 3397]
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        ["bugs", "mine", "--status", "unclosed", "--json"],
+        [
+            "bugs",
+            "user",
+            "alice",
+            "--scope-mode",
+            "session-visible",
+            "--status",
+            "unclosed",
+            "--json",
+        ],
+    ],
+)
+def test_cli_filtered_json_recomputes_unstable_snapshot_coverage(
+    tmp_path: Path, command: list[str]
+) -> None:
+    class MixedStabilityProvider(Provider):
+        def query_user_bugs(
+            self,
+            user: str,
+            *,
+            scope_names: tuple[str, ...],
+            page: int,
+            page_size: int,
+            browse_type: str | None = None,
+        ) -> BugPage:
+            return BugPage(
+                items=(
+                    BugSnapshot(
+                        id=1,
+                        status="active",
+                        version=None,
+                        snapshotVersion=None,
+                        snapshotStable=False,
+                        missingPresentationFields=("title", "assignee"),
+                    ),
+                    BugSnapshot(
+                        id=2,
+                        status="closed",
+                        version="v2",
+                        snapshotVersion="v2",
+                        snapshotStable=True,
+                        missingPresentationFields=("priority",),
+                    ),
+                ),
+                coverage=Coverage(
+                    page=1,
+                    pageSize=20,
+                    total=2,
+                    pages=1,
+                    returned=2,
+                    unstableSnapshots=1,
+                    missingPresentationFields={
+                        "title": 1,
+                        "priority": 1,
+                        "assignee": 1,
+                    },
+                ),
+            )
+
+    result = CliRunner().invoke(
+        app,
+        command,
+        obj=factory(tmp_path, provider=MixedStabilityProvider()),
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)["data"]
+    assert [item["id"] for item in payload["items"]] == [1]
+    assert payload["coverage"]["unstableSnapshots"] == 1
+    assert payload["items"][0]["missingPresentationFields"] == [
+        "title",
+        "assignee",
+    ]
+    assert payload["coverage"]["missingPresentationFields"] == {
+        "title": 1,
+        "assignee": 1,
+    }
+
+
 def test_bugs_mine_renders_markdown_table(tmp_path: Path) -> None:
     result = CliRunner().invoke(
         app,
@@ -508,7 +591,8 @@ def test_bugs_mine_distrusts_multi_page_total_when_visible_items_all_pass(
         "returned": 2,
         "failed": 0,
         "complete": False,
-        "unstableSnapshots": 0,
+        "unstableSnapshots": 2,
+        "missingPresentationFields": {},
     }
 
 
@@ -573,7 +657,8 @@ def test_bugs_mine_preserves_partial_result_metadata(tmp_path: Path) -> None:
         "returned": 2,
         "failed": 1,
         "complete": False,
-        "unstableSnapshots": 0,
+        "unstableSnapshots": 2,
+        "missingPresentationFields": {},
     }
     assert payload["itemFailures"][0]["bugId"] == "3398"
     assert payload["resolvedIdentity"]["resolvedAccount"] == "wwt"
@@ -618,7 +703,8 @@ def test_bugs_mine_distrusts_zero_pages_with_nonempty_items(tmp_path: Path) -> N
         "returned": 1,
         "failed": 0,
         "complete": False,
-        "unstableSnapshots": 0,
+        "unstableSnapshots": 1,
+        "missingPresentationFields": {},
     }
 
 

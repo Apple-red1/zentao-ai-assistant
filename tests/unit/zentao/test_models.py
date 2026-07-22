@@ -1,3 +1,5 @@
+import warnings
+
 import pytest
 from pydantic import ValidationError
 
@@ -133,3 +135,41 @@ def test_coverage_accepts_unstable_snapshot_count_alias() -> None:
 
     assert coverage.unstable_snapshots == 2
     assert coverage.model_dump(by_alias=True)["unstableSnapshots"] == 2
+
+
+def test_missing_presentation_field_metadata_has_documented_aliases_and_types() -> None:
+    bug = BugSnapshot(
+        id=1,
+        missingPresentationFields=("title", "assignee"),
+    )
+    coverage = Coverage(
+        missingPresentationFields={"title": 2, "assignee": 1}
+    )
+
+    assert bug.missing_presentation_fields == ("title", "assignee")
+    assert coverage.missing_presentation_fields == {"title": 2, "assignee": 1}
+    assert bug.model_dump(by_alias=True, warnings=False)["missingPresentationFields"] == (
+        "title",
+        "assignee",
+    )
+    assert coverage.model_dump(by_alias=True, warnings=False)["missingPresentationFields"] == {
+        "title": 2,
+        "assignee": 1,
+    }
+
+
+def test_missing_presentation_field_metadata_rejects_unknown_field_names() -> None:
+    with pytest.raises(ValidationError):
+        BugSnapshot(id=1, missingPresentationFields=("version",))
+    with pytest.raises(ValidationError):
+        Coverage(missingPresentationFields={"version": 1})
+
+
+def test_coverage_serializes_frozen_missing_field_counts_without_warnings() -> None:
+    with warnings.catch_warnings(record=True) as captured:
+        serialized = Coverage(
+            missingPresentationFields={"title": 1}
+        ).model_dump(by_alias=True)
+
+    assert not captured
+    assert serialized["missingPresentationFields"] == {"title": 1}

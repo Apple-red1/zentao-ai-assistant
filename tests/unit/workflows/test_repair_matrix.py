@@ -485,7 +485,7 @@ def test_unstable_repair_requires_exact_write_authorization_before_patch() -> No
     result = repair_bug(context, 7)
 
     assert result.reasons == ("CODE_WRITE_AUTHORIZATION_REQUIRED",)
-    assert "apply" not in calls
+    assert calls == ["snapshot"]
 
 
 def test_unstable_repair_requeries_before_patch_and_fails_closed_on_drift() -> None:
@@ -544,7 +544,8 @@ def test_unstable_repair_requeries_before_patch_and_comment_when_unchanged() -> 
 
     assert result.success
     assert provider.allow_unstable_calls == [True, True, True, True]
-    assert calls.index("unstable_guard_snapshot") < calls.index("apply")
+    apply_index = calls.index("apply")
+    assert calls[apply_index - 1] == "unstable_guard_snapshot"
     assert calls[-4:] == [
         "outbox",
         "unstable_guard_snapshot",
@@ -560,7 +561,50 @@ def test_claimed_stable_repair_cannot_bypass_actual_unstable_authorization() -> 
     result = repair_bug(context, 7)
 
     assert result.reasons == ("CODE_WRITE_AUTHORIZATION_REQUIRED",)
-    assert "apply" not in calls
+    assert calls == ["snapshot"]
+
+
+@pytest.mark.parametrize(
+    "record",
+    [
+        AuthorizationRecord(
+            turnId="old-turn",
+            source="user",
+            action="write_code",
+            bugId="7",
+            parameters={},
+        ),
+        AuthorizationRecord(
+            turnId="turn-1",
+            source="user",
+            action="write_code",
+            bugId="8",
+            parameters={},
+        ),
+        AuthorizationRecord(
+            turnId="turn-1",
+            source="user",
+            action="comment",
+            bugId="7",
+            parameters={},
+        ),
+    ],
+)
+def test_unstable_repair_rejects_inexact_write_authorization_before_side_effect_ports(
+    record: AuthorizationRecord,
+) -> None:
+    before = unstable_bug(title="Broken button", priority="2")
+    context, *_rest, calls = harness(snapshots=(before, before.model_copy()))
+    context = replace(
+        context,
+        snapshotStable=False,
+        authorizationRecords=(record,),
+    )
+
+    result = repair_bug(context, 7)
+
+    assert result.reasons == ("CODE_WRITE_AUTHORIZATION_REQUIRED",)
+    assert calls == ["snapshot"]
 
 
 def test_repair_rejects_provider_snapshot_for_a_different_bug() -> None:

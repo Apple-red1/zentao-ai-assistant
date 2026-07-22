@@ -26,6 +26,8 @@
 
 缺少稳定版本的只读 Bug 仍保留在查询结果中，字段包括 Bug 号、标题、优先级、状态、负责人，且固定标记 `snapshotVersion=null`、`snapshotStable=false`。CLI 默认使用 Markdown 表格展示，表头为 `Bug号 | 标题 | 优先级 | 状态 | 负责人 | 快照稳定性`，此类行显示“不稳定”。此类 Bug 的评论或本地代码修复必须取得当前轮次针对具体 Bug 和具体动作的精确人工确认，并在副作用前重新查询；其余历史、冷却、幂等、仓库和测试门禁不得绕过。团队报告仍为只读，永久删除仍绝对禁止。
 
+展示字段完整性使用两个附加 JSON 字段：`items[].missingPresentationFields: list["title" | "priority" | "status" | "assignee"]` 记录该行由规范化器补缺的字段；`coverage.missingPresentationFields: object` 是字段名到缺失行数的映射，只统计当前返回页。上游真实值 `unknown` 不等同于补缺，只有原始字段缺失、空白或类型无效时才记录。
+
 ## 执行流程
 
 1. 个人发现以 `mcp__zentao__query_my_bugs` 为主工具，由内部解析配置的负责人身份，默认 `status=unclosed`，不得扩大到其他人，也不得依赖产品目录。可选业务过滤只匹配标题开头精确的全角标签（例如 `【AI建站】`）；必须如实保存总数、分页、截断和完整性。`personal.scopeNames` 不用于扩大或裁剪个人候选；团队流程仍按配置传递 `team.scopeNames`。

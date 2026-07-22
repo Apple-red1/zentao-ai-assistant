@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import TypeVar
 
 from zentao_ai.safety.actions import ActionRequest, AuthorizationContext
-from zentao_ai.safety.authorization import authorize
+from zentao_ai.safety.authorization import authorize, has_exact_authorization
 
 from .analysis import analyze_bug
 from .comments import write_resolution_comment
@@ -66,6 +66,23 @@ def repair_bug(context: RunContext, bug_id: int | str) -> RepairResult:
             bug_id, Decision.NEEDS_ENGINEER_REVIEW, "BUG_ID_MISMATCH"
         )
     snapshot_stable = context.snapshotStable and first.snapshot_stable
+    write_action = ActionRequest(action="write_code", bugId=str(bug_id))
+    authorization_context = AuthorizationContext(
+        codeWriteEnabled=context.config.permissions.codeWriteEnabled,
+        routingUnique=True,
+        repositoryGuardPassed=True,
+        snapshotStable=snapshot_stable,
+        currentTurnId=context.currentTurnId,
+        authorizationRecords=context.authorizationRecords,
+    )
+    if not snapshot_stable and not has_exact_authorization(
+        write_action, authorization_context
+    ):
+        return _failure(
+            bug_id,
+            Decision.TOOL_OR_PERMISSION_GAP,
+            "CODE_WRITE_AUTHORIZATION_REQUIRED",
+        )
     ok, history_page = _attempt(
         lambda: context.provider.query_bug_history(bug_id, page=1, page_size=100)
     )
@@ -148,15 +165,8 @@ def repair_bug(context: RunContext, bug_id: int | str) -> RepairResult:
         )
 
     write_authorized = authorize(
-        ActionRequest(action="write_code", bugId=str(bug_id)),
-        AuthorizationContext(
-            codeWriteEnabled=context.config.permissions.codeWriteEnabled,
-            routingUnique=True,
-            repositoryGuardPassed=True,
-            snapshotStable=snapshot_stable,
-            currentTurnId=context.currentTurnId,
-            authorizationRecords=context.authorizationRecords,
-        ),
+        write_action,
+        authorization_context,
     ).allowed
     if not write_authorized:
         return _failure(

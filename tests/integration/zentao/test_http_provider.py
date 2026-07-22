@@ -13,6 +13,8 @@ from zentao_ai.zentao import (
     AuthenticationError,
     ContractError,
     HttpZentaoProvider,
+    InvalidBugContractError,
+    MissingStableVersionError,
     PermissionDeniedError,
     TransportError,
     UnknownWriteResultError,
@@ -417,7 +419,7 @@ def test_query_user_bugs_slices_ordered_partial_outcomes_before_page_one_counts(
     assert [failure.code for failure in result.item_failures] == [
         "INVALID_BUG_CONTRACT"
     ]
-    assert result.coverage.model_dump(by_alias=True) == {
+    assert result.coverage.model_dump(by_alias=True, warnings=False) == {
         "page": 1,
         "pageSize": 20,
         "total": 21,
@@ -426,6 +428,7 @@ def test_query_user_bugs_slices_ordered_partial_outcomes_before_page_one_counts(
         "failed": 1,
         "complete": False,
         "unstableSnapshots": 0,
+        "missingPresentationFields": {"title": 19, "priority": 19},
     }
 
 
@@ -439,7 +442,7 @@ def test_query_user_bugs_direct_page_two_does_not_repeat_page_one_failure() -> N
     assert requested_pages == [1, 2]
     assert [item.id for item in result.items] == [21]
     assert result.item_failures == ()
-    assert result.coverage.model_dump(by_alias=True) == {
+    assert result.coverage.model_dump(by_alias=True, warnings=False) == {
         "page": 2,
         "pageSize": 20,
         "total": 21,
@@ -448,6 +451,7 @@ def test_query_user_bugs_direct_page_two_does_not_repeat_page_one_failure() -> N
         "failed": 0,
         "complete": False,
         "unstableSnapshots": 0,
+        "missingPresentationFields": {"title": 1, "priority": 1},
     }
 
 
@@ -627,7 +631,7 @@ def test_official_bug_history_adapts_actions_and_paginates_locally() -> None:
     assert [(item.id, item.action, item.actor) for item in result.items] == [
         ("11", "commented", "qa")
     ]
-    assert result.coverage.model_dump(by_alias=True) == {
+    assert result.coverage.model_dump(by_alias=True, warnings=False) == {
         "page": 2,
         "pageSize": 2,
         "total": 3,
@@ -636,6 +640,7 @@ def test_official_bug_history_adapts_actions_and_paginates_locally() -> None:
         "failed": 0,
         "complete": True,
         "unstableSnapshots": 0,
+        "missingPresentationFields": {},
     }
     assert "apiToken" not in result.items[0].raw
 
@@ -2576,6 +2581,104 @@ def test_custom_user_bugs_bugs_envelope_retains_versionless_row() -> None:
     assert result.coverage.unstable_snapshots == 1
 
 
+def test_custom_user_bugs_items_envelope_retains_versionless_row() -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            json={
+                "items": [{"id": 8, "status": "active", "title": "custom"}],
+                "page": 1,
+                "pageSize": 20,
+                "total": 1,
+                "pages": 1,
+            },
+        )
+    )
+
+    result = provider(
+        transport,
+        endpoints=ZentaoEndpoints(userBugs="/custom/users/{user}/assigned"),
+    ).query_user_bugs("alice")
+
+    assert [item.id for item in result.items] == [8]
+    assert result.items[0].snapshot_version is None
+    assert result.items[0].snapshot_stable is False
+    assert result.coverage.unstable_snapshots == 1
+
+
+def test_custom_user_bugs_infers_stable_matching_legacy_versions() -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            json={
+                "items": [
+                    {
+                        "id": 8,
+                        "status": "active",
+                        "version": "custom-v1",
+                        "snapshotVersion": "custom-v1",
+                    }
+                ],
+                "page": 1,
+                "pageSize": 20,
+                "total": 1,
+                "pages": 1,
+            },
+        )
+    )
+
+    item = provider(
+        transport,
+        endpoints=ZentaoEndpoints(userBugs="/custom/users/{user}/assigned"),
+    ).query_user_bugs("alice").items[0]
+
+    assert item.snapshot_version == "custom-v1"
+    assert item.snapshot_stable is True
+
+
+def test_custom_user_bugs_rejects_mismatched_legacy_versions() -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            json={
+                "items": [
+                    {
+                        "id": 8,
+                        "status": "active",
+                        "version": "custom-v1",
+                        "snapshotVersion": "custom-v2",
+                    }
+                ]
+            },
+        )
+    )
+
+    with pytest.raises(InvalidBugContractError, match="query_user_bugs"):
+        provider(
+            transport,
+            endpoints=ZentaoEndpoints(userBugs="/custom/users/{user}/assigned"),
+        ).query_user_bugs("alice")
+
+
+def test_custom_bug_detail_forwards_allow_unstable_to_snapshot_normalization() -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200, json={"id": 8, "status": "active", "title": "custom"}
+        )
+    )
+    instance = provider(
+        transport,
+        endpoints=ZentaoEndpoints(bugDetail="/custom/bugs/{bug_id}"),
+    )
+
+    with pytest.raises(MissingStableVersionError, match="query_bug_detail"):
+        instance.query_bug_detail(8)
+    item = instance.query_bug_detail(8, allow_unstable=True)
+
+    assert item.snapshot_version is None
+    assert item.snapshot_stable is False
+
+
 def test_query_user_bugs_rejects_unknown_envelope() -> None:
     transport = httpx.MockTransport(
         lambda request: httpx.Response(200, json={"items": []})
@@ -2636,8 +2739,81 @@ def test_query_user_bugs_retains_missing_presentation_fields() -> None:
     assert result.items[0].priority == "unknown"
     assert result.items[0].assignee is None
     assert result.items[0].snapshot_stable is False
+    assert result.items[0].missing_presentation_fields == (
+        "title",
+        "priority",
+        "assignee",
+    )
     assert result.coverage.unstable_snapshots == 1
+    assert result.coverage.missing_presentation_fields == {
+        "title": 1,
+        "priority": 1,
+        "assignee": 1,
+    }
     assert result.item_failures == ()
+
+
+def test_query_user_bugs_does_not_mark_literal_unknown_values_as_missing() -> None:
+    def handle(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "bugs": [
+                    {
+                        "id": 2537,
+                        "title": "unknown",
+                        "pri": "unknown",
+                        "status": "unknown",
+                        "assignedTo": "unknown",
+                    }
+                ],
+                "memberPairs": {"unknown": "unknown"},
+                "page": 1,
+                "recPerPage": 20,
+                "total": 1,
+                "pages": 1,
+            },
+        )
+
+    result = provider(
+        httpx.MockTransport(handle),
+        endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs"),
+    ).query_user_bugs("unknown")
+
+    assert result.items[0].missing_presentation_fields == ()
+    assert result.coverage.missing_presentation_fields == {}
+
+
+def test_query_user_bugs_does_not_mark_valid_assignee_object_as_missing() -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            json={
+                "bugs": [
+                    {
+                        "id": 2537,
+                        "title": "Visible",
+                        "pri": "P2",
+                        "status": "active",
+                        "assignedTo": {"account": "alice"},
+                    }
+                ],
+                "page": 1,
+                "recPerPage": 20,
+                "total": 1,
+                "pages": 1,
+            },
+        )
+    )
+
+    result = provider(
+        transport,
+        endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs"),
+    ).query_user_bugs("alice")
+
+    assert result.items[0].assignee == "alice"
+    assert result.items[0].missing_presentation_fields == ()
+    assert result.coverage.missing_presentation_fields == {}
 
 
 def test_query_user_bugs_retains_items_when_pagination_is_contradictory() -> None:

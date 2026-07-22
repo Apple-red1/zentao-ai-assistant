@@ -5,6 +5,20 @@ DELETE = ("delete", "remove", "purge", "destroy")
 NEVER_CODE = frozenset({"commit", "push", "merge", "deploy", "reset", "checkout"})
 
 
+def has_exact_authorization(
+    action: ActionRequest, context: AuthorizationContext
+) -> bool:
+    name = action.action.casefold()
+    return any(
+        record.turnId == context.currentTurnId
+        and record.source == "user"
+        and record.action.casefold() == name
+        and record.bugId == action.bugId
+        and record.parameters == action.parameters
+        for record in context.authorizationRecords
+    )
+
+
 def authorize(action: ActionRequest, context: AuthorizationContext) -> AuthorizationDecision:
     name = action.action.casefold()
     if any(word in name for word in DELETE):
@@ -17,14 +31,7 @@ def authorize(action: ActionRequest, context: AuthorizationContext) -> Authoriza
         return AuthorizationDecision(allowed=False, reason="GIT_WRITE_UNAUTHORIZED")
     if context.scheduled:
         return AuthorizationDecision(allowed=False, reason="SCHEDULED_PROTECTED_ACTION_FORBIDDEN")
-    exact_record = any(
-        record.turnId == context.currentTurnId
-        and record.source == "user"
-        and record.action.casefold() == name
-        and record.bugId == action.bugId
-        and record.parameters == action.parameters
-        for record in context.authorizationRecords
-    )
+    exact_record = has_exact_authorization(action, context)
     if name == "comment":
         gates = (
             context.commentEnabled,
