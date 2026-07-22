@@ -117,6 +117,17 @@ def test_stable_snapshot_requires_matching_nonempty_version() -> None:
         )
 
 
+def test_stable_snapshot_rejects_mismatched_nonempty_versions() -> None:
+    with pytest.raises(ValueError, match="stable snapshot requires matching version"):
+        BugSnapshot(
+            id=1,
+            status="active",
+            version="v1",
+            snapshotVersion="v2",
+            snapshotStable=True,
+        )
+
+
 def test_coverage_accepts_unstable_snapshot_count_alias() -> None:
     coverage = Coverage(unstableSnapshots=2)
 

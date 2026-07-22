@@ -65,6 +65,8 @@ class BugSnapshot(FrozenModel):
     def validate_snapshot_stability(self) -> Self:
         if self.snapshot_stable and not (self.version and self.snapshot_version):
             raise ValueError("stable snapshot requires version")
+        if self.snapshot_stable and self.version != self.snapshot_version:
+            raise ValueError("stable snapshot requires matching version")
         return self
 
     @field_validator("creator", mode="before")

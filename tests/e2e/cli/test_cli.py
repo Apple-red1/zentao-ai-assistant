@@ -8,6 +8,7 @@ from pydantic import SecretStr
 from typer.testing import CliRunner
 
 from zentao_ai.cli.app import app
+from zentao_ai.cli.bug_commands import _placeholder
 from zentao_ai.cli.runtime import AppRuntime, DependencyFactory, RunPlan
 from zentao_ai.config.models import AppConfig
 from zentao_ai.config.loader import load_config
@@ -37,6 +38,14 @@ CONFIG = AppConfig.model_validate(
         },
     }
 )
+
+
+def test_transport_placeholder_is_explicitly_stable() -> None:
+    placeholder = _placeholder("3422")
+
+    assert placeholder.version == "transport"
+    assert placeholder.snapshot_version == "transport"
+    assert placeholder.snapshot_stable is True
 
 
 class Store:

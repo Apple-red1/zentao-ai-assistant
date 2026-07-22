@@ -57,7 +57,11 @@ def _emit(value: Any, json_output: bool) -> None:
 
 def _placeholder(bug_id: str = "0") -> BugSnapshot:
     return BugSnapshot(
-        id=bug_id, status="transport", version="transport", snapshotVersion="transport"
+        id=bug_id,
+        status="transport",
+        version="transport",
+        snapshotVersion="transport",
+        snapshotStable=True,
     )
 
 
