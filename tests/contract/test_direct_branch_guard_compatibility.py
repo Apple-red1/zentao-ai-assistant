@@ -23,8 +23,8 @@ def setup(tmp_path: Path) -> tuple[Path, Path]:
     (repo / "a").write_text("a", encoding="utf-8")
     git(repo, "add", "a")
     git(repo, "commit", "-m", "x")
-    git(repo, "branch", "-M", "main")
-    git(repo, "push", "-u", "origin", "main")
+    git(repo, "branch", "-M", "feature-safe")
+    git(repo, "push", "-u", "origin", "feature-safe")
     config = tmp_path / "config.yaml"
     config.write_text(yaml.safe_dump({"configVersion": 1, "personal": {"scopeNames": ["Example Site Admin"]}, "team": {"scopeNames": ["Example Site Admin"]}, "repositories": {"Example Site Admin": {"repository": "example-web", "path": str(repo), "targetBranch": "main", "testCommands": ["pytest"]}}}), encoding="utf-8")
     return repo, config
@@ -50,10 +50,10 @@ def test_golden_success_reads_config_and_selects_unique_repository(tmp_path: Pat
     assert payload == {
         "ok": True, "reasonCodes": [], "scopeName": "example site admin", "matchedRepositoryCount": 1,
         "repositoryKey": hashlib.sha256(normalized.encode()).hexdigest(), "repositoryName": repo.name,
-        "repositoryPath": str(repo.resolve()), "upstream": "origin/main", "dirtyEntryCount": 0,
-        "ahead": 0, "behind": 0, "head": head, "branch": "main", "testCommands": ["pytest"],
+        "repositoryPath": str(repo.resolve()), "upstream": "origin/feature-safe", "dirtyEntryCount": 0,
+        "ahead": 0, "behind": 0, "head": head, "branch": "feature-safe", "testCommands": ["pytest"],
         "indexFingerprint": empty_hash, "worktreeFingerprint": empty_hash,
-        "preimageFingerprint": hashlib.sha256(f"{head}\0main\0\0".encode()).hexdigest(),
+        "preimageFingerprint": hashlib.sha256(f"{head}\0feature-safe\0\0".encode()).hexdigest(),
     }
 
 
