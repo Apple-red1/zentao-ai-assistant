@@ -451,6 +451,7 @@ def test_query_user_bugs_keeps_partial_metadata_after_status_filtering() -> None
         "returned": 1,
         "failed": 1,
         "complete": False,
+        "unstableSnapshots": 0,
     }
     assert data["itemFailures"][0]["bugId"] == "3398"
     assert data["itemFailures"][0]["code"] == "MISSING_STABLE_VERSION"
@@ -507,6 +508,7 @@ def test_query_my_bugs_keeps_filtered_candidates_with_unknown_incomplete_coverag
         "returned": 1,
         "failed": 0,
         "complete": False,
+        "unstableSnapshots": 0,
     }
 
 
@@ -557,6 +559,7 @@ def test_query_my_bugs_preserves_partial_result_metadata() -> None:
         "returned": 1,
         "failed": 1,
         "complete": False,
+        "unstableSnapshots": 0,
     }
     assert data["itemFailures"] == [
         {
@@ -602,6 +605,7 @@ def test_query_my_bugs_distrusts_multi_page_total_when_visible_items_all_pass() 
         "returned": 2,
         "failed": 0,
         "complete": False,
+        "unstableSnapshots": 0,
     }
 
 
@@ -629,6 +633,7 @@ def test_query_my_bugs_distrusts_zero_pages_with_nonempty_items() -> None:
         "returned": 1,
         "failed": 0,
         "complete": False,
+        "unstableSnapshots": 0,
     }
 
 

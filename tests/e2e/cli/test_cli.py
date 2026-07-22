@@ -277,6 +277,7 @@ def test_bugs_mine_distrusts_multi_page_total_when_visible_items_all_pass(
         "returned": 2,
         "failed": 0,
         "complete": False,
+        "unstableSnapshots": 0,
     }
 
 
@@ -341,6 +342,7 @@ def test_bugs_mine_preserves_partial_result_metadata(tmp_path: Path) -> None:
         "returned": 2,
         "failed": 1,
         "complete": False,
+        "unstableSnapshots": 0,
     }
     assert payload["itemFailures"][0]["bugId"] == "3398"
     assert payload["resolvedIdentity"]["resolvedAccount"] == "wwt"
@@ -385,6 +387,7 @@ def test_bugs_mine_distrusts_zero_pages_with_nonempty_items(tmp_path: Path) -> N
         "returned": 1,
         "failed": 0,
         "complete": False,
+        "unstableSnapshots": 0,
     }
 
 

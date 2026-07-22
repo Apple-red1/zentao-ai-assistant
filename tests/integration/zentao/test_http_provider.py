@@ -434,6 +434,7 @@ def test_query_user_bugs_slices_ordered_partial_outcomes_before_page_one_counts(
         "returned": 19,
         "failed": 1,
         "complete": False,
+        "unstableSnapshots": 0,
     }
 
 
@@ -455,6 +456,7 @@ def test_query_user_bugs_direct_page_two_does_not_repeat_page_one_failure() -> N
         "returned": 1,
         "failed": 0,
         "complete": False,
+        "unstableSnapshots": 0,
     }
 
 
@@ -647,6 +649,7 @@ def test_official_bug_history_adapts_actions_and_paginates_locally() -> None:
         "returned": 0,
         "failed": 0,
         "complete": True,
+        "unstableSnapshots": 0,
     }
     assert "apiToken" not in result.items[0].raw
 
