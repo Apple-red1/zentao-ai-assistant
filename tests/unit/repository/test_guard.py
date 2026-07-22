@@ -1,8 +1,10 @@
 import subprocess
 from pathlib import Path
+import pytest
 import yaml
 
 from zentao_ai.repository import RepositoryMapping, preflight_repository, verify_repository_unchanged
+from zentao_ai.repository import guard
 
 
 def git(path: Path, *args: str) -> str:
@@ -30,6 +32,10 @@ def write_config(path: Path, repo: Path, commands=("pytest",)) -> None:
     path.write_text(yaml.safe_dump(data), encoding="utf-8")
 
 
+def mapping(tmp_path: Path, repo: Path, target_branch="main", commands=("pytest",)) -> RepositoryMapping:
+    return RepositoryMapping(repository="example", path=repo, targetBranch=target_branch, testCommands=commands, configPath=tmp_path / "trusted.yaml", repositoryKey="scope")
+
+
 def test_clean_exact_repository_passes_without_changing_head(tmp_path):
     repo = repository(tmp_path)
     before = git(repo, "rev-parse", "HEAD")
@@ -43,22 +49,62 @@ def test_clean_exact_repository_passes_without_changing_head(tmp_path):
     assert not changed.unchanged and "WORKTREE_CHANGED" in changed.reasons
 
 
-def test_dirty_staged_wrong_branch_and_unknown_test_fail_closed(tmp_path):
+def test_dirty_staged_and_unknown_test_fail_closed(tmp_path):
     repo = repository(tmp_path)
     (repo / "a.txt").write_text("dirty", encoding="utf-8")
-    def mapping(branch="main", commands=("pytest",)):
+    def trusted_mapping(branch="main", commands=("pytest",)):
         return RepositoryMapping(repository="example", path=repo, targetBranch=branch, testCommands=commands, configPath=tmp_path / "trusted.yaml", repositoryKey="scope")
-    dirty = preflight_repository(mapping())
+    dirty = preflight_repository(trusted_mapping())
     assert not dirty.allowed
     assert "STAGED_CHANGES_FORBIDDEN" not in dirty.reasons
     git(repo, "add", "a.txt")
-    assert "STAGED_CHANGES_FORBIDDEN" in preflight_repository(mapping()).reasons
+    assert "STAGED_CHANGES_FORBIDDEN" in preflight_repository(trusted_mapping()).reasons
     git(repo, "reset", "--hard", "HEAD")
     git(repo, "checkout", "-b", "other")
-    assert "TARGET_BRANCH_MISMATCH" in preflight_repository(mapping()).reasons
+    git(repo, "push", "-u", "origin", "other")
+    other = preflight_repository(trusted_mapping())
+    assert other.allowed
+    assert "TARGET_BRANCH_MISMATCH" not in other.reasons
     git(repo, "checkout", "main")
     write_config(tmp_path / "trusted.yaml", repo, ("custom-safe-test --flag",))
-    assert "TEST_COMMAND_NOT_ALLOWED" not in preflight_repository(mapping(commands=("custom-safe-test --flag",))).reasons
+    assert "TEST_COMMAND_NOT_ALLOWED" not in preflight_repository(trusted_mapping(commands=("custom-safe-test --flag",))).reasons
+
+
+@pytest.mark.parametrize("branch", ["dev", "development-x", "DEV-fix", "test", "test_fix", "release", "release/1.0"])
+def test_forbidden_branch_prefixes_fail_closed(tmp_path, branch):
+    repo = repository(tmp_path)
+    git(repo, "checkout", "-b", branch)
+    git(repo, "push", "-u", "origin", branch)
+    result = preflight_repository(mapping(tmp_path, repo))
+    assert not result.allowed
+    assert "PROTECTED_BRANCH" in result.reasons
+    assert "TARGET_BRANCH_MISMATCH" not in result.reasons
+
+
+@pytest.mark.parametrize("branch", ["main", "master"])
+def test_exact_main_and_master_are_forbidden(tmp_path, branch):
+    repo = repository(tmp_path)
+    if branch != "main":
+        git(repo, "checkout", "-b", branch)
+        git(repo, "push", "-u", "origin", branch)
+    result = preflight_repository(mapping(tmp_path, repo))
+    assert not result.allowed
+    assert "PROTECTED_BRANCH" in result.reasons
+
+
+@pytest.mark.parametrize("branch", ["MAIN", "Master", "Development-X", "TEST_fix", "Release/1.0"])
+def test_protected_branch_policy_is_case_insensitive(branch):
+    assert guard._is_protected_branch(branch)
+
+
+@pytest.mark.parametrize("branch", ["0720-temp", "wwt_play", "feature/main-fix"])
+def test_other_synchronized_branches_do_not_require_target_branch_match(tmp_path, branch):
+    repo = repository(tmp_path)
+    git(repo, "checkout", "-b", branch)
+    git(repo, "push", "-u", "origin", branch)
+    result = preflight_repository(mapping(tmp_path, repo))
+    assert result.allowed
+    assert "TARGET_BRANCH_MISMATCH" not in result.reasons
 
 
 def test_forged_mapping_is_rejected_against_trusted_config(tmp_path):
