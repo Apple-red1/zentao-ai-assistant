@@ -488,6 +488,33 @@ def test_unstable_repair_requires_exact_write_authorization_before_patch() -> No
     assert calls == ["snapshot"]
 
 
+def test_scheduled_unstable_repair_rejects_exact_record_before_side_effect_ports() -> (
+    None
+):
+    before = unstable_bug(title="Broken button", priority="2")
+    context, *_rest, calls = harness(snapshots=(before, before.model_copy()))
+    context = replace(
+        context,
+        scheduled=True,
+        snapshotStable=False,
+        authorizationRecords=context.authorizationRecords
+        + (
+            AuthorizationRecord(
+                turnId="turn-1",
+                source="user",
+                action="write_code",
+                bugId="7",
+                parameters={},
+            ),
+        ),
+    )
+
+    result = repair_bug(context, 7)
+
+    assert result.reasons == ("CODE_WRITE_AUTHORIZATION_REQUIRED",)
+    assert calls == ["snapshot"]
+
+
 def test_unstable_repair_requeries_before_patch_and_fails_closed_on_drift() -> None:
     before = unstable_bug(title="Broken button", priority="2")
     changed = before.model_copy(update={"priority": "1"})

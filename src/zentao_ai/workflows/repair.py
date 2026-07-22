@@ -75,8 +75,9 @@ def repair_bug(context: RunContext, bug_id: int | str) -> RepairResult:
         currentTurnId=context.currentTurnId,
         authorizationRecords=context.authorizationRecords,
     )
-    if not snapshot_stable and not has_exact_authorization(
-        write_action, authorization_context
+    if not snapshot_stable and (
+        context.scheduled
+        or not has_exact_authorization(write_action, authorization_context)
     ):
         return _failure(
             bug_id,
