@@ -805,6 +805,39 @@ def test_unstable_comment_uses_exact_authorization_and_matching_fresh_snapshot()
     assert [call[0] for call in provider.calls] == ["detail", "detail", "comment"]
 
 
+def test_comment_rejects_provider_snapshot_for_a_different_requested_bug() -> None:
+    class WrongIdProvider(Provider):
+        def query_bug_detail(
+            self, bug_id: int | str, *, allow_unstable: bool = False
+        ) -> BugSnapshot:
+            self.calls.append(("detail", bug_id))
+            return BugSnapshot(
+                id=8,
+                status="active",
+                version="v1",
+                snapshotVersion="v1",
+                snapshotStable=True,
+            )
+
+    provider = WrongIdProvider()
+    args = {
+        "bugId": 7,
+        "comment": "hello",
+        "confirm": True,
+        "idempotencyKey": "request-key",
+        **authorization("comment", {"comment": "hello"}),
+        "snapshotStable": True,
+        "historyChecked": True,
+        "cooldownPassed": True,
+        "idempotencyPassed": True,
+    }
+
+    with pytest.raises(ContractError, match="bug ID"):
+        ZentaoTools(runtime(provider)).call("add_bug_comment", args)
+
+    assert provider.calls == [("detail", 7)]
+
+
 def test_steps_require_exact_current_turn_authorization() -> None:
     provider = Provider()
     tools = ZentaoTools(runtime(provider))

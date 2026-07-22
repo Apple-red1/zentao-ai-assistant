@@ -13,6 +13,7 @@ from zentao_ai.cli.runtime import AppRuntime, DependencyFactory, RunPlan
 from zentao_ai.config.models import AppConfig
 from zentao_ai.config.loader import load_config
 from zentao_ai.credentials.store import CredentialName
+from zentao_ai.safety import ActionRequest, AuthorizationContext, authorize
 from zentao_ai.zentao.models import (
     BugPage,
     BugSnapshot,
@@ -160,6 +161,64 @@ def test_help_exposes_complete_command_tree() -> None:
         "mcp",
     ):
         assert command in result.stdout
+
+
+def test_confirmed_repair_builds_exact_comment_and_write_code_authorization(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import zentao_ai.cli.bug_commands as commands
+
+    captured: dict[str, object] = {}
+    original_normalize = commands.normalize_cli_request
+
+    def capture_request(payload: object):
+        request = original_normalize(payload)  # type: ignore[arg-type]
+        captured["actions"] = request.actions
+        return request
+
+    def probe(context: object, bug_id: int | str) -> dict[str, object]:
+        captured["records"] = context.authorizationRecords  # type: ignore[attr-defined]
+        decision = authorize(
+            ActionRequest(action="write_code", bugId=str(bug_id), parameters={}),
+            AuthorizationContext(
+                codeWriteEnabled=True,
+                routingUnique=True,
+                repositoryGuardPassed=True,
+                snapshotStable=False,
+                currentTurnId=context.currentTurnId,  # type: ignore[attr-defined]
+                authorizationRecords=context.authorizationRecords,  # type: ignore[attr-defined]
+            ),
+        )
+        return {"writeCodeAllowed": decision.allowed}
+
+    monkeypatch.setattr(commands, "normalize_cli_request", capture_request)
+    monkeypatch.setattr(commands, "repair_bug", probe)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "repair",
+            "3422",
+            "--confirm",
+            "--turn-id",
+            "turn-1",
+            "--json",
+            "--project",
+            str(tmp_path),
+        ],
+        obj=factory(tmp_path),
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout)["data"]["writeCodeAllowed"] is True
+    assert [item.action for item in captured["actions"]] == [  # type: ignore[union-attr]
+        "comment",
+        "write_code",
+    ]
+    assert [item.action for item in captured["records"]] == [  # type: ignore[union-attr]
+        "comment",
+        "write_code",
+    ]
 
 
 def test_config_init_refuses_existing_then_force_replaces(tmp_path: Path) -> None:

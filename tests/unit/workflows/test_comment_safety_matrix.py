@@ -203,6 +203,28 @@ def test_snapshot_guard_uses_versions_when_either_snapshot_is_stable() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("field", "changed"),
+    [("status", "closed"), ("title", "Different bug")],
+)
+def test_stable_guard_requires_safety_fields_even_when_version_matches(
+    field: str, changed: object
+) -> None:
+    stable = snapshot()
+    assert not unstable_snapshot_matches(
+        stable, stable.model_copy(update={field: changed})
+    )
+
+
+def test_mixed_stability_guard_requires_fields_and_matching_version() -> None:
+    stable = snapshot()
+    mixed = stable.model_copy(update={"snapshot_stable": False})
+    assert unstable_snapshot_matches(stable, mixed)
+    assert not unstable_snapshot_matches(
+        stable, mixed.model_copy(update={"title": "Different bug"})
+    )
+
+
 def test_unstable_comment_requeries_before_write_and_fails_closed_on_drift() -> None:
     before = unstable_snapshot()
     provider = RecordingProvider(

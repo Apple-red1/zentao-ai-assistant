@@ -350,19 +350,27 @@ def repair_command(
         from zentao_ai.workflows.models import ResolutionCommentPayload
 
         body = render_resolution_comment(ResolutionCommentPayload(summary=summary))
-        record = AuthorizationRecord(
+        comment_record = AuthorizationRecord(
             turnId=turn_id,
             source="user",
             action="comment",
             bugId=bug_id,
             parameters={"comment": body},
         )
+        write_record = AuthorizationRecord(
+            turnId=turn_id,
+            source="user",
+            action="write_code",
+            bugId=bug_id,
+            parameters={},
+        )
         request = _request(
             runtime,
             _placeholder(bug_id),
-            records=(record,),
+            records=(comment_record, write_record),
             actions=(
                 {"action": "comment", "bugId": bug_id, "parameters": {"comment": body}},
+                {"action": "write_code", "bugId": bug_id, "parameters": {}},
             ),
             repair_id=bug_id,
         )

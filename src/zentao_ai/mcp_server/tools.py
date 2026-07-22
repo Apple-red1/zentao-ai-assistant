@@ -16,6 +16,7 @@ from zentao_ai.workflows.steps import (
     replace_steps,
     replace_steps_with_image,
 )
+from zentao_ai.zentao.errors import ContractError
 from zentao_ai.zentao.models import BugPage, Coverage
 from zentao_ai.zentao.query_filters import filter_assignee_bugs
 
@@ -100,6 +101,10 @@ class ZentaoTools:
         snapshot = self.runtime.provider.query_bug_detail(
             value.bugId, allow_unstable=isinstance(value, AddCommentInput)
         )
+        if str(snapshot.id) != str(value.bugId):
+            raise ContractError(
+                "provider snapshot bug ID does not match requested bug ID"
+            )
         authorization = value.authorization
         record = {
             "turnId": authorization.turnId,
