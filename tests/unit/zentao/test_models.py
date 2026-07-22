@@ -18,6 +18,7 @@ def test_bug_page_serializes_partial_item_failures_and_resolved_identity() -> No
                 status="active",
                 version="2026-07-21T08:00:00Z",
                 snapshotVersion="2026-07-21T08:00:00Z",
+                snapshotStable=True,
             ),
         ),
         coverage=Coverage(
@@ -84,3 +85,40 @@ def test_bug_page_rejects_item_failures_claimed_as_complete() -> None:
                 ),
             ),
         )
+
+
+def test_bug_snapshot_accepts_explicit_unstable_versionless_row() -> None:
+    bug = BugSnapshot.model_validate(
+        {
+            "id": 3422,
+            "title": "SEO Rule-twitter",
+            "priority": "P3",
+            "status": "active",
+            "assignee": "zhouhaiyin",
+            "version": None,
+            "snapshotVersion": None,
+            "snapshotStable": False,
+        }
+    )
+
+    assert bug.snapshot_version is None
+    assert bug.snapshot_stable is False
+    assert bug.priority == "P3"
+
+
+def test_stable_snapshot_requires_matching_nonempty_version() -> None:
+    with pytest.raises(ValueError, match="stable snapshot requires version"):
+        BugSnapshot(
+            id=1,
+            status="active",
+            version=None,
+            snapshotVersion=None,
+            snapshotStable=True,
+        )
+
+
+def test_coverage_accepts_unstable_snapshot_count_alias() -> None:
+    coverage = Coverage(unstableSnapshots=2)
+
+    assert coverage.unstable_snapshots == 2
+    assert coverage.model_dump(by_alias=True)["unstableSnapshots"] == 2

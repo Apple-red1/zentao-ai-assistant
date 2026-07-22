@@ -49,15 +49,23 @@ class CreatorAccount(FrozenModel):
 
 class BugSnapshot(FrozenModel):
     id: int | str
-    status: str
+    status: str = "unknown"
     creator: CreatorAccount | None = None
     assignee: str | None = None
-    version: str
-    snapshot_version: str = Field(alias="snapshotVersion")
-    title: str = ""
+    version: str | None = None
+    snapshot_version: str | None = Field(None, alias="snapshotVersion")
+    snapshot_stable: bool = Field(False, alias="snapshotStable")
+    title: str = "unknown"
+    priority: str = "unknown"
     steps: str = ""
     routing: RoutingData | None = None
     raw: Mapping[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_snapshot_stability(self) -> Self:
+        if self.snapshot_stable and not (self.version and self.snapshot_version):
+            raise ValueError("stable snapshot requires version")
+        return self
 
     @field_validator("creator", mode="before")
     @classmethod
@@ -86,6 +94,7 @@ class Coverage(FrozenModel):
     returned: int = 0
     failed: int = 0
     complete: bool = True
+    unstable_snapshots: int = Field(0, alias="unstableSnapshots")
 
     @model_validator(mode="after")
     def reject_complete_failures(self) -> Self:

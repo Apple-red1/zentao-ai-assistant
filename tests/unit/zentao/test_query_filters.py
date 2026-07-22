@@ -13,6 +13,7 @@ def bug(bug_id: int, title: str, status: str = "active") -> BugSnapshot:
         status=status,
         version="v1",
         snapshotVersion="v1",
+        snapshotStable=True,
     )
 
 
