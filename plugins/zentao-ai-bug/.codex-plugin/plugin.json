@@ -1,6 +1,6 @@
 {
   "name": "zentao-ai-bug",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "安全地查询、分析和报告禅道 Bug，并以严格门禁执行有限交互写入。",
   "author": {
     "name": "Zentao AI Assistant contributors"

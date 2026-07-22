@@ -34,7 +34,7 @@ def test_package_exposes_plugin_companion_commands() -> None:
 def test_manifest_is_complete_and_references_real_components() -> None:
     manifest = load_json(PLUGIN / ".codex-plugin" / "plugin.json")
     assert manifest["name"] == "zentao-ai-bug"
-    assert manifest["version"] == "0.1.0"
+    assert manifest["version"] == "0.1.1"
     assert manifest["license"] == "Apache-2.0"
     assert manifest["author"] == {"name": "Zentao AI Assistant contributors"}
     assert manifest["repository"] == "https://github.com/wwtweiwenting/zentao-ai-assistant"
