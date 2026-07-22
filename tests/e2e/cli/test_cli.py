@@ -295,7 +295,7 @@ def test_bugs_user_renders_markdown_table_with_unstable_row(tmp_path: Path) -> N
     assert result.exit_code == 0
     assert "| Bug号 | 标题 | 优先级 | 状态 | 负责人 | 快照稳定性 |" in result.stdout
     assert (
-        "| 3422 | SEO \\| Rule Twitter | P3 | active | zhouhaiyin | 不稳定 |"
+        "| 3422 | SEO &#124; Rule Twitter | P3 | active | zhouhaiyin | 不稳定 |"
         in result.stdout
     )
 
@@ -335,6 +335,45 @@ def test_bugs_user_markdown_table_keeps_unknown_fields_visible(tmp_path: Path) -
 
     assert result.exit_code == 0
     assert "| 3423 | unknown | unknown | active | unknown | 稳定 |" in result.stdout
+
+
+def test_bugs_user_markdown_table_encodes_pipe_after_backslash(tmp_path: Path) -> None:
+    class BackslashProvider(Provider):
+        def query_user_bugs(
+            self,
+            user: str,
+            *,
+            scope_names: tuple[str, ...],
+            page: int,
+            page_size: int,
+            browse_type: str | None = None,
+        ) -> BugPage:
+            return BugPage(
+                items=(
+                    BugSnapshot(
+                        id=3424,
+                        title=r"foo\|bar",
+                        priority="P2",
+                        status="active",
+                        assignee="alice",
+                        version="v1",
+                        snapshotVersion="v1",
+                        snapshotStable=True,
+                    ),
+                ),
+                coverage=Coverage(total=1, pages=1, returned=1),
+            )
+
+    result = CliRunner().invoke(
+        app,
+        ["bugs", "user", "alice", "--scope-mode", "session-visible"],
+        obj=factory(tmp_path, provider=BackslashProvider()),
+    )
+
+    assert result.exit_code == 0
+    row = next(line for line in result.stdout.splitlines() if "3424" in line)
+    assert row == r"| 3424 | foo\&#124;bar | P2 | active | alice | 稳定 |"
+    assert row.count("|") == 7
 
 
 def test_bugs_user_json_preserves_structured_data_items(tmp_path: Path) -> None:

@@ -5,7 +5,7 @@ from zentao_ai.zentao.models import BugPage
 
 def _cell(value: object) -> str:
     text = "unknown" if value is None or str(value).strip() == "" else str(value)
-    return " ".join(text.splitlines()).replace("|", r"\|")
+    return " ".join(text.splitlines()).replace("|", "&#124;")
 
 
 def render_bug_table(page: BugPage) -> str:
