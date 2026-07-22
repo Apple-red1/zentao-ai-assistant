@@ -37,6 +37,35 @@ CONFIG = AppConfig.model_validate(
     }
 )
 
+ROUTING_CONFIG = AppConfig.model_validate(
+    {
+        "personal": {"scopeNames": ["ce-site-backend", "cms-center"]},
+        "team": {"scopeNames": ["ce-site-backend"], "members": ["alice"]},
+        "permissions": {"commentEnabled": True, "stepUpdateEnabled": True},
+        "repositories": {
+            "ce-site-backend": {
+                "repository": "ce-site-backend",
+                "path": "C:/repo/web",
+                "targetBranch": "wwt_play",
+                "testCommands": ["pytest -q"],
+            },
+            "cms-center": {
+                "repository": "cms-center",
+                "path": "C:/repo/api",
+                "targetBranch": "main",
+                "testCommands": ["pytest -q"],
+            },
+        },
+        "titleRouting": [
+            {
+                "marker": "【站点后台】",
+                "frontendRepository": "ce-site-backend",
+                "backendRepository": "cms-center",
+            }
+        ],
+    }
+)
+
 
 class Provider:
     def __init__(self, comment_status: str = "CREATED") -> None:
@@ -133,6 +162,16 @@ def runtime(provider: Provider | None = None) -> AppRuntime:
     )
 
 
+def routing_runtime(provider: Provider | None = None) -> AppRuntime:
+    return AppRuntime(
+        ROUTING_CONFIG,
+        provider or Provider(),
+        Ledger(),
+        lambda: datetime(2026, 7, 15),
+        "mcp",
+    )
+
+
 def authorization(
     action: str,
     parameters: dict[str, object],
@@ -222,6 +261,28 @@ def test_all_read_tools_return_stable_versioned_structured_content() -> None:
     assert (
         tools.call("query_bug_detail", {"bugId": 7})["data"]["snapshotVersion"] == "s7"
     )
+
+
+def test_detail_adds_deterministic_title_routing_when_upstream_has_none() -> None:
+    class RoutingProvider(Provider):
+        def query_bug_detail(self, bug_id: int | str) -> BugSnapshot:
+            return BugSnapshot(
+                id=bug_id,
+                status="active",
+                creator="weiwenting",
+                assignee="weiwenting",
+                version="v1",
+                snapshotVersion="s1",
+                title="【站点后台】登录按钮背景色改为白色，文字改为黑色",
+                steps="[步骤]登录页按钮演示\n[结果]登录按钮黑底白字\n[期望]登录按钮背景色改为白色，文字改为黑色",
+                routing=None,
+            )
+
+    result = ZentaoTools(routing_runtime(RoutingProvider())).call(
+        "query_bug_detail", {"bugId": 3397}
+    )
+    assert result["data"]["routing"]["selectedRepository"] == "ce-site-backend"
+    assert result["data"]["routing"]["layer"] == "frontend"
 
 
 @pytest.mark.parametrize("status", ["CREATED", "ALREADY_EXISTS", "UNKNOWN"])

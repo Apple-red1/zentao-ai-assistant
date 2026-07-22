@@ -13,6 +13,20 @@ def config(tmp_path):
     })
 
 
+def title_config(tmp_path):
+    return AppConfig.model_validate({
+        "personal": {"scopeNames": ["ce-site-backend", "cms-center"]},
+        "team": {"scopeNames": ["ce-site-backend", "cms-center"]},
+        "repositories": {
+            "ce-site-backend": {"repository": "ce-site-backend", "path": str(tmp_path / "web"), "targetBranch": "wwt_play", "testCommands": ["pytest"]},
+            "cms-center": {"repository": "cms-center", "path": str(tmp_path / "api"), "targetBranch": "main", "testCommands": ["pytest"]},
+        },
+        "titleRouting": [
+            {"marker": "【站点后台】", "frontendRepository": "ce-site-backend", "backendRepository": "cms-center"}
+        ],
+    })
+
+
 def test_exact_configured_scope_wins(tmp_path):
     result = route_bug(BugSnapshot(identifier="BUG-1001", title="API", scope="site"), config(tmp_path))
     assert result.selectedRepository == "example-web"
@@ -59,3 +73,17 @@ def test_exact_scope_lowercases_non_ascii_letters(tmp_path):
 def test_marker_uses_token_boundaries_and_does_not_match_email(tmp_path):
     result = route_bug(BugSnapshot(identifier="x", title="UI user@site.example"), config(tmp_path))
     assert result.selectedRepository is None
+
+
+def test_site_admin_login_button_routes_to_frontend_repository(tmp_path):
+    result = route_bug(
+        BugSnapshot(
+            identifier="3397",
+            title="【站点后台】登录按钮背景色改为白色，文字改为黑色",
+            description="登录页按钮当前为黑底白字",
+        ),
+        title_config(tmp_path),
+    )
+    assert result.selectedRepository == "ce-site-backend"
+    assert result.layer == "frontend"
+    assert result.confidence == 0.9

@@ -19,7 +19,7 @@ AI评论：FAILED / None
 ## 人工需走查 Bug
 
 BUG-1002｜当前状态：active｜判断：PATCH_RETAINED_FOR_HUMAN_VALIDATION
-路由：example-ai-web / frontend；关键词：example、link。
+BUG-1002：example-ai-web 前端
 是否修改代码：是
 快照版本：fixture-version-1002
 门禁：Synthetic branch gate passed for example/fixture-branch.

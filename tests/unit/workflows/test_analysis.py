@@ -13,6 +13,44 @@ def snapshot() -> BugSnapshot:
     return BugSnapshot(id=1, status="active", version="v1", snapshotVersion="v1")
 
 
+def test_login_page_style_only_bug_can_enter_evidence_without_manual_review() -> None:
+    bug = BugSnapshot(
+        id=3397,
+        status="active",
+        version="v1",
+        snapshotVersion="s1",
+        title="【站点后台】登录按钮背景色改为白色，文字改为黑色",
+        steps="[步骤]登录页按钮演示\n[结果]登录按钮黑底白字\n[期望]登录按钮背景色改为白色，文字改为黑色",
+        routing={
+            "repositories": ["ce-site-backend"],
+            "selectedRepository": "ce-site-backend",
+            "layer": "frontend",
+            "confidence": 1.0,
+        },
+    )
+    result = analyze_bug(bug, (), AnalysisPhase.PRECHECK)
+    assert result.decision is Decision.PROCEED_TO_EVIDENCE
+
+
+def test_login_security_terms_still_require_engineer_review() -> None:
+    bug = BugSnapshot(
+        id=9,
+        status="active",
+        version="v1",
+        snapshotVersion="s1",
+        title="【站点后台】登录接口鉴权失败",
+        steps="[步骤]登录\n[结果]token 权限校验异常\n[期望]修复认证逻辑",
+        routing={
+            "repositories": ["cms-center"],
+            "selectedRepository": "cms-center",
+            "layer": "backend",
+            "confidence": 1.0,
+        },
+    )
+    result = analyze_bug(bug, (), AnalysisPhase.PRECHECK)
+    assert result.decision is Decision.NEEDS_ENGINEER_REVIEW
+
+
 @pytest.mark.parametrize(
     ("signal", "decision"),
     [

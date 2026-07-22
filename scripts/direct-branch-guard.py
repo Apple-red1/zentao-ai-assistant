@@ -35,7 +35,7 @@ def output(reason_codes: list[str], **values: Any) -> int:
     payload.update(values)
     if isinstance(sys.stdout, io.TextIOWrapper):
         sys.stdout.reconfigure(encoding="utf-8")
-    print(json.dumps(payload, ensure_ascii=False))
+    print(json.dumps(payload))
     return 0 if not reason_codes else 2
 
 

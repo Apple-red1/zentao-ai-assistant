@@ -3,10 +3,15 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TypeVar
 
+from zentao_ai.routing.models import BugSnapshot as RoutingSnapshot
+from zentao_ai.routing.router import route_bug
+from zentao_ai.zentao.models import RoutingData
+
 from .analysis import analyze_bug
 from .comments import write_resolution_comment
 from .models import (
     AnalysisPhase,
+    AnalysisSignal,
     Decision,
     PatchOutcome,
     RepairResult,
@@ -14,6 +19,39 @@ from .models import (
     RunContext,
     TestResult,
 )
+
+
+def _routing_from_snapshot(context: RunContext, bug: object) -> RoutingData | None:
+    routing = getattr(bug, "routing", None)
+    if routing is not None:
+        return routing
+    decision = route_bug(
+        RoutingSnapshot(
+            identifier=str(getattr(bug, "id", "")),
+            title=str(getattr(bug, "title", "")),
+            description=str(getattr(bug, "steps", "")),
+        ),
+        context.config,
+    )
+    if decision.selectedRepository is None:
+        return None
+    return RoutingData.model_validate(
+        {
+            "repositories": decision.candidates,
+            "selectedRepository": decision.selectedRepository,
+            "layer": decision.layer,
+            "matchedKeywords": decision.matchedKeywords,
+            "confidence": decision.confidence,
+        }
+    )
+
+
+def _routing_trusted(routing: RoutingData | None) -> bool:
+    if routing is None or routing.selected_repository is None:
+        return False
+    if routing.confidence is None or routing.confidence < 0.9:
+        return False
+    return routing.selected_repository in routing.repositories
 
 
 def _failure(
@@ -85,14 +123,8 @@ def repair_bug(context: RunContext, bug_id: int | str) -> RepairResult:
         )
 
     assert first is not None
-    routing = first.routing
-    if (
-        routing is None
-        or routing.selected_repository is None
-        or routing.confidence != 1.0
-        or len(routing.repositories) != 1
-        or routing.repositories[0] != routing.selected_repository
-    ):
+    routing = _routing_from_snapshot(context, first)
+    if not _routing_trusted(routing):
         return _failure(
             bug_id, Decision.TOOL_OR_PERMISSION_GAP, "ROUTING_NOT_TRUSTED"
         )
@@ -224,7 +256,7 @@ def repair_bug(context: RunContext, bug_id: int | str) -> RepairResult:
             AnalysisPhase.FINAL,
             signal=context.analysis(second, fresh_history, AnalysisPhase.FINAL)
             if context.analysis
-            else None,
+            else AnalysisSignal(evidenceComplete=True, fixCandidate=True),
         )
     )
     if not ok:

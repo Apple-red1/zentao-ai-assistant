@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import unicodedata
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator
@@ -39,6 +40,30 @@ class RepositoryConfig(ConfigModel):
     testCommands: list[str]
 
 
+class TitleRoutingConfig(ConfigModel):
+    marker: str = Field(min_length=1)
+    frontendRepository: str = Field(min_length=1)
+    backendRepository: str = Field(min_length=1)
+    frontendKeywords: list[str] = Field(default_factory=list)
+    backendKeywords: list[str] = Field(default_factory=list)
+
+    @field_validator("marker", "frontendRepository", "backendRepository")
+    @classmethod
+    def trim_nonempty(cls, value: str) -> str:
+        trimmed = value.strip()
+        if not trimmed:
+            raise ValueError("must not be blank")
+        return trimmed
+
+    @field_validator("frontendKeywords", "backendKeywords")
+    @classmethod
+    def trim_keywords(cls, values: list[str]) -> list[str]:
+        trimmed = [value.strip() for value in values]
+        if any(not value for value in trimmed):
+            raise ValueError("keywords must not be blank")
+        return trimmed
+
+
 class PermissionsConfig(ConfigModel):
     codeWriteEnabled: StrictBool = False
     commentEnabled: StrictBool = False
@@ -63,6 +88,7 @@ class AppConfig(ConfigModel):
     team: TeamConfig
     limits: LimitsConfig = Field(default_factory=LimitsConfig)
     repositories: dict[str, RepositoryConfig]
+    titleRouting: list[TitleRoutingConfig] = Field(default_factory=list)
     permissions: PermissionsConfig = Field(default_factory=PermissionsConfig)
     reporting: ReportingConfig = Field(default_factory=ReportingConfig)
     schedule: ScheduleConfig = Field(default_factory=ScheduleConfig)
@@ -73,6 +99,19 @@ class AppConfig(ConfigModel):
         if value != 1:
             raise ValueError("must be 1")
         return value
+
+    def model_post_init(self, __context: Any) -> None:
+        seen: set[str] = set()
+        for mapping in self.titleRouting:
+            marker = unicodedata.normalize("NFC", mapping.marker).casefold()
+            if marker in seen:
+                raise ValueError("titleRouting markers must be unique after normalization")
+            seen.add(marker)
+            if mapping.frontendRepository == mapping.backendRepository:
+                raise ValueError("titleRouting frontend and backend repositories must differ")
+            for repository in (mapping.frontendRepository, mapping.backendRepository):
+                if repository not in self.repositories:
+                    raise ValueError(f"titleRouting references unknown repository: {repository}")
 
 
 class ValidationError(ConfigModel):

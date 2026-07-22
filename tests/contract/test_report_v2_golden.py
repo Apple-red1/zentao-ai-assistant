@@ -13,7 +13,7 @@ FIXTURES = Path(__file__).parents[1] / "fixtures"
 @pytest.mark.parametrize(
     ("mode", "renderer", "expected_sha256"),
     [
-        ("personal", render_personal, "e879fb57c5ef29ca74376f44adf8517b4561ac8971568fce72dbd253252f3494"),
+        ("personal", render_personal, "ecbf5ed45314617662f334488234a340ce1bfad77eb1a01181cd0778a20e4cc7"),
         ("team", render_team, "ee390d976217c1eb46e89f36c4882215ce2db70c059e77684104fe600d32b108"),
     ],
 )

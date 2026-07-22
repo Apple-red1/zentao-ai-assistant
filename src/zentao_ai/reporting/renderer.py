@@ -33,13 +33,17 @@ def _comment_result(comment: dict[str, Any]) -> str:
     return f"{text(comment.get('status'), 'comment.status')} / {optional_text(comment.get('commentId')) or 'None'}"
 
 
-def _routing_line(value: Any) -> str:
+def _layer_label(value: str) -> str:
+    return {"frontend": "前端", "backend": "后端"}.get(value, value)
+
+
+def _routing_line(bug_id: str, value: Any) -> str:
     routing = require_mapping(value, "routing")
     selected = optional_text(routing.get("selectedRepository"))
     layer = optional_text(routing.get("layer")) or "unknown"
     keywords = _join_cn(routing.get("matchedKeywords", []), "routing.matchedKeywords")
     if selected:
-        return f"路由：{selected} / {layer}；关键词：{keywords}。"
+        return f"{bug_id}：{selected} {_layer_label(layer)}"
     candidates = _join_cn(routing.get("candidates", []), "routing.candidates")
     return f"路由：selectedRepository=null，layer={layer}；候选为 {candidates}；关键词：{keywords}。"
 
@@ -58,7 +62,7 @@ def _information_bug(value: Any) -> list[str]:
     comment = require_mapping(bug.get("comment"), "comment")
     lines = [
         f"{text(bug.get('id'), 'bug.id')}｜当前状态：{text(bug.get('status'), 'bug.status')}｜判断：{text(bug.get('decision'), 'bug.decision')}",
-        _routing_line(bug.get("routing")),
+        _routing_line(text(bug.get("id"), "bug.id"), bug.get("routing")),
         f"是否修改代码：{'是' if bug.get('patchChanged') is True else '否'}",
         f"快照版本：{text(bug.get('snapshotVersion'), 'bug.snapshotVersion')}",
         f"原因：{text(bug.get('reason'), 'bug.reason')}",
@@ -84,7 +88,7 @@ def _walkthrough_bug(value: Any) -> list[str]:
         summary = f"{summary.rstrip('。')}；未声称修复完成。"
     return [
         f"{text(bug.get('id'), 'bug.id')}｜当前状态：{text(bug.get('status'), 'bug.status')}｜判断：{text(bug.get('decision'), 'bug.decision')}",
-        _routing_line(bug.get("routing")),
+        _routing_line(text(bug.get("id"), "bug.id"), bug.get("routing")),
         f"是否修改代码：{'是' if bug.get('patchChanged') is True else '否'}",
         f"快照版本：{text(bug.get('snapshotVersion'), 'bug.snapshotVersion')}",
         f"门禁：{text(bug.get('gateSummary'), 'bug.gateSummary')}",

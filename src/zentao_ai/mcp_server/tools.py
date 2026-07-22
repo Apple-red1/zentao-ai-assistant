@@ -8,6 +8,8 @@ from typing import Any, cast
 from pydantic import BaseModel
 
 from zentao_ai.cli.runtime import AppRuntime
+from zentao_ai.routing.models import BugSnapshot as RoutingSnapshot
+from zentao_ai.routing.router import route_bug
 from zentao_ai.safety.actions import ActionName, ActionRequest
 from zentao_ai.workflows.adapters import WorkflowRequest, normalize_codex_request
 from zentao_ai.workflows.comments import _write_comment
@@ -16,6 +18,7 @@ from zentao_ai.workflows.steps import (
     replace_steps,
     replace_steps_with_image,
 )
+from zentao_ai.zentao.models import BugPage, BugSnapshot, RoutingData
 
 from .schemas import (
     INPUT_MODELS,
@@ -62,6 +65,7 @@ class ZentaoTools:
 
     def _normalized(self, value: AddCommentInput | UpdateStepsInput) -> WorkflowRequest:
         snapshot = self.runtime.provider.query_bug_detail(value.bugId)
+        snapshot = self._with_routing(snapshot)
         authorization = value.authorization
         record = {
             "turnId": authorization.turnId,
@@ -115,22 +119,30 @@ class ZentaoTools:
         provider = self.runtime.provider
         if name == "query_my_bugs":
             assert isinstance(value, QueryMyBugsInput)
-            data = provider.query_my_bugs(
+            page = provider.query_my_bugs(
                 scope_names=tuple(self.runtime.config.personal.scopeNames),
                 page=value.page,
                 page_size=value.pageSize,
             )
+            data = BugPage(
+                items=tuple(self._with_routing(item) for item in page.items),
+                coverage=page.coverage,
+            )
         elif name == "query_user_bugs":
             assert isinstance(value, QueryUserBugsInput)
-            data = provider.query_user_bugs(
+            page = provider.query_user_bugs(
                 value.user,
                 scope_names=tuple(self.runtime.config.team.scopeNames),
                 page=value.page,
                 page_size=value.pageSize,
             )
+            data = BugPage(
+                items=tuple(self._with_routing(item) for item in page.items),
+                coverage=page.coverage,
+            )
         elif name == "query_bug_detail":
             assert isinstance(value, QueryBugDetailInput)
-            data = provider.query_bug_detail(value.bugId)
+            data = self._with_routing(provider.query_bug_detail(value.bugId))
         elif name == "query_bug_history":
             assert isinstance(value, QueryBugHistoryInput)
             data = provider.query_bug_history(
@@ -179,3 +191,28 @@ class ZentaoTools:
                 else replace_steps(context, value.bugId, steps)
             )
         return {"version": "v1", "data": _json(data)}
+
+    def _with_routing(self, snapshot: BugSnapshot) -> BugSnapshot:
+        if snapshot.routing is not None and snapshot.routing.selected_repository:
+            return snapshot
+        decision = route_bug(
+            RoutingSnapshot(
+                identifier=str(snapshot.id),
+                title=snapshot.title,
+                description=snapshot.steps,
+            ),
+            self.runtime.config,
+        )
+        return snapshot.model_copy(
+            update={
+                "routing": RoutingData.model_validate(
+                    {
+                        "repositories": decision.candidates,
+                        "selectedRepository": decision.selectedRepository,
+                        "layer": decision.layer,
+                        "matchedKeywords": decision.matchedKeywords,
+                        "confidence": decision.confidence,
+                    }
+                )
+            }
+        )

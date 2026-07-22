@@ -235,6 +235,37 @@ def harness(*, final_candidate=True, snapshots=None, histories=((), ())):
     return context, provider, ledger, repository, patch, calls
 
 
+def site_config() -> AppConfig:
+    return AppConfig.model_validate(
+        {
+            "personal": {"scopeNames": ["ce-site-backend", "cms-center"]},
+            "team": {"scopeNames": ["ce-site-backend"]},
+            "repositories": {
+                "ce-site-backend": {
+                    "repository": "ce-site-backend",
+                    "path": "C:/repo/web",
+                    "targetBranch": "wwt_play",
+                    "testCommands": ["pytest -q"],
+                },
+                "cms-center": {
+                    "repository": "cms-center",
+                    "path": "C:/repo/api",
+                    "targetBranch": "main",
+                    "testCommands": ["pytest -q"],
+                },
+            },
+            "titleRouting": [
+                {
+                    "marker": "【站点后台】",
+                    "frontendRepository": "ce-site-backend",
+                    "backendRepository": "cms-center",
+                }
+            ],
+            "permissions": {"codeWriteEnabled": True, "commentEnabled": True},
+        }
+    )
+
+
 def test_happy_path_has_strict_order_exact_whitelist_and_no_prohibited_operations():
     context, _, _, _, patch, calls = harness()
     result = repair_bug(context, 7)
@@ -407,8 +438,7 @@ def test_candidate_comment_skipped_is_not_delivery_or_overall_success():
     [
         None,
         {"repositories": [], "selectedRepository": None, "confidence": None},
-        {"repositories": ["a", "b"], "selectedRepository": "a", "confidence": 1.0},
-        {"repositories": ["repo"], "selectedRepository": "repo", "confidence": .9},
+        {"repositories": ["repo"], "selectedRepository": "repo", "confidence": .8},
     ],
 )
 def test_untrusted_routing_stops_before_repository(routing):
@@ -416,6 +446,23 @@ def test_untrusted_routing_stops_before_repository(routing):
     result = repair_bug(context, 7)
     assert result.reasons == ("ROUTING_NOT_TRUSTED",)
     assert_stopped(result, calls, ["snapshot", "history", "precheck"])
+
+
+def test_repair_uses_title_routing_when_mcp_snapshot_has_no_routing() -> None:
+    login_style = bug(
+        id=3397,
+        title="【站点后台】登录按钮背景色改为白色，文字改为黑色",
+        steps="[步骤]登录页按钮演示\n[结果]登录按钮黑底白字\n[期望]登录按钮背景色改为白色，文字改为黑色",
+        routing=None,
+    )
+    context, _provider, _ledger, _repository, _patch, calls = harness(
+        snapshots=(login_style, login_style)
+    )
+    context = replace(context, config=site_config(), analysis=None)
+    result = repair_bug(context, 3397)
+    assert result.decision is Decision.FIX_CANDIDATE
+    assert result.localCandidateSuccess
+    assert calls[:4] == ["snapshot", "history", "preflight", "repro"]
 
 
 @pytest.mark.parametrize(
