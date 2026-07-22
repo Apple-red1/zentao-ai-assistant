@@ -49,6 +49,22 @@ class ZentaoSkillContractTests(unittest.TestCase):
             self.assertIn("USER_PROVIDED_LOCAL_IMAGE_PATH", text)
         self.assertIn("不得修改状态、负责人、优先级或其他非步骤字段", self.skill)
 
+    def test_skill_documents_unstable_snapshot_query_and_exact_action_gate(self):
+        for phrase in (
+            "snapshotVersion=null",
+            "snapshotStable=false",
+            "Bug号 | 标题 | 优先级 | 状态 | 负责人 | 快照稳定性",
+            "当前轮次",
+            "具体 Bug",
+            "具体动作",
+        ):
+            self.assertIn(phrase, self.skill)
+            self.assertIn(phrase, self.personal)
+
+    def test_unstable_snapshot_contract_preserves_read_only_team_reports(self):
+        self.assertIn("这是只读聚合流程", self.team)
+        self.assertIn("删除 Bug 是绝对禁止操作", self.team)
+
 
 if __name__ == "__main__":
     unittest.main()

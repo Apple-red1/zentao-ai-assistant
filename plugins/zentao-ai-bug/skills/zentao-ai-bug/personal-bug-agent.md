@@ -13,14 +13,18 @@
 运行前要求：
 
 - `validate-config` 返回 `valid:true` 且 `enabled:true`。
-- 自研 `mcp__zentao__` Server 提供结构化列表、详情、历史、稳定 `version` 和带 `idempotencyKey` 的评论参数；将 MCP `version` 规范化为内部 `snapshotVersion`。
+- 自研 `mcp__zentao__` Server 提供结构化列表、详情、历史和带 `idempotencyKey` 的评论参数；将可用的稳定 `version` 规范化为内部 `snapshotVersion`。
 - 取得 `personal:<businessDate>` 任务租约；同一业务日期禁止重入。
 - Bug 的产品、项目、执行和模块名称经 trim、Unicode NFC、ASCII 小写规范化后，只能映射到一个去重后的仓库路径。
 - 从本 Skill 目录运行 `python ../../scripts/direct-branch-guard.py preflight` 并取得仓库租约后才能编辑。
 
-旧 MCP 签名、版本缺失、配置错误、范围零/多匹配或门禁失败时，只生成失败关闭报告，不修改代码、不添加评论。
+旧 MCP 签名、配置错误、范围零/多匹配或门禁失败时，只生成失败关闭报告，不修改代码、不添加评论。仅缺少稳定版本时按下述降级查询契约处理。
 
 `session-visible` results are never promoted into a personal report; they remain explicit, read-only, and limited by the current Zentao session's permissions.
+
+### 降级查询契约
+
+缺少稳定版本的只读 Bug 仍保留在查询结果中，字段包括 Bug 号、标题、优先级、状态、负责人，且固定标记 `snapshotVersion=null`、`snapshotStable=false`。CLI 默认使用 Markdown 表格展示，表头为 `Bug号 | 标题 | 优先级 | 状态 | 负责人 | 快照稳定性`，此类行显示“不稳定”。此类 Bug 的评论或本地代码修复必须取得当前轮次针对具体 Bug 和具体动作的精确人工确认，并在副作用前重新查询；其余历史、冷却、幂等、仓库和测试门禁不得绕过。团队报告仍为只读，永久删除仍绝对禁止。
 
 ## 执行流程
 

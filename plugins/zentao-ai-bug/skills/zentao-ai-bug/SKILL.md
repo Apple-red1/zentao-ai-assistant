@@ -22,9 +22,13 @@ description: Use when 需要处理禅道 Zentao 个人 Bug、生成团队或每�
 
 配置必须限定查询身份、`personal.scopeNames`、`team.scopeNames`、全局精确范围、每次最大 Bug 数量、团队成员、接收渠道、策略、唯一仓库映射和 `codeWriteEnabled`。兼容字段 `targetBranch` 只参与配置来源校验，不授权或限制当前分支。自动运行的业务时区为 `Asia/Shanghai`，每天 `08:00` 执行，包括周末。24 小时内的延迟运行标记为补跑；超过 24 小时只生成缺失摘要，不逐日重放。
 
-这里使用的是团队自研禅道 MCP Server，注册前缀为 `mcp__zentao__`，不是禅道自带功能。运行时必须确认它已暴露结构化快照、结构化历史和幂等评论契约。自研 MCP 返回的稳定字段 `version` 必须规范化为 Skill 内部 `snapshotVersion`；没有稳定版本时禁止副作用。旧版或能力不明的 MCP 只能查询并报告能力缺口，不修改代码、不添加评论。
+这里使用的是团队自研禅道 MCP Server，注册前缀为 `mcp__zentao__`，不是禅道自带功能。运行时必须确认它已暴露结构化快照、结构化历史和幂等评论契约。自研 MCP 返回的稳定字段 `version` 必须规范化为 Skill 内部 `snapshotVersion`；没有稳定版本时默认禁止副作用，仅可按下述降级查询契约在精确人工确认后处理。旧版或能力不明的 MCP 只能查询并报告能力缺口，不修改代码、不添加评论。
 
 `team.members` controls `team-report` only. Team/personal report discovery obeys configured scopes and report membership. `session-visible` is an explicit read-only query limited by the current Zentao session's permissions; `session-visible` obeys neither configured report scope nor report membership, does not expand team membership, and does not authorize a report. Repository preflight may proceed only with `confidence=high` with exactly one candidate equal to the selected repository; all existing repository gates still apply.
+
+### 降级查询契约
+
+缺少稳定版本的只读 Bug 仍保留在查询结果中，字段包括 Bug 号、标题、优先级、状态、负责人，且固定标记 `snapshotVersion=null`、`snapshotStable=false`。CLI 默认使用 Markdown 表格展示，表头为 `Bug号 | 标题 | 优先级 | 状态 | 负责人 | 快照稳定性`，此类行显示“不稳定”。此类 Bug 的评论或本地代码修复必须取得当前轮次针对具体 Bug 和具体动作的精确人工确认，并在副作用前重新查询；其余历史、冷却、幂等、仓库和测试门禁不得绕过。团队报告仍为只读，永久删除仍绝对禁止。
 
 ## 执行流程
 

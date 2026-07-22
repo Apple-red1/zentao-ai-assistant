@@ -257,3 +257,17 @@ def test_package_contains_no_placeholder_or_destructive_tool_registration() -> N
     mcp_allowlists = re.findall(r"^- `([^`]+)`", package_text, flags=re.MULTILINE)
     assert "delete_bug" not in mcp_allowlists
     assert "remove_bug" not in mcp_allowlists
+
+
+def test_packaged_skill_documents_degraded_bug_query_contract() -> None:
+    for filename in ("SKILL.md", "personal-bug-agent.md"):
+        text = (PLUGIN / "skills" / "zentao-ai-bug" / filename).read_text(encoding="utf-8")
+        for phrase in (
+            "snapshotVersion=null",
+            "snapshotStable=false",
+            "Bug号 | 标题 | 优先级 | 状态 | 负责人 | 快照稳定性",
+            "当前轮次",
+            "具体 Bug",
+            "具体动作",
+        ):
+            assert phrase in text
