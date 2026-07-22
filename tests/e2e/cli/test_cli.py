@@ -245,6 +245,130 @@ def test_bugs_user_session_visible_queries_explicit_user_without_team_membership
     assert CONFIG.model_dump() == config_before
 
 
+def test_bugs_user_renders_markdown_table_with_unstable_row(tmp_path: Path) -> None:
+    class UnstableProvider(Provider):
+        def query_user_bugs(
+            self,
+            user: str,
+            *,
+            scope_names: tuple[str, ...],
+            page: int,
+            page_size: int,
+            browse_type: str | None = None,
+        ) -> BugPage:
+            return BugPage(
+                items=(
+                    BugSnapshot(
+                        id=3422,
+                        title="SEO | Rule\nTwitter",
+                        priority="P3",
+                        status="active",
+                        assignee="zhouhaiyin",
+                        version=None,
+                        snapshotVersion=None,
+                        snapshotStable=False,
+                    ),
+                ),
+                coverage=Coverage(
+                    total=1,
+                    pages=1,
+                    returned=1,
+                    complete=True,
+                    unstableSnapshots=1,
+                ),
+            )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "bugs",
+            "user",
+            "周海音",
+            "--scope-mode",
+            "session-visible",
+            "--status",
+            "unclosed",
+        ],
+        obj=factory(tmp_path, provider=UnstableProvider()),
+    )
+
+    assert result.exit_code == 0
+    assert "| Bug号 | 标题 | 优先级 | 状态 | 负责人 | 快照稳定性 |" in result.stdout
+    assert (
+        "| 3422 | SEO \\| Rule Twitter | P3 | active | zhouhaiyin | 不稳定 |"
+        in result.stdout
+    )
+
+
+def test_bugs_user_markdown_table_keeps_unknown_fields_visible(tmp_path: Path) -> None:
+    class SparseProvider(Provider):
+        def query_user_bugs(
+            self,
+            user: str,
+            *,
+            scope_names: tuple[str, ...],
+            page: int,
+            page_size: int,
+            browse_type: str | None = None,
+        ) -> BugPage:
+            return BugPage(
+                items=(
+                    BugSnapshot(
+                        id=3423,
+                        title="",
+                        priority=" ",
+                        status="active",
+                        assignee=None,
+                        version="v1",
+                        snapshotVersion="v1",
+                        snapshotStable=True,
+                    ),
+                ),
+                coverage=Coverage(total=1, pages=1, returned=1),
+            )
+
+    result = CliRunner().invoke(
+        app,
+        ["bugs", "user", "周海音", "--scope-mode", "session-visible"],
+        obj=factory(tmp_path, provider=SparseProvider()),
+    )
+
+    assert result.exit_code == 0
+    assert "| 3423 | unknown | unknown | active | unknown | 稳定 |" in result.stdout
+
+
+def test_bugs_user_json_preserves_structured_data_items(tmp_path: Path) -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "bugs",
+            "user",
+            "周海韵",
+            "--scope-mode",
+            "session-visible",
+            "--json",
+        ],
+        obj=factory(tmp_path),
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is True
+    assert [item["id"] for item in payload["data"]["items"]] == [2537, 3397]
+
+
+def test_bugs_mine_renders_markdown_table(tmp_path: Path) -> None:
+    result = CliRunner().invoke(
+        app,
+        ["bugs", "mine", "--status", "unclosed"],
+        obj=factory(tmp_path),
+    )
+
+    assert result.exit_code == 0
+    assert "| Bug号 | 标题 | 优先级 | 状态 | 负责人 | 快照稳定性 |" in result.stdout
+    assert "| 2537 | 【AI建站】 first | unknown | active | unknown | 不稳定 |" in result.stdout
+
+
 def test_bugs_mine_distrusts_multi_page_total_when_visible_items_all_pass(
     tmp_path: Path,
 ) -> None:

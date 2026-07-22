@@ -20,6 +20,7 @@ from zentao_ai.workflows.steps import (
 from zentao_ai.zentao.models import BugPage, BugSnapshot, Coverage
 from zentao_ai.zentao.query_filters import filter_assignee_bugs
 
+from .bug_table import render_bug_table
 from .runtime import AppRuntime, emit, get_factory, guarded
 
 bugs_app = typer.Typer(help="Query bugs.")
@@ -163,7 +164,10 @@ def mine(
             itemFailures=source.item_failures,
             resolvedIdentity=source.resolved_identity,
         )
-        _emit(page, json_output)
+        if json_output:
+            _emit(page, True)
+        else:
+            typer.echo(render_bug_table(page))
 
 
 @bugs_app.command("user")
@@ -188,7 +192,11 @@ def user(
         source = runtime.provider.query_user_bugs(
             account, scope_names=scope_names, page=1, page_size=20
         )
-        _emit(_filtered_assignee_page(source, status=status), json_output)
+        page = _filtered_assignee_page(source, status=status)
+        if json_output:
+            _emit(page, True)
+        else:
+            typer.echo(render_bug_table(page))
 
 
 @bug_app.command("analyze")
