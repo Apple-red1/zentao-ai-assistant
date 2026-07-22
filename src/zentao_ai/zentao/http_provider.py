@@ -370,29 +370,39 @@ class HttpZentaoProvider:
         return tuple(result)
 
     def _official_snapshot(
-        self, data: Mapping[str, Any], operation: str = "query_my_bugs"
+        self,
+        data: Mapping[str, Any],
+        operation: str = "query_my_bugs",
+        *,
+        allow_unstable: bool = False,
     ) -> BugSnapshot:
-        last_edited = data.get("lastEditedDate")
-        version = (
-            last_edited
-            if isinstance(last_edited, (str, int)) and str(last_edited).strip()
-            else data.get("version")
-        )
+        raw_version = data.get("lastEditedDate")
         if (
-            isinstance(version, bool)
-            or not isinstance(version, (str, int))
-            or not str(version).strip()
+            isinstance(raw_version, bool)
+            or not isinstance(raw_version, (str, int))
+            or not str(raw_version).strip()
         ):
+            raw_version = data.get("version")
+        version = (
+            str(raw_version).strip()
+            if not isinstance(raw_version, bool)
+            and isinstance(raw_version, (str, int))
+            and str(raw_version).strip()
+            else None
+        )
+        if version is None and not allow_unstable:
             raise MissingStableVersionError(f"{operation}: missing stable version")
         normalized = {
             "id": data.get("id"),
-            "status": data.get("status"),
-            "title": data.get("title", ""),
+            "status": self._catalog_text(data.get("status")) or "unknown",
+            "title": self._catalog_text(data.get("title")) or "unknown",
+            "priority": self._priority(data),
             "steps": data.get("steps", ""),
             "creator": self._account(data.get("openedBy")),
             "assignee": self._account(data.get("assignedTo")),
-            "version": str(version).strip(),
-            "snapshotVersion": str(version).strip(),
+            "version": version,
+            "snapshotVersion": version,
+            "snapshotStable": version is not None,
             "raw": self._sanitize(data),
         }
         try:
@@ -457,6 +467,14 @@ class HttpZentaoProvider:
             return None
         normalized = str(value).strip()
         return normalized or None
+
+    @staticmethod
+    def _priority(data: Mapping[str, Any]) -> str:
+        value = data.get("pri", data.get("priority"))
+        if isinstance(value, bool) or not isinstance(value, (str, int)):
+            return "unknown"
+        normalized = str(value).strip()
+        return f"P{normalized}" if normalized.isdigit() else (normalized or "unknown")
 
     def query_user_bugs(
         self,
@@ -594,9 +612,8 @@ class HttpZentaoProvider:
                 assignee_identities = set(self._identity_values(item.get("assignedTo")))
                 if assignee is not None:
                     assignee_identities.add(self._normalized_text(assignee))
-                if (
-                    assignee is None
-                    or assignee_identities.isdisjoint(expected_identities)
+                if assignee is not None and assignee_identities.isdisjoint(
+                    expected_identities
                 ):
                     continue
                 normalized_id = self._normalized_bug_id(item.get("id"))
@@ -670,6 +687,7 @@ class HttpZentaoProvider:
                 returned=len(items),
                 failed=len(item_failures),
                 complete=complete,
+                unstableSnapshots=sum(not item.snapshot_stable for item in items),
             ),
             itemFailures=item_failures,
             resolvedIdentity=resolved_identity,
@@ -793,44 +811,12 @@ class HttpZentaoProvider:
             raise ContractError(f"{operation}: invalid items")
         return bugs
 
-    @staticmethod
-    def _has_stable_version(data: Mapping[str, Any]) -> bool:
-        for field in ("lastEditedDate", "version"):
-            value = data.get(field)
-            if (
-                not isinstance(value, bool)
-                and isinstance(value, (str, int))
-                and str(value).strip()
-            ):
-                return True
-        return False
-
     @classmethod
     def _normalized_bug_id(cls, value: Any) -> str | None:
         if isinstance(value, bool) or not isinstance(value, (str, int)):
             return None
         normalized = cls._normalized_text(value)
         return normalized or None
-
-    def _official_user_snapshot(
-        self,
-        data: Mapping[str, Any],
-        *,
-        normalized_id: str,
-        requested_account: str,
-    ) -> BugSnapshot:
-        operation = "query_user_bugs"
-        if self._has_stable_version(data):
-            return self._official_snapshot(data, operation=operation)
-        detail = self.query_bug_detail(data["id"])
-        if self._normalized_bug_id(detail.id) != normalized_id:
-            raise InvalidBugContractError(f"{operation}: detail Bug id changed")
-        if (
-            detail.assignee is None
-            or self._normalized_text(detail.assignee) != requested_account
-        ):
-            raise InvalidBugContractError(f"{operation}: detail assignee changed")
-        return detail
 
     def _snapshot_or_failure(
         self, item: Mapping[str, Any], operation: str
@@ -843,33 +829,12 @@ class HttpZentaoProvider:
                 field="id",
                 message="invalid bug contract",
             )
-        if self._has_stable_version(item):
-            try:
-                return self._official_snapshot(item, operation=operation), None
-            except ContractError:
-                return self._invalid_bug_failure(normalized_id)
-        assignee = self._account(item.get("assignedTo"))
-        if assignee is None:
-            return self._invalid_bug_failure(normalized_id)
         try:
             return (
-                self._official_user_snapshot(
-                    item,
-                    normalized_id=normalized_id,
-                    requested_account=self._normalized_text(assignee),
-                ),
+                self._official_snapshot(item, operation=operation, allow_unstable=True),
                 None,
             )
-        except MissingStableVersionError:
-            return None, ItemFailure(
-                bugId=normalized_id,
-                code="MISSING_STABLE_VERSION",
-                field="version",
-                message="missing stable version",
-            )
-        except ContractError as error:
-            if str(error).startswith("query_bug_detail"):
-                raise
+        except ContractError:
             return self._invalid_bug_failure(normalized_id)
 
     @staticmethod
@@ -980,7 +945,9 @@ class HttpZentaoProvider:
             complete=metadata_valid,
         )
 
-    def query_bug_detail(self, bug_id: int | str) -> BugSnapshot:
+    def query_bug_detail(
+        self, bug_id: int | str, *, allow_unstable: bool = False
+    ) -> BugSnapshot:
         data = self._request(
             "GET",
             self._endpoints.bug_detail.format(bug_id=self._segment(bug_id)),
@@ -992,7 +959,11 @@ class HttpZentaoProvider:
                 raise InvalidBugContractError(
                     "query_bug_detail: invalid bug contract"
                 )
-            return self._official_snapshot(bug, operation="query_bug_detail")
+            return self._official_snapshot(
+                bug,
+                operation="query_bug_detail",
+                allow_unstable=allow_unstable,
+            )
         return self._snapshot(data, "query_bug_detail")
 
     def query_bug_history(

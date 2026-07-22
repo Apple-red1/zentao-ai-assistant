@@ -90,7 +90,9 @@ class RecordingProvider:
             coverage=Coverage(page=page, pageSize=2, total=3),
         )
 
-    def query_bug_detail(self, bug_id: int | str) -> BugSnapshot:
+    def query_bug_detail(
+        self, bug_id: int | str, *, allow_unstable: bool = False
+    ) -> BugSnapshot:
         key = str(bug_id)
         self.detail_calls.append(key)
         failure = self.detail_failures.get(key)
@@ -239,7 +241,9 @@ def test_lease_unavailable_skips_work_and_success_releases() -> None:
                 coverage=Coverage(page=page, pageSize=2, total=4),
             )
 
-        def query_bug_detail(self, bug_id: int | str) -> BugSnapshot:
+        def query_bug_detail(
+            self, bug_id: int | str, *, allow_unstable: bool = False
+        ) -> BugSnapshot:
             return self.routed_bug(int(bug_id))
 
     provider, ledger = CompleteProvider(), RecordingLedger()
@@ -351,7 +355,9 @@ def test_personal_enriches_missing_routing_and_retains_ambiguous_bug() -> None:
                 coverage=Coverage(page=1, pageSize=20, total=2, pages=1),
             )
 
-        def query_bug_detail(self, bug_id: int | str) -> BugSnapshot:
+        def query_bug_detail(
+            self, bug_id: int | str, *, allow_unstable: bool = False
+        ) -> BugSnapshot:
             return next(
                 item
                 for item in self.query_my_bugs(scope_names=("mine",)).items

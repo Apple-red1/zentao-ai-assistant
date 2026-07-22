@@ -51,7 +51,7 @@ class RecordingProvider:
             coverage=Coverage(total=3),
         )
 
-    def query_bug_detail(self, bug_id):
+    def query_bug_detail(self, bug_id, *, allow_unstable=False):
         return self._bug(int(bug_id))
 
     def query_bug_history(self, bug_id, **_):

@@ -42,7 +42,7 @@ class RecordingProvider:
         if self.fail_at == name:
             raise RuntimeError(name)
 
-    def query_bug_detail(self, bug_id):
+    def query_bug_detail(self, bug_id, *, allow_unstable=False):
         name = "snapshot" if len(self.snapshots) > 1 else "fresh_snapshot"
         self.calls.append(name)
         self._raise(name)

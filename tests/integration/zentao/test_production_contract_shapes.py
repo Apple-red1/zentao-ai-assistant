@@ -124,6 +124,9 @@ def test_production_query_contracts_for_weiwenting() -> None:
                 raise error
 
         assert bugs is not None, evidence
+        assert bugs.coverage.unstable_snapshots == sum(
+            not bug.snapshot_stable for bug in bugs.items
+        ), evidence
         assert history_bug_id is not None, (
             "set ZENTAO_PRODUCTION_HISTORY_BUG_ID or ensure query_my_bugs discovers "
             "a read-only Bug",

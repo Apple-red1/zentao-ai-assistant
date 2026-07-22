@@ -13,7 +13,7 @@ class Provider:
     writes = 0
     def query_my_bugs(self, **_): return BugPage(items=(self.query_bug_detail(1),), coverage=Coverage(total=1))
     def query_user_bugs(self, user, **_): return self.query_my_bugs()
-    def query_bug_detail(self, bug_id): return BugSnapshot(id=bug_id, status="active", version="v1", snapshotVersion="v1")
+    def query_bug_detail(self, bug_id, *, allow_unstable=False): return BugSnapshot(id=bug_id, status="active", version="v1", snapshotVersion="v1")
     def query_bug_history(self, bug_id, **_): return HistoryPage(items=(), coverage=Coverage(total=0))
 
 

@@ -248,7 +248,7 @@ class RecordingProvider:
         self.calls.append(("team", user, tuple(scope_names)))
         return BugPage(items=(self._snapshot(7),), coverage=Coverage(total=1))
 
-    def query_bug_detail(self, bug_id):
+    def query_bug_detail(self, bug_id, *, allow_unstable=False):
         self.calls.append(("detail", str(bug_id)))
         return self._snapshot(bug_id)
 

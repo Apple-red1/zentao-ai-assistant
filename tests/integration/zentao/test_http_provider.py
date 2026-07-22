@@ -293,19 +293,13 @@ def test_query_user_bugs_rejects_changed_member_pair_identity_on_later_page() ->
         ).query_user_bugs("\u5468\u6d77\u97f3", page_size=1)
 
 
-def test_query_user_bugs_retains_valid_official_rows_when_matching_rows_are_malformed() -> None:
+def test_query_user_bugs_retains_valid_official_rows_when_matching_rows_are_malformed() -> (
+    None
+):
+    requested_paths: list[str] = []
+
     def handle(request: httpx.Request) -> httpx.Response:
-        if request.url.path == "/api.php/v2/bugs/2":
-            return httpx.Response(
-                200,
-                json={
-                    "bug": {
-                        "id": 2,
-                        "status": "active",
-                        "assignedTo": {"account": "zhouhaiyin"},
-                    }
-                },
-            )
+        requested_paths.append(request.url.path)
         return httpx.Response(
             200,
             json={
@@ -340,14 +334,10 @@ def test_query_user_bugs_retains_valid_official_rows_when_matching_rows_are_malf
         endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs"),
     ).query_user_bugs("\u5468\u6d77\u97f3")
 
-    assert [item.id for item in result.items] == [1]
+    assert requested_paths == ["/api.php/v2/bugs"]
+    assert [item.id for item in result.items] == [1, 2]
+    assert result.items[1].snapshot_stable is False
     assert [failure.model_dump(by_alias=True) for failure in result.item_failures] == [
-        {
-            "bugId": "2",
-            "code": "MISSING_STABLE_VERSION",
-            "field": "version",
-            "message": "missing stable version",
-        },
         {
             "bugId": None,
             "code": "INVALID_BUG_CONTRACT",
@@ -355,9 +345,10 @@ def test_query_user_bugs_retains_valid_official_rows_when_matching_rows_are_malf
             "message": "invalid bug contract",
         },
     ]
-    assert result.coverage.returned == 1
-    assert result.coverage.failed == 2
+    assert result.coverage.returned == 2
+    assert result.coverage.failed == 1
     assert result.coverage.complete is False
+    assert result.coverage.unstable_snapshots == 1
     assert result.coverage.total == 3
     assert result.coverage.pages == 1
 
@@ -503,19 +494,11 @@ def test_query_user_bugs_same_page_duplicate_ids_fail_closed() -> None:
     assert result.coverage.complete is False
 
 
-@pytest.mark.parametrize(
-    ("detail_response", "message"),
-    [
-        (httpx.Response(422), "query_bug_detail status=422"),
-        (httpx.Response(200, json={"bug": []}), "query_bug_detail: invalid bug contract"),
-    ],
-)
-def test_query_user_bugs_does_not_isolate_detail_request_or_envelope_failures(
-    detail_response: httpx.Response, message: str
-) -> None:
+def test_query_user_bugs_does_not_request_detail_for_versionless_row() -> None:
+    requested_paths: list[str] = []
+
     def handle(request: httpx.Request) -> httpx.Response:
-        if request.url.path == "/api.php/v2/bugs/2":
-            return detail_response
+        requested_paths.append(request.url.path)
         return httpx.Response(
             200,
             json={
@@ -532,11 +515,14 @@ def test_query_user_bugs_does_not_isolate_detail_request_or_envelope_failures(
             },
         )
 
-    with pytest.raises(ContractError, match=f"^{message}$"):
-        provider(
-            httpx.MockTransport(handle),
-            endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs"),
-        ).query_user_bugs("zhouhaiyin")
+    result = provider(
+        httpx.MockTransport(handle),
+        endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs"),
+    ).query_user_bugs("zhouhaiyin")
+
+    assert requested_paths == ["/api.php/v2/bugs"]
+    assert [item.id for item in result.items] == [2]
+    assert result.items[0].snapshot_stable is False
 
 
 def test_login_endpoint_has_supported_default() -> None:
@@ -1973,9 +1959,11 @@ def test_query_user_bugs_resolves_member_pairs_display_name_to_account() -> None
         endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs"),
     ).query_user_bugs("许立")
 
-    assert requested_paths == ["/api.php/v2/bugs", "/api.php/v2/bugs/7"]
+    assert requested_paths == ["/api.php/v2/bugs"]
     assert [item.id for item in result.items] == [7]
     assert result.items[0].assignee == "xuli"
+    assert result.items[0].snapshot_stable is False
+    assert result.coverage.unstable_snapshots == 1
     assert result.coverage.total == 1
     assert result.coverage.pages == 1
 
@@ -2084,7 +2072,7 @@ def test_query_user_bugs_scans_until_empty_when_official_metadata_is_missing() -
     assert result.coverage.pages == 1
 
 
-def test_query_user_bugs_enriches_matching_row_from_verified_detail() -> None:
+def test_query_user_bugs_retains_unstable_list_row_without_detail_request() -> None:
     requested_paths: list[str] = []
 
     def handle(request: httpx.Request) -> httpx.Response:
@@ -2127,10 +2115,12 @@ def test_query_user_bugs_enriches_matching_row_from_verified_detail() -> None:
         endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs"),
     ).query_user_bugs("xuli")
 
-    assert requested_paths == ["/api.php/v2/bugs", "/api.php/v2/bugs/7"]
+    assert requested_paths == ["/api.php/v2/bugs"]
     assert [item.id for item in result.items] == [7]
-    assert result.items[0].title == "verified detail"
-    assert result.items[0].snapshot_version == "detail-v1"
+    assert result.items[0].title == "unstable list row"
+    assert result.items[0].snapshot_version is None
+    assert result.items[0].snapshot_stable is False
+    assert result.coverage.unstable_snapshots == 1
     assert result.coverage.total == 1
 
 
@@ -2167,55 +2157,23 @@ def test_query_user_bugs_records_matching_unstable_row_without_id() -> None:
     assert result.coverage.complete is False
 
 
-@pytest.mark.parametrize(
-    ("detail_bug", "code", "field"),
-    [
-        (
-            {
-                "id": 7,
-                "status": "active",
-                "assignedTo": "other",
-                "lastEditedDate": "detail-v1",
-            },
-            "INVALID_BUG_CONTRACT",
-            None,
-        ),
-        (
-            {"id": 7, "status": "active", "assignedTo": "xuli"},
-            "MISSING_STABLE_VERSION",
-            "version",
-        ),
-    ],
-)
-def test_query_user_bugs_records_unverified_detail(
-    detail_bug: dict[str, object], code: str, field: str | None
-) -> None:
-    def handle(request: httpx.Request) -> httpx.Response:
-        if request.url.path == "/api.php/v2/bugs/7":
-            return httpx.Response(200, json={"bug": detail_bug})
-        return httpx.Response(
+def test_query_bug_detail_allows_versionless_snapshot_only_when_explicit() -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
             200,
-            json={
-                "bugs": [{"id": 7, "status": "active", "assignedTo": "xuli"}],
-                "pager": {
-                    "pageID": 1,
-                    "recPerPage": 20,
-                    "recTotal": 1,
-                    "pageTotal": 1,
-                },
-            },
+            json={"bug": {"id": 7, "status": "active", "assignedTo": "xuli"}},
         )
+    )
+    instance = provider(transport)
 
-    result = provider(
-        httpx.MockTransport(handle),
-        endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs"),
-    ).query_user_bugs("xuli")
+    with pytest.raises(ContractError, match="query_bug_detail"):
+        instance.query_bug_detail(7)
 
-    assert result.items == ()
-    assert result.item_failures[0].bug_id == "7"
-    assert result.item_failures[0].code == code
-    assert result.item_failures[0].field == field
-    assert result.coverage.complete is False
+    result = instance.query_bug_detail(7, allow_unstable=True)
+
+    assert result.id == 7
+    assert result.snapshot_version is None
+    assert result.snapshot_stable is False
 
 
 def test_query_user_bugs_marks_repeated_official_page_incomplete() -> None:
@@ -2598,19 +2556,8 @@ def test_query_user_bugs_rejects_unknown_envelope() -> None:
         ).query_user_bugs("alice")
 
 
-def test_query_user_bugs_records_official_bug_without_stable_version() -> None:
+def test_query_user_bugs_retains_official_bug_without_stable_version() -> None:
     def handle(request: httpx.Request) -> httpx.Response:
-        if request.url.path == "/api.php/v2/bugs/2537":
-            return httpx.Response(
-                200,
-                json={
-                    "bug": {
-                        "id": 2537,
-                        "status": "active",
-                        "assignedTo": "alice",
-                    }
-                },
-            )
         return httpx.Response(
             200,
             json={
@@ -2618,6 +2565,7 @@ def test_query_user_bugs_records_official_bug_without_stable_version() -> None:
                     {
                         "id": 2537,
                         "title": "【AI建站】Missing version",
+                        "pri": 3,
                         "status": "active",
                         "assignedTo": "alice",
                     }
@@ -2631,14 +2579,34 @@ def test_query_user_bugs_records_official_bug_without_stable_version() -> None:
         transport, endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs")
     ).query_user_bugs("alice")
 
-    assert result.items == ()
-    assert result.item_failures[0].model_dump(by_alias=True) == {
-        "bugId": "2537",
-        "code": "MISSING_STABLE_VERSION",
-        "field": "version",
-        "message": "missing stable version",
-    }
-    assert result.coverage.complete is False
+    assert [
+        (item.id, item.title, item.priority, item.status) for item in result.items
+    ] == [(2537, "【AI建站】Missing version", "P3", "active")]
+    assert result.items[0].snapshot_version is None
+    assert result.items[0].snapshot_stable is False
+    assert result.coverage.unstable_snapshots == 1
+    assert result.item_failures == ()
+
+
+def test_query_user_bugs_retains_missing_presentation_fields() -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            json={"bugs": [{"id": 2537, "status": "active"}]},
+        )
+    )
+
+    result = provider(
+        transport, endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs")
+    ).query_user_bugs("alice")
+
+    assert len(result.items) == 1
+    assert result.items[0].title == "unknown"
+    assert result.items[0].priority == "unknown"
+    assert result.items[0].assignee is None
+    assert result.items[0].snapshot_stable is False
+    assert result.coverage.unstable_snapshots == 1
+    assert result.item_failures == ()
 
 
 def test_query_user_bugs_retains_items_when_pagination_is_contradictory() -> None:

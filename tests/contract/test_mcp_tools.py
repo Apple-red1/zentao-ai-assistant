@@ -55,9 +55,7 @@ CONFIG = AppConfig.model_validate(
 def ambiguous_identity_error() -> AmbiguousIdentityError:
     return AmbiguousIdentityError(
         "cookie=secret-marker",
-        candidates=(
-            {"account": "alice", "displayName": "Alice"},
-        ),
+        candidates=({"account": "alice", "displayName": "Alice"},),
     )
 
 
@@ -74,7 +72,9 @@ class Provider:
         self.calls.append(("user", user, kwargs))
         return BugPage(items=(), coverage=Coverage(total=0))
 
-    def query_bug_detail(self, bug_id: int | str) -> BugSnapshot:
+    def query_bug_detail(
+        self, bug_id: int | str, *, allow_unstable: bool = False
+    ) -> BugSnapshot:
         self.calls.append(("detail", bug_id))
         return BugSnapshot(
             id=bug_id,
@@ -872,7 +872,9 @@ async def test_tool_errors_are_structured_sanitized_and_stable(
     error: Exception, expected_error: dict[str, Any]
 ) -> None:
     class FailingProvider(Provider):
-        def query_bug_detail(self, bug_id: int | str) -> BugSnapshot:
+        def query_bug_detail(
+            self, bug_id: int | str, *, allow_unstable: bool = False
+        ) -> BugSnapshot:
             raise error
 
     result = await execute_tool(
