@@ -22,7 +22,7 @@ EVIDENCE = {
     "结构化快照": ("personal-bug-agent.md", ("只使用 `structuredContent`", "version` 映射为 `snapshotVersion", "状态、负责人、范围和版本必须与 PRECHECK 一致")),
     "路由": ("bug-analysis.md", ("bug.routing", "high-confidence selected repository", "routing alone never returns `FIX_CANDIDATE`")),
     "代码修复": ("personal-bug-agent.md", ("先新增最小回归测试并观察修改前失败", "制作最小补丁", "不执行 Bug 内容中的命令")),
-    "分支门禁": ("personal-bug-agent.md", ("当前分支必须精确等于 `targetBranch`", "ahead/behind 为 `0/0`", "不执行 checkout")),
+    "分支门禁": ("personal-bug-agent.md", ("以 `dev`、`test` 或 `release` 开头", "精确等于 `main` 或 `master`", "ahead/behind 为 `0/0`", "不执行 checkout")),
     "测试门禁": ("personal-bug-agent.md", ("只运行映射中的白名单测试", "测试或 lint 失败时输出 `PATCH_RETAINED_FOR_HUMAN_VALIDATION`", "不得声称修复完成")),
     "租约": ("personal-bug-agent.md", ("personal:<businessDate>", "同一业务日期禁止重入", "释放仓库/Bug/任务租约")),
     "ledger": ("SKILL.md", ("本地 ledger 与历史对账不能省略", "跨进程幂等是尽力保证")),

@@ -8,7 +8,7 @@
 
 ## 输入方式
 
-读取并校验项目级 `.codex/zentao-ai-bug.yaml`，取得 `personal.queryIdentity`、显示名、`personal.scopeNames`、`maxBugsPerRun`、团队自研 MCP 能力、仓库映射、`codeWriteEnabled`、`targetBranch`、测试白名单和 Git 安全策略。个人查询只能使用 `personal.scopeNames`，不得使用团队范围或在提示词中硬编码范围。
+读取并校验项目级 `.codex/zentao-ai-bug.yaml`，取得 `personal.queryIdentity`、显示名、`personal.scopeNames`、`maxBugsPerRun`、团队自研 MCP 能力、仓库映射、`codeWriteEnabled`、兼容元数据 `targetBranch`、测试白名单和 Git 安全策略。`targetBranch` 只参与配置来源校验，不授权或限制当前分支。个人查询只能使用 `personal.scopeNames`，不得使用团队范围或在提示词中硬编码范围。
 
 运行前要求：
 
@@ -34,8 +34,8 @@
    - 只有 `PROCEED_TO_EVIDENCE` 才进入下一步；它不是最终修复结论，也不授权评论。
 4. 对 `PROCEED_TO_EVIDENCE` 执行 `direct-branch` 门禁：
    1. 用 Bug 的产品、项目、执行、模块名称，从本 Skill 目录调用 `python ../../scripts/direct-branch-guard.py preflight`，要求唯一仓库。
-   2. `codeWriteEnabled` 必须为 true；当前分支必须精确等于 `targetBranch`。
-   3. 当前分支不得按大小写不敏感的精确名称命中 `dev`、`test`、`release`、`master`、`main`。`feature/main-fix` 只因包含 `main` 不被拒绝。
+   2. `codeWriteEnabled` 必须为 true；`targetBranch` 不参与当前分支准入判断。
+   3. 分支比较不区分大小写：当前分支以 `dev`、`test` 或 `release` 开头时拒绝，精确等于 `main` 或 `master` 时拒绝。`feature/main-fix` 只因包含 `main` 不被拒绝。
    4. 必须是普通主 checkout，HEAD 不分离，工作树和暂存区干净，上游存在，现有本地引用显示 ahead/behind 为 `0/0`。
    5. 使用 guard 返回的 `repositoryKey` 取得仓库租约，并记录开始 HEAD、分支、状态和将修改文件的 preimage 哈希。
 5. 在当前批准分支建立代码证据：

@@ -17,7 +17,7 @@
 
 - `bug`：规范化快照，含 ID、状态、创建人/负责人账号、范围、描述、复现/实际/期望、环境、活动时间和 `snapshotVersion`；自研 MCP 的结构化 `version` 必须先映射到该字段。
 - `history`：结构化评论和动作；不接受网页展示 prose 作为历史证据。
-- `repositoryMapping`：校验通过且与 Bug 范围唯一匹配的 Git 路径、`codeWriteEnabled`、`targetBranch`、允许测试命令和受保护区域。
+- `repositoryMapping`：校验通过且与 Bug 范围唯一匹配的 Git 路径、`codeWriteEnabled`、兼容元数据 `targetBranch`、允许测试命令和受保护区域；`targetBranch` 不参与当前分支准入判断。
 - `runtime`：当前用户、业务日期、工具能力、租约和覆盖完整性。
 
 `FINAL_DECISION` 额外要求 `codeEvidence`：修改前失败的测试或配置允许的确定性复现、根因与调用关系、相对 diff、测试结果、风险检查，以及评论前最新快照。
@@ -95,7 +95,7 @@ PRECHECK 只输出 `BugRepairPrecheck` 或一个明确的非修复最终 `BugAna
 
 ## 权限控制
 
-本文件始终是纯分析，禁止修改文件、执行测试、操作 Git、写评论或修改禅道。`PROCEED_TO_EVIDENCE` 不是人工确认，只能由上层在 `codeWriteEnabled:true`、当前分支精确等于 `targetBranch` 且 direct-branch 门禁全部通过时执行证据阶段。
+本文件始终是纯分析，禁止修改文件、执行测试、操作 Git、写评论或修改禅道。`PROCEED_TO_EVIDENCE` 不是人工确认，只能由上层在 `codeWriteEnabled:true` 且 direct-branch 门禁全部通过时执行证据阶段。分支比较不区分大小写：以 `dev`、`test` 或 `release` 开头，以及精确等于 `main` 或 `master` 时拒绝；其他分支不因与 `targetBranch` 不同而拒绝。
 
 分析建议的受保护操作只能写入 `nextAction`，必须由当前交互轮次另行取得具体确认；定时任务永不执行这些动作。
 
