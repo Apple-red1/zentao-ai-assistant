@@ -48,6 +48,11 @@ def _fingerprint(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def _is_protected_branch(branch: str) -> bool:
+    normalized = branch.casefold()
+    return normalized in {"main", "master"} or normalized.startswith(("dev", "test", "release"))
+
+
 def preflight_repository(mapping: RepositoryMapping) -> GuardResult:
     reasons: list[str] = []
     path = mapping.path.resolve()
@@ -71,8 +76,8 @@ def preflight_repository(mapping: RepositoryMapping) -> GuardResult:
             reasons.append("REPOSITORY_PATH_NOT_TOP_LEVEL")
         head = _git(path, "rev-parse", "HEAD")
         branch = _git(path, "symbolic-ref", "--quiet", "--short", "HEAD")
-        if branch != mapping.targetBranch:
-            reasons.append("TARGET_BRANCH_MISMATCH")
+        if _is_protected_branch(branch):
+            reasons.append("PROTECTED_BRANCH")
         porcelain = _git(path, "status", "--porcelain=v1", "--untracked-files=all")
         if porcelain:
             reasons.append("WORKTREE_NOT_CLEAN")

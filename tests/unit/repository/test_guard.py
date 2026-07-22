@@ -36,8 +36,10 @@ def mapping(tmp_path: Path, repo: Path, target_branch="main", commands=("pytest"
     return RepositoryMapping(repository="example", path=repo, targetBranch=target_branch, testCommands=commands, configPath=tmp_path / "trusted.yaml", repositoryKey="scope")
 
 
-def test_clean_exact_repository_passes_without_changing_head(tmp_path):
+def test_clean_allowed_repository_passes_without_changing_head(tmp_path):
     repo = repository(tmp_path)
+    git(repo, "checkout", "-b", "wwt_play")
+    git(repo, "push", "-u", "origin", "wwt_play")
     before = git(repo, "rev-parse", "HEAD")
     result = preflight_repository(RepositoryMapping(repository="example", path=repo, targetBranch="main", testCommands=("pytest",), configPath=tmp_path / "trusted.yaml", repositoryKey="scope"))
     assert result.allowed and result.ahead == result.behind == 0
