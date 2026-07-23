@@ -50,6 +50,7 @@ class HttpZentaoProvider:
     _CATALOG_PAGE_SIZE = 100
     _MAX_CATALOG_PAGES = 100
     _MAX_BUG_PAGES_PER_PRODUCT = 100
+    _MAX_OFFICIAL_BUG_PAGES = 100
     _MAX_USER_BUG_PAGES = 100
 
     def __init__(
@@ -592,6 +593,8 @@ class HttpZentaoProvider:
         normalized_keyword = normalize_title_search_text(title_keyword)
         if not normalized_keyword:
             raise ValueError("title keyword is empty")
+        if status not in ("all", "unclosed"):
+            raise ValueError("invalid status")
 
         operation = "query_bugs_by_title"
         title_filter_complete = True
@@ -641,7 +644,7 @@ class HttpZentaoProvider:
             requested_page_size=page_size,
             params_for_page=params_for_page,
             row_outcome=matching_outcome,
-            accept_response_page_size=True,
+            max_pages=self._MAX_OFFICIAL_BUG_PAGES,
         )
         start = (page - 1) * page_size
         page_outcomes = outcomes[start : start + page_size]
@@ -683,8 +686,8 @@ class HttpZentaoProvider:
         requested_page_size: int,
         params_for_page: Callable[[int], dict[str, Any]],
         row_outcome: Callable[[Mapping[str, Any]], BugSnapshot | ItemFailure | None],
+        max_pages: int,
         page_hook: Callable[[Mapping[str, Any]], None] | None = None,
-        accept_response_page_size: bool = False,
     ) -> tuple[list[BugSnapshot | ItemFailure], bool]:
         outcomes: list[BugSnapshot | ItemFailure] = []
         seen_ids: set[str] = set()
@@ -692,10 +695,9 @@ class HttpZentaoProvider:
         seen_pages: set[tuple[str | None, ...]] = set()
         expected_total: int | None = None
         expected_pages: int | None = None
-        expected_response_page_size: int | None = None
         fetched = 0
 
-        for upstream_page in range(1, self._MAX_USER_BUG_PAGES + 1):
+        for upstream_page in range(1, max_pages + 1):
             data = self._request(
                 "GET",
                 path,
@@ -728,43 +730,39 @@ class HttpZentaoProvider:
                 if normalized_id is not None:
                     seen_ids.add(normalized_id)
 
-            metadata_page_size = requested_page_size
-            if accept_response_page_size:
-                pager = data.get("pager")
-                if isinstance(pager, Mapping):
-                    response_page_size = pager.get("recPerPage")
-                else:
-                    response_page_size = data.get("limit", data.get("pageSize"))
-                if (
-                    isinstance(response_page_size, int)
-                    and not isinstance(response_page_size, bool)
-                    and response_page_size >= 1
-                ):
-                    metadata_page_size = response_page_size
             metadata = self._official_page_metadata(
                 data,
                 requested_page=upstream_page,
-                requested_page_size=metadata_page_size,
+                requested_page_size=requested_page_size,
                 count=len(bugs),
             )
             fetched += len(bugs)
             if same_page_duplicate or repeated or overlaps_prior_page:
                 break
             if metadata is None:
+                metadata_present = "pager" in data or any(
+                    key in data
+                    for key in ("page", "limit", "pageSize", "total", "pages")
+                )
                 if not bugs:
-                    return outcomes, True
-                if expected_total is not None or expected_pages is not None:
+                    if (
+                        not metadata_present
+                        and expected_total is None
+                        and expected_pages is None
+                    ):
+                        return outcomes, True
+                    break
+                if (
+                    metadata_present
+                    or expected_total is not None
+                    or expected_pages is not None
+                ):
                     break
                 continue
             total, pages = metadata
             if expected_total is None and expected_pages is None:
                 expected_total, expected_pages = total, pages
-                expected_response_page_size = metadata_page_size
-            elif (
-                total != expected_total
-                or pages != expected_pages
-                or metadata_page_size != expected_response_page_size
-            ):
+            elif total != expected_total or pages != expected_pages:
                 break
             if fetched > total:
                 break
@@ -835,6 +833,7 @@ class HttpZentaoProvider:
             requested_page_size=page_size,
             params_for_page=params_for_page,
             row_outcome=matching_assignee_outcome,
+            max_pages=self._MAX_USER_BUG_PAGES,
             page_hook=resolve_page_identity,
         )
 

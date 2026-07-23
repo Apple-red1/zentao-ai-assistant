@@ -63,20 +63,21 @@ def test_query_bugs_by_title_scans_global_collection_before_result_paging() -> N
     def handle(request: httpx.Request) -> httpx.Response:
         requests.append(request)
         assert request.url.path == "/api.php/v2/bugs"
-        assert request.url.params["browseType"] == "all"
-        assert {"user", "assignedTo", "scopeNames"}.isdisjoint(request.url.params)
         page = int(request.url.params["pageID"])
+        assert dict(request.url.params) == {
+            "browseType": "all",
+            "pageID": str(page),
+            "recPerPage": "1",
+        }
         rows = {
-            1: [
-                _title_query_row(1, "unrelated", version="v1"),
-                _title_query_row(2, "[Design] [Unified Panel] active", version="v2"),
-            ],
-            2: [
+            1: [_title_query_row(1, "unrelated", version="v1")],
+            2: [_title_query_row(2, "[Design] [Unified Panel] active", version="v2")],
+            3: [
                 _title_query_row(
                     3, "Design Unified Panel closed", "closed", version="v3"
-                ),
-                _title_query_row(4, "Design Unified Panel active", version="v4"),
+                )
             ],
+            4: [_title_query_row(4, "Design Unified Panel active", version="v4")],
         }[page]
         return httpx.Response(
             200,
@@ -84,9 +85,9 @@ def test_query_bugs_by_title_scans_global_collection_before_result_paging() -> N
                 "bugs": rows,
                 "pager": {
                     "pageID": page,
-                    "recPerPage": 2,
+                    "recPerPage": 1,
                     "recTotal": 4,
-                    "pageTotal": 2,
+                    "pageTotal": 4,
                 },
             },
         )
@@ -104,8 +105,7 @@ def test_query_bugs_by_title_scans_global_collection_before_result_paging() -> N
     assert result.coverage.returned == 1
     assert result.coverage.failed == 0
     assert result.coverage.complete is True
-    assert len(requests) == 2
-    assert all("recPerPage" in request.url.params for request in requests)
+    assert len(requests) == 4
 
 
 def test_query_bugs_by_title_all_includes_closed_and_default_includes_resolved() -> (
@@ -196,6 +196,137 @@ def test_query_bugs_by_title_validates_before_network_access(
     assert calls == 0
 
 
+def test_query_bugs_by_title_rejects_invalid_status_before_network_access() -> None:
+    calls = 0
+
+    def handle(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(200, json={"bugs": []})
+
+    with pytest.raises(ValueError, match="^invalid status$"):
+        provider(httpx.MockTransport(handle)).query_bugs_by_title(
+            "needle",
+            status="resolved",  # type: ignore[arg-type]
+        )
+    assert calls == 0
+
+
+def test_query_bugs_by_title_empty_page_without_metadata_is_incomplete_after_pager() -> (
+    None
+):
+    def handle(request: httpx.Request) -> httpx.Response:
+        page = int(request.url.params["pageID"])
+        if page == 1:
+            return httpx.Response(
+                200,
+                json={
+                    "bugs": [_title_query_row(1, "needle verified")],
+                    "pager": {
+                        "pageID": 1,
+                        "recPerPage": 1,
+                        "recTotal": 2,
+                        "pageTotal": 2,
+                    },
+                },
+            )
+        return httpx.Response(200, json={"bugs": []})
+
+    result = provider(httpx.MockTransport(handle)).query_bugs_by_title(
+        "needle", page_size=1
+    )
+
+    assert [item.id for item in result.items] == [1]
+    assert result.coverage.complete is False
+    assert result.coverage.total == -1
+    assert result.coverage.pages is None
+
+
+def test_query_bugs_by_title_response_page_size_mismatch_is_incomplete() -> None:
+    def handle(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "bugs": [_title_query_row(1, "needle verified")],
+                "pager": {
+                    "pageID": 1,
+                    "recPerPage": 10,
+                    "recTotal": 1,
+                    "pageTotal": 1,
+                },
+            },
+        )
+
+    result = provider(httpx.MockTransport(handle)).query_bugs_by_title("needle")
+
+    assert [item.id for item in result.items] == [1]
+    assert result.coverage.complete is False
+    assert result.coverage.total == -1
+    assert result.coverage.pages is None
+
+
+@pytest.mark.parametrize("response_page_size", ["bad", True, 0, 101])
+def test_query_bugs_by_title_malformed_response_page_size_is_incomplete(
+    response_page_size: object,
+) -> None:
+    def handle(request: httpx.Request) -> httpx.Response:
+        page = int(request.url.params["pageID"])
+        return httpx.Response(
+            200,
+            json={
+                "bugs": [_title_query_row(1, "needle verified")],
+                "pager": {
+                    "pageID": page,
+                    "recPerPage": response_page_size,
+                    "recTotal": 1,
+                    "pageTotal": 1,
+                },
+            },
+        )
+
+    result = provider(httpx.MockTransport(handle)).query_bugs_by_title("needle")
+
+    assert [item.id for item in result.items] == [1]
+    assert result.coverage.complete is False
+    assert result.coverage.total == -1
+    assert result.coverage.pages is None
+
+
+def test_query_bugs_by_title_paginates_matching_failures_with_snapshots() -> None:
+    def handle(request: httpx.Request) -> httpx.Response:
+        page = int(request.url.params["pageID"])
+        rows = {
+            1: [_title_query_row(1, "needle first")],
+            2: [_title_query_row(True, "needle malformed")],
+            3: [_title_query_row(3, "needle third")],
+        }
+        return httpx.Response(
+            200,
+            json={
+                "bugs": rows[page],
+                "pager": {
+                    "pageID": page,
+                    "recPerPage": 1,
+                    "recTotal": 3,
+                    "pageTotal": 3,
+                },
+            },
+        )
+
+    result = provider(httpx.MockTransport(handle)).query_bugs_by_title(
+        "needle", page=2, page_size=1
+    )
+
+    assert result.items == ()
+    assert len(result.item_failures) == 1
+    assert result.item_failures[0].field == "id"
+    assert result.coverage.total == 3
+    assert result.coverage.pages == 3
+    assert result.coverage.returned == 0
+    assert result.coverage.failed == 1
+    assert result.coverage.complete is False
+
+
 @pytest.mark.parametrize(
     "scenario",
     [
@@ -258,7 +389,7 @@ def test_query_bugs_by_title_preserves_matches_when_scan_is_incomplete(
 def test_query_bugs_by_title_marks_max_page_exhaustion_incomplete(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(HttpZentaoProvider, "_MAX_USER_BUG_PAGES", 2)
+    monkeypatch.setattr(HttpZentaoProvider, "_MAX_OFFICIAL_BUG_PAGES", 2)
 
     def handle(request: httpx.Request) -> httpx.Response:
         page = int(request.url.params["pageID"])
