@@ -13,6 +13,7 @@ from zentao_ai.config.models import AppConfig
 from zentao_ai.mcp_server.schemas import (
     AddCommentInput,
     QueryBugDetailInput,
+    QueryBugsByTitleInput,
     QueryMyBugsInput,
     QueryUserBugsInput,
     UpdateStepsInput,
@@ -63,6 +64,7 @@ class Provider:
     def __init__(self, comment_status: str = "CREATED") -> None:
         self.calls: list[tuple[object, ...]] = []
         self.comment_status = comment_status
+        self.title_page: BugPage | None = None
 
     def query_my_bugs(self, **kwargs: object) -> BugPage:
         self.calls.append(("mine", kwargs))
@@ -70,6 +72,19 @@ class Provider:
 
     def query_user_bugs(self, user: str, **kwargs: object) -> BugPage:
         self.calls.append(("user", user, kwargs))
+        return BugPage(items=(), coverage=Coverage(total=0))
+
+    def query_bugs_by_title(
+        self,
+        title_keyword: str,
+        *,
+        status: str,
+        page: int,
+        page_size: int,
+    ) -> BugPage:
+        self.calls.append(("title", title_keyword, status, page, page_size))
+        if self.title_page is not None:
+            return self.title_page
         return BugPage(items=(), coverage=Coverage(total=0))
 
     def query_bug_detail(
@@ -209,6 +224,7 @@ def test_tool_list_is_exact_and_has_no_destructive_equivalent() -> None:
     assert TOOL_NAMES == (
         "query_my_bugs",
         "query_user_bugs",
+        "query_bugs_by_title",
         "query_bug_detail",
         "query_bug_history",
         "bug_statistics",
@@ -232,6 +248,24 @@ def test_schemas_reject_unknown_and_invalid_write_arguments() -> None:
         AddCommentInput.model_validate(
             {"bugId": 7, "comment": " ", "confirm": True, "idempotencyKey": "k"}
         )
+
+
+def test_query_bugs_by_title_schema_is_strict_and_defaults_to_unclosed() -> None:
+    query = QueryBugsByTitleInput.model_validate({"titleKeyword": "  regression  "})
+
+    assert query.titleKeyword == "regression"
+    assert query.status == "unclosed"
+    assert query.page == 1
+    assert query.pageSize == 20
+    for arguments in (
+        {"titleKeyword": " "},
+        {"titleKeyword": "bug", "status": "closed"},
+        {"titleKeyword": "bug", "page": 0},
+        {"titleKeyword": "bug", "pageSize": 101},
+        {"titleKeyword": "bug", "user": "alice"},
+    ):
+        with pytest.raises(ValidationError):
+            QueryBugsByTitleInput.model_validate(arguments)
     with pytest.raises(ValidationError):
         AddCommentInput.model_validate(
             {"bugId": 7, "comment": "x", "confirm": False, "idempotencyKey": "k"}
@@ -264,6 +298,7 @@ def test_all_read_tools_return_stable_versioned_structured_content() -> None:
     calls = {
         "query_my_bugs": {},
         "query_user_bugs": {"user": "alice"},
+        "query_bugs_by_title": {"titleKeyword": "regression"},
         "query_bug_detail": {"bugId": 7},
         "query_bug_history": {"bugId": 7},
         "bug_statistics": {},
@@ -275,6 +310,83 @@ def test_all_read_tools_return_stable_versioned_structured_content() -> None:
     assert (
         tools.call("query_bug_detail", {"bugId": 7})["data"]["snapshotVersion"] == "s7"
     )
+
+
+def test_query_bugs_by_title_calls_only_the_global_provider_method() -> None:
+    provider = Provider()
+    page = BugPage(
+        items=(
+            BugSnapshot(
+                id=3422,
+                title="versionless regression",
+                priority="P3",
+                status="active",
+                assignee=None,
+                version=None,
+                snapshotVersion=None,
+                snapshotStable=False,
+                missingPresentationFields=("assignee",),
+            ),
+        ),
+        coverage=Coverage(
+            page=3,
+            pageSize=7,
+            total=-1,
+            pages=None,
+            returned=1,
+            failed=1,
+            complete=False,
+            unstableSnapshots=1,
+            missingPresentationFields={"assignee": 1},
+        ),
+        itemFailures=(
+            ItemFailure(
+                bugId="3423",
+                code="MISSING_STABLE_VERSION",
+                field="version",
+                message="missing stable version",
+            ),
+        ),
+        resolvedIdentity=None,
+    )
+    provider.title_page = page
+
+    result = ZentaoTools(runtime(provider)).call(
+        "query_bugs_by_title",
+        {
+            "titleKeyword": "not-a-configured-user",
+            "status": "all",
+            "page": 3,
+            "pageSize": 7,
+        },
+    )
+
+    assert result["version"] == "v1"
+    assert result["data"]["items"][0]["version"] is None
+    assert result["data"]["items"][0]["snapshotVersion"] is None
+    assert result["data"]["items"][0]["snapshotStable"] is False
+    assert result["data"]["items"][0]["missingPresentationFields"] == ["assignee"]
+    assert result["data"]["coverage"] == {
+        "page": 3,
+        "pageSize": 7,
+        "total": -1,
+        "pages": None,
+        "returned": 1,
+        "failed": 1,
+        "complete": False,
+        "unstableSnapshots": 1,
+        "missingPresentationFields": {"assignee": 1},
+    }
+    assert result["data"]["itemFailures"] == [
+        {
+            "bugId": "3423",
+            "code": "MISSING_STABLE_VERSION",
+            "field": "version",
+            "message": "missing stable version",
+        }
+    ]
+    assert result["data"]["resolvedIdentity"] is None
+    assert provider.calls == [("title", "not-a-configured-user", "all", 3, 7)]
 
 
 @pytest.mark.parametrize(

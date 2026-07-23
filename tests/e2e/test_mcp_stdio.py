@@ -76,6 +76,16 @@ def test_stdio_initialize_list_and_shutdown_frames_are_stdout_pure(tmp_path) -> 
         frames,
     )
     assert tuple(tool["name"] for tool in listed["result"]["tools"]) == TOOL_NAMES
+    title_tool = next(
+        tool
+        for tool in listed["result"]["tools"]
+        if tool["name"] == "query_bugs_by_title"
+    )
+    schema = title_tool["inputSchema"]
+    assert schema["required"] == ["titleKeyword"]
+    assert schema["properties"]["status"]["default"] == "unclosed"
+    assert schema["properties"]["page"]["minimum"] == 1
+    assert schema["properties"]["pageSize"]["maximum"] == 100
     response = send(
         process,
         {

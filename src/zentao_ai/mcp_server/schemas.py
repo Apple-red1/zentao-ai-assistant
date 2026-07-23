@@ -36,6 +36,11 @@ class QueryUserBugsInput(PagingInput):
     status: Literal["all", "unclosed"] = "all"
 
 
+class QueryBugsByTitleInput(PagingInput):
+    titleKeyword: NonEmpty
+    status: Literal["all", "unclosed"] = "unclosed"
+
+
 class QueryBugDetailInput(StrictInput):
     bugId: int | NonEmpty
 
@@ -110,6 +115,7 @@ class UpdateStepsWithImageInput(UpdateStepsInput):
 INPUT_MODELS: dict[str, type[StrictInput]] = {
     "query_my_bugs": QueryMyBugsInput,
     "query_user_bugs": QueryUserBugsInput,
+    "query_bugs_by_title": QueryBugsByTitleInput,
     "query_bug_detail": QueryBugDetailInput,
     "query_bug_history": QueryBugHistoryInput,
     "bug_statistics": BugStatisticsInput,

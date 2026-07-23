@@ -29,6 +29,7 @@ from .schemas import (
     AddCommentInput,
     QueryBugDetailInput,
     QueryBugHistoryInput,
+    QueryBugsByTitleInput,
     QueryMyBugsInput,
     QueryUserBugsInput,
     UpdateStepsInput,
@@ -38,6 +39,7 @@ from .schemas import (
 TOOL_NAMES = (
     "query_my_bugs",
     "query_user_bugs",
+    "query_bugs_by_title",
     "query_bug_detail",
     "query_bug_history",
     "bug_statistics",
@@ -217,6 +219,14 @@ class ZentaoTools:
             )
             data = _filtered_assignee_page(
                 source,
+                status=value.status,
+                page=value.page,
+                page_size=value.pageSize,
+            )
+        elif name == "query_bugs_by_title":
+            assert isinstance(value, QueryBugsByTitleInput)
+            data = provider.query_bugs_by_title(
+                value.titleKeyword,
                 status=value.status,
                 page=value.page,
                 page_size=value.pageSize,
