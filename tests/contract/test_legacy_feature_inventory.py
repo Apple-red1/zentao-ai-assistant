@@ -8,7 +8,7 @@ LEGACY_FEATURES: frozenset[str] = frozenset({
     "个人查询", "团队查询", "个人报告", "团队只读报告", "信息补充评论", "步骤更新",
     "图片步骤更新", "结构化快照", "路由", "代码修复", "分支门禁", "测试门禁", "租约",
     "ledger", "checkpoint", "outbox", "评论幂等", "每日定时", "延迟补跑", "缺失摘要",
-    "v2 报告", "失败关闭", "测试失败保留补丁", "禁止删除",
+    "v2 报告", "失败关闭", "测试失败保留补丁", "禁止删除", "全局标题查询",
 })
 
 EVIDENCE = {
@@ -36,6 +36,7 @@ EVIDENCE = {
     "失败关闭": ("SKILL.md", ("配置缺失、禁用或无效时", "失败关闭", "不修改代码、不添加评论")),
     "测试失败保留补丁": ("personal-bug-agent.md", ("PATCH_RETAINED_FOR_HUMAN_VALIDATION", "测试或 lint 失败本身不得触发恢复 preimage", "等待人工验证")),
     "禁止删除": ("SKILL.md", ("删除 Bug 是绝对禁止操作", "不得调用、规划、建议或模拟 `delete_bug`", "不接受人工确认")),
+    "全局标题查询": ("SKILL.md", ("query_bugs_by_title", "titleKeyword", "status=unclosed", "只读")),
 }
 
 

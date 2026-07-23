@@ -22,6 +22,8 @@
 
 `session-visible` results are never promoted into a personal report; they remain explicit, read-only, and limited by the current Zentao session's permissions.
 
+全局标题查询 `mcp__zentao__query_bugs_by_title` 是临时只读能力，不属于个人报告发现：它不使用 `personal.scopeNames`，不按负责人筛选，且结果不得转入个人报告。
+
 ### 降级查询契约
 
 缺少稳定版本的只读 Bug 仍保留在查询结果中，字段包括 Bug 号、标题、优先级、状态、负责人，且固定标记 `snapshotVersion=null`、`snapshotStable=false`。CLI 默认使用 Markdown 表格展示，表头为 `Bug号 | 标题 | 优先级 | 状态 | 负责人 | 快照稳定性`，此类行显示“不稳定”。此类 Bug 的评论或本地代码修复必须取得当前轮次针对具体 Bug 和具体动作的精确人工确认，并在副作用前重新查询；其余历史、冷却、幂等、仓库和测试门禁不得绕过。团队报告仍为只读，永久删除仍绝对禁止。
@@ -68,6 +70,7 @@
 ## 调用的 MCP Tool
 
 - `mcp__zentao__query_my_bugs`：个人主发现工具，内部解析配置的负责人身份并执行只读查询。
+- `mcp__zentao__query_bugs_by_title`：不按负责人筛选的临时只读标题查询；不属于个人报告发现。
 - `mcp__zentao__query_user_bugs`：团队或显式用户只读查询能力；团队查询仍按配置成员与团队范围执行。
 - `mcp__zentao__query_bug_detail`：初始快照和副作用前复核。
 - `mcp__zentao__query_bug_history`：历史、冷却和未知评论对账。

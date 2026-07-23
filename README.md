@@ -8,6 +8,13 @@
 - 业务仓库只作为个人 Bug 路由后的代码处理目标；自动化配置和报告不存入业务仓库。
 - 报告由 `scripts/render-report.py` 按 `templateVersion=v2` 固定渲染。
 
+全局标题搜索不依赖负责人，只返回当前会话可见的 Bug，默认 `unclosed`：
+
+```powershell
+zentao-ai bugs search --title "设计器统一面板"
+zentao-ai bugs search --title "设计器统一面板" --status all --json
+```
+
 测试命令：
 
 ```powershell

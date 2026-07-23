@@ -275,3 +275,38 @@ def test_packaged_skill_documents_degraded_bug_query_contract() -> None:
             "具体动作",
         ):
             assert phrase in text
+
+
+def test_packaged_skill_documents_global_title_search_contract() -> None:
+    skill = (PLUGIN / "skills" / "zentao-ai-bug" / "SKILL.md").read_text(encoding="utf-8")
+    for phrase in (
+        "query_bugs_by_title",
+        "不限定负责人",
+        "titleKeyword",
+        "status",
+        "unclosed",
+        "page",
+        "pageSize",
+        "只读",
+        "当前禅道会话权限",
+        "不得转入个人或团队报告",
+        "【】[]（）()-—_:：?",
+        "顺序连续子串匹配",
+    ):
+        assert phrase in skill
+
+
+def test_personal_skill_keeps_title_search_ad_hoc_and_read_only() -> None:
+    text = (PLUGIN / "skills" / "zentao-ai-bug" / "personal-bug-agent.md").read_text(encoding="utf-8")
+    assert "mcp__zentao__query_bugs_by_title" in text
+    assert "临时只读" in text
+    assert "不属于个人报告发现" in text
+
+
+def test_readme_documents_global_title_search_cli() -> None:
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert 'zentao-ai bugs search --title "设计器统一面板"' in text
+    assert 'zentao-ai bugs search --title "设计器统一面板" --status all --json' in text
+    assert "默认 `unclosed`" in text
+    assert "当前会话可见" in text
+    assert "不依赖负责人" in text

@@ -26,6 +26,21 @@ description: Use when 需要处理禅道 Zentao 个人 Bug、生成团队或每�
 
 `team.members` controls `team-report` only. Team/personal report discovery obeys configured scopes and report membership. `session-visible` is an explicit read-only query limited by the current Zentao session's permissions; `session-visible` obeys neither configured report scope nor report membership, does not expand team membership, and does not authorize a report. Repository preflight may proceed only with `confidence=high` with exactly one candidate equal to the selected repository; all existing repository gates still apply.
 
+### 全局标题临时查询
+
+当用户说“不针对人”“全局”“标题包含/模糊匹配”时，调用 `mcp__zentao__query_bugs_by_title`，而不是个人或团队发现工具。参数 `titleKeyword` 必须是非空关键词；默认 `status=unclosed`，只有用户明确要求全部状态或包含已关闭时才传 `all`；可选分页字段是 `page` 与 `pageSize`。例如：
+
+```json
+{
+  "titleKeyword": "设计器统一面板",
+  "status": "unclosed",
+  "page": 1,
+  "pageSize": 20
+}
+```
+
+这是不限定负责人的临时只读查询：不用 `personal.scopeNames`、`team.scopeNames` 或 `team.members`，只受当前禅道会话权限约束，默认返回当前会话可见的全部未关闭匹配；不得转入个人或团队报告，也不得触发评论、代码或 Bug 状态副作用。标题在 Unicode NFC/casefold 后忽略空白及 `【】[]（）()-—_:：?`，再执行顺序连续子串匹配。结果须如实保留不稳定快照与完整性；缺少稳定版本不得移除只读行。仅列出匹配行时不需要详情或历史。
+
 ### 降级查询契约
 
 缺少稳定版本的只读 Bug 仍保留在查询结果中，字段包括 Bug 号、标题、优先级、状态、负责人，且固定标记 `snapshotVersion=null`、`snapshotStable=false`。CLI 默认使用 Markdown 表格展示，表头为 `Bug号 | 标题 | 优先级 | 状态 | 负责人 | 快照稳定性`，此类行显示“不稳定”。此类 Bug 的评论或本地代码修复必须取得当前轮次针对具体 Bug 和具体动作的精确人工确认，并在副作用前重新查询；其余历史、冷却、幂等、仓库和测试门禁不得绕过。团队报告仍为只读，永久删除仍绝对禁止。
@@ -52,6 +67,7 @@ description: Use when 需要处理禅道 Zentao 个人 Bug、生成团队或每�
 
 - `query_my_bugs`
 - `query_user_bugs`
+- `query_bugs_by_title`
 - `query_bug_detail`
 - `query_bug_history`
 - `bug_statistics`
