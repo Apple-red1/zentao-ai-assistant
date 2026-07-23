@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Literal, Protocol
 
 from .models import (
     BugPage,
@@ -21,6 +21,14 @@ class ZentaoProvider(Protocol):
         page: int = 1,
         page_size: int = 20,
         browse_type: str | None = None,
+    ) -> BugPage: ...
+    def query_bugs_by_title(
+        self,
+        title_keyword: str,
+        *,
+        status: Literal["all", "unclosed"] = "unclosed",
+        page: int = 1,
+        page_size: int = 20,
     ) -> BugPage: ...
     def query_bug_detail(
         self, bug_id: int | str, *, allow_unstable: bool = False

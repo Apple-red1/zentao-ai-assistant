@@ -4,9 +4,9 @@ import hashlib
 import re
 import time
 import unicodedata
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from email.utils import parsedate_to_datetime
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import quote
 
 import httpx
@@ -43,6 +43,7 @@ from .models import (
     ZentaoEndpoints,
     missing_presentation_field_counts,
 )
+from .query_filters import filter_title_bugs, normalize_title_search_text
 
 
 class HttpZentaoProvider:
@@ -550,9 +551,7 @@ class HttpZentaoProvider:
             ):
                 raise ContractError(f"{operation}: invalid items")
             items = tuple(
-                self._official_snapshot(
-                    item, operation=operation, allow_unstable=True
-                )
+                self._official_snapshot(item, operation=operation, allow_unstable=True)
                 for item in bugs
             )
         else:
@@ -581,6 +580,202 @@ class HttpZentaoProvider:
             resolvedIdentity=None,
         )
 
+    def query_bugs_by_title(
+        self,
+        title_keyword: str,
+        *,
+        status: Literal["all", "unclosed"] = "unclosed",
+        page: int = 1,
+        page_size: int = 20,
+    ) -> BugPage:
+        self._validate_pagination(page, page_size, max_page_size=100)
+        normalized_keyword = normalize_title_search_text(title_keyword)
+        if not normalized_keyword:
+            raise ValueError("title keyword is empty")
+
+        operation = "query_bugs_by_title"
+        title_filter_complete = True
+
+        def params_for_page(upstream_page: int) -> dict[str, Any]:
+            return {
+                "browseType": "all",
+                "pageID": upstream_page,
+                "recPerPage": page_size,
+            }
+
+        def matching_outcome(
+            item: Mapping[str, Any],
+        ) -> BugSnapshot | ItemFailure | None:
+            nonlocal title_filter_complete
+            trusted_title = self._catalog_text(item.get("title"))
+            normalized_id = self._normalized_bug_id(item.get("id"))
+            if trusted_title is None:
+                title_filter_complete = False
+                return None
+
+            snapshot, failure = self._snapshot_or_failure(item, operation)
+            if snapshot is not None:
+                candidates = (snapshot,)
+            else:
+                candidates = (
+                    BugSnapshot(
+                        id=normalized_id or "unknown",
+                        title=trusted_title,
+                        status=self._catalog_text(item.get("status")) or "unknown",
+                        snapshotVersion=None,
+                        snapshotStable=False,
+                        missingPresentationFields=(),
+                    ),
+                )
+            if not filter_title_bugs(
+                candidates,
+                title_keyword=title_keyword,
+                status=status,
+            ):
+                return None
+            return snapshot if snapshot is not None else failure
+
+        outcomes, pagination_complete = self._scan_official_bug_collection(
+            path=self._endpoints.global_bugs,
+            operation=operation,
+            requested_page_size=page_size,
+            params_for_page=params_for_page,
+            row_outcome=matching_outcome,
+            accept_response_page_size=True,
+        )
+        start = (page - 1) * page_size
+        page_outcomes = outcomes[start : start + page_size]
+        items = tuple(
+            outcome for outcome in page_outcomes if isinstance(outcome, BugSnapshot)
+        )
+        item_failures = tuple(
+            outcome for outcome in page_outcomes if isinstance(outcome, ItemFailure)
+        )
+        filtered_total_known = pagination_complete and title_filter_complete
+        total = len(outcomes) if filtered_total_known else -1
+        complete = filtered_total_known and not any(
+            isinstance(outcome, ItemFailure) for outcome in outcomes
+        )
+        return BugPage(
+            items=items,
+            coverage=Coverage(
+                page=page,
+                pageSize=page_size,
+                total=total,
+                pages=(total + page_size - 1) // page_size
+                if filtered_total_known
+                else None,
+                returned=len(items),
+                failed=len(item_failures),
+                complete=complete,
+                unstableSnapshots=sum(not item.snapshot_stable for item in items),
+                missingPresentationFields=missing_presentation_field_counts(items),
+            ),
+            itemFailures=item_failures,
+            resolvedIdentity=None,
+        )
+
+    def _scan_official_bug_collection(
+        self,
+        *,
+        path: str,
+        operation: str,
+        requested_page_size: int,
+        params_for_page: Callable[[int], dict[str, Any]],
+        row_outcome: Callable[[Mapping[str, Any]], BugSnapshot | ItemFailure | None],
+        page_hook: Callable[[Mapping[str, Any]], None] | None = None,
+        accept_response_page_size: bool = False,
+    ) -> tuple[list[BugSnapshot | ItemFailure], bool]:
+        outcomes: list[BugSnapshot | ItemFailure] = []
+        seen_ids: set[str] = set()
+        upstream_seen_ids: set[str] = set()
+        seen_pages: set[tuple[str | None, ...]] = set()
+        expected_total: int | None = None
+        expected_pages: int | None = None
+        expected_response_page_size: int | None = None
+        fetched = 0
+
+        for upstream_page in range(1, self._MAX_USER_BUG_PAGES + 1):
+            data = self._request(
+                "GET",
+                path,
+                operation,
+                params=params_for_page(upstream_page),
+            )
+            if page_hook is not None:
+                page_hook(data)
+            bugs = self._official_bug_rows(data, operation)
+            page_ids = tuple(self._normalized_bug_id(item.get("id")) for item in bugs)
+            valid_page_ids = tuple(bug_id for bug_id in page_ids if bug_id is not None)
+            same_page_duplicate = len(valid_page_ids) != len(set(valid_page_ids))
+            repeated = page_ids in seen_pages
+            seen_pages.add(page_ids)
+            overlaps_prior_page = any(
+                bug_id in upstream_seen_ids for bug_id in page_ids if bug_id is not None
+            )
+            upstream_seen_ids.update(
+                bug_id for bug_id in page_ids if bug_id is not None
+            )
+
+            for item in bugs:
+                normalized_id = self._normalized_bug_id(item.get("id"))
+                if normalized_id is not None and normalized_id in seen_ids:
+                    continue
+                outcome = row_outcome(item)
+                if outcome is None:
+                    continue
+                outcomes.append(outcome)
+                if normalized_id is not None:
+                    seen_ids.add(normalized_id)
+
+            metadata_page_size = requested_page_size
+            if accept_response_page_size:
+                pager = data.get("pager")
+                if isinstance(pager, Mapping):
+                    response_page_size = pager.get("recPerPage")
+                else:
+                    response_page_size = data.get("limit", data.get("pageSize"))
+                if (
+                    isinstance(response_page_size, int)
+                    and not isinstance(response_page_size, bool)
+                    and response_page_size >= 1
+                ):
+                    metadata_page_size = response_page_size
+            metadata = self._official_page_metadata(
+                data,
+                requested_page=upstream_page,
+                requested_page_size=metadata_page_size,
+                count=len(bugs),
+            )
+            fetched += len(bugs)
+            if same_page_duplicate or repeated or overlaps_prior_page:
+                break
+            if metadata is None:
+                if not bugs:
+                    return outcomes, True
+                if expected_total is not None or expected_pages is not None:
+                    break
+                continue
+            total, pages = metadata
+            if expected_total is None and expected_pages is None:
+                expected_total, expected_pages = total, pages
+                expected_response_page_size = metadata_page_size
+            elif (
+                total != expected_total
+                or pages != expected_pages
+                or metadata_page_size != expected_response_page_size
+            ):
+                break
+            if fetched > total:
+                break
+            if fetched == total and (
+                (pages == 0 and upstream_page == 1) or upstream_page == pages
+            ):
+                return outcomes, True
+            if upstream_page >= pages:
+                break
+        return outcomes, False
+
     def _query_official_user_bugs(
         self,
         user: str,
@@ -592,17 +787,9 @@ class HttpZentaoProvider:
     ) -> BugPage:
         self._validate_pagination(page, page_size)
         operation = "query_user_bugs"
-        outcomes: list[BugSnapshot | ItemFailure] = []
-        seen_ids: set[str] = set()
-        upstream_seen_ids: set[str] = set()
-        seen_pages: set[tuple[str | None, ...]] = set()
-        expected_total: int | None = None
-        expected_pages: int | None = None
-        fetched = 0
-        complete = False
         resolved_identity: ResolvedIdentity | None = None
 
-        for upstream_page in range(1, self._MAX_USER_BUG_PAGES + 1):
+        def params_for_page(upstream_page: int) -> dict[str, Any]:
             params: dict[str, Any] = {
                 "pageID": upstream_page,
                 "recPerPage": page_size,
@@ -611,12 +798,10 @@ class HttpZentaoProvider:
                 params["browseType"] = browse_type
             if scope_names:
                 params["scopeNames"] = list(scope_names)
-            data = self._request(
-                "GET",
-                self._endpoints.user_bugs,
-                operation,
-                params=params,
-            )
+            return params
+
+        def resolve_page_identity(data: Mapping[str, Any]) -> None:
+            nonlocal resolved_identity
             if resolved_identity is None:
                 page_identity = self._resolve_member_identity(data, user)
                 resolved_identity = page_identity
@@ -624,79 +809,34 @@ class HttpZentaoProvider:
                 page_identity = self._resolve_member_identity(data, user)
                 if page_identity != resolved_identity:
                     raise ContractError("query_user_bugs: resolved identity changed")
-            else:
-                page_identity = resolved_identity
-            bugs = self._official_bug_rows(data, operation)
-            page_ids = tuple(self._normalized_bug_id(item.get("id")) for item in bugs)
-            valid_page_ids = tuple(
-                bug_id for bug_id in page_ids if bug_id is not None
-            )
-            same_page_duplicate = len(valid_page_ids) != len(set(valid_page_ids))
-            repeated = page_ids in seen_pages
-            seen_pages.add(page_ids)
-            overlaps_prior_page = any(
-                bug_id in upstream_seen_ids for bug_id in page_ids if bug_id is not None
-            )
-            upstream_seen_ids.update(
-                bug_id for bug_id in page_ids if bug_id is not None
-            )
 
+        def matching_assignee_outcome(
+            item: Mapping[str, Any],
+        ) -> BugSnapshot | ItemFailure | None:
+            assert resolved_identity is not None
             expected_identities = {
-                self._normalized_text(page_identity.resolved_account or ""),
-                self._normalized_text(page_identity.resolved_display_name or ""),
+                self._normalized_text(resolved_identity.resolved_account or ""),
+                self._normalized_text(resolved_identity.resolved_display_name or ""),
             }
-            for item in bugs:
-                assignee = self._account(item.get("assignedTo"))
-                assignee_identities = set(self._identity_values(item.get("assignedTo")))
-                if assignee is not None:
-                    assignee_identities.add(self._normalized_text(assignee))
-                if assignee is not None and assignee_identities.isdisjoint(
-                    expected_identities
-                ):
-                    continue
-                normalized_id = self._normalized_bug_id(item.get("id"))
-                if normalized_id is not None and normalized_id in seen_ids:
-                    continue
-                snapshot, failure = self._snapshot_or_failure(item, operation)
-                if failure is not None:
-                    outcomes.append(failure)
-                    if normalized_id is not None:
-                        seen_ids.add(normalized_id)
-                    continue
-                assert snapshot is not None and normalized_id is not None
-                seen_ids.add(normalized_id)
-                outcomes.append(snapshot)
-
-            metadata = self._official_page_metadata(
-                data,
-                requested_page=upstream_page,
-                requested_page_size=page_size,
-                count=len(bugs),
-            )
-            fetched += len(bugs)
-            if same_page_duplicate or repeated or overlaps_prior_page:
-                break
-            if metadata is None:
-                if not bugs:
-                    complete = True
-                    break
-                if expected_total is not None or expected_pages is not None:
-                    break
-                continue
-            total, pages = metadata
-            if expected_total is None and expected_pages is None:
-                expected_total, expected_pages = total, pages
-            elif total != expected_total or pages != expected_pages:
-                break
-            if fetched > total:
-                break
-            if fetched == total and (
-                (pages == 0 and upstream_page == 1) or upstream_page == pages
+            assignee = self._account(item.get("assignedTo"))
+            assignee_identities = set(self._identity_values(item.get("assignedTo")))
+            if assignee is not None:
+                assignee_identities.add(self._normalized_text(assignee))
+            if assignee is not None and assignee_identities.isdisjoint(
+                expected_identities
             ):
-                complete = True
-                break
-            if upstream_page >= pages:
-                break
+                return None
+            snapshot, failure = self._snapshot_or_failure(item, operation)
+            return snapshot if snapshot is not None else failure
+
+        outcomes, pagination_complete = self._scan_official_bug_collection(
+            path=self._endpoints.user_bugs,
+            operation=operation,
+            requested_page_size=page_size,
+            params_for_page=params_for_page,
+            row_outcome=matching_assignee_outcome,
+            page_hook=resolve_page_identity,
+        )
 
         start = (page - 1) * page_size
         page_outcomes = outcomes[start : start + page_size]
@@ -706,7 +846,6 @@ class HttpZentaoProvider:
         item_failures = tuple(
             outcome for outcome in page_outcomes if isinstance(outcome, ItemFailure)
         )
-        pagination_complete = complete
         complete = pagination_complete and not any(
             isinstance(outcome, ItemFailure) for outcome in outcomes
         )
@@ -798,7 +937,9 @@ class HttpZentaoProvider:
                 for account, _, display_name in matches
             )
 
-        account_matches = [member for member in members if member[1] == requested_normalized]
+        account_matches = [
+            member for member in members if member[1] == requested_normalized
+        ]
         if len(account_matches) == 1:
             account, _, display_name = account_matches[0]
             return ResolvedIdentity(
@@ -1003,17 +1144,13 @@ class HttpZentaoProvider:
         if self._endpoints.bug_detail == "/api.php/v2/bugs/{bug_id}":
             bug = data.get("bug")
             if not isinstance(bug, Mapping):
-                raise InvalidBugContractError(
-                    "query_bug_detail: invalid bug contract"
-                )
+                raise InvalidBugContractError("query_bug_detail: invalid bug contract")
             return self._official_snapshot(
                 bug,
                 operation="query_bug_detail",
                 allow_unstable=allow_unstable,
             )
-        return self._snapshot(
-            data, "query_bug_detail", allow_unstable=allow_unstable
-        )
+        return self._snapshot(data, "query_bug_detail", allow_unstable=allow_unstable)
 
     def query_bug_history(
         self, bug_id: int | str, *, page: int = 1, page_size: int = 20
@@ -1031,9 +1168,7 @@ class HttpZentaoProvider:
                 or not isinstance(bug, Mapping)
                 or self._normalized_bug_id(bug.get("id")) != requested_id
             ):
-                raise InvalidBugContractError(
-                    "query_bug_history: invalid bug contract"
-                )
+                raise InvalidBugContractError("query_bug_history: invalid bug contract")
             all_items = tuple(
                 self._official_history(item, "query_bug_history")
                 for item in self._actions(data, "query_bug_history")
@@ -1371,14 +1506,16 @@ class HttpZentaoProvider:
         return items
 
     @staticmethod
-    def _validate_pagination(page: int, page_size: int) -> None:
+    def _validate_pagination(
+        page: int, page_size: int, *, max_page_size: int = 1000
+    ) -> None:
         if (
             isinstance(page, bool)
             or not isinstance(page, int)
             or page < 1
             or isinstance(page_size, bool)
             or not isinstance(page_size, int)
-            or not 1 <= page_size <= 1000
+            or not 1 <= page_size <= max_page_size
         ):
             raise ValueError("invalid pagination")
 
@@ -1398,9 +1535,7 @@ class HttpZentaoProvider:
             else version
         )
         if supplied_snapshot_version != version:
-            raise InvalidBugContractError(
-                f"{operation}: invalid bug contract"
-            )
+            raise InvalidBugContractError(f"{operation}: invalid bug contract")
         safe = self._sanitize(data)
         assignee_value = data.get("assignee", data.get("assignedTo"))
         normalized = {

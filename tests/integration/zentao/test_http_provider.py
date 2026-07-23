@@ -38,6 +38,282 @@ def provider(handler: httpx.MockTransport, **kwargs: object) -> HttpZentaoProvid
     )
 
 
+def _title_query_row(
+    identifier: object,
+    title: object,
+    status: object = "active",
+    *,
+    version: object = "v1",
+) -> dict[str, object]:
+    row = {
+        "id": identifier,
+        "title": title,
+        "status": status,
+        "assignedTo": "developer",
+        "pri": 3,
+    }
+    if version is not None:
+        row["lastEditedDate"] = version
+    return row
+
+
+def test_query_bugs_by_title_scans_global_collection_before_result_paging() -> None:
+    requests: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        assert request.url.path == "/api.php/v2/bugs"
+        assert request.url.params["browseType"] == "all"
+        assert {"user", "assignedTo", "scopeNames"}.isdisjoint(request.url.params)
+        page = int(request.url.params["pageID"])
+        rows = {
+            1: [
+                _title_query_row(1, "unrelated", version="v1"),
+                _title_query_row(2, "[Design] [Unified Panel] active", version="v2"),
+            ],
+            2: [
+                _title_query_row(
+                    3, "Design Unified Panel closed", "closed", version="v3"
+                ),
+                _title_query_row(4, "Design Unified Panel active", version="v4"),
+            ],
+        }[page]
+        return httpx.Response(
+            200,
+            json={
+                "bugs": rows,
+                "pager": {
+                    "pageID": page,
+                    "recPerPage": 2,
+                    "recTotal": 4,
+                    "pageTotal": 2,
+                },
+            },
+        )
+
+    result = provider(httpx.MockTransport(handle)).query_bugs_by_title(
+        "design-unified_panel", page=2, page_size=1
+    )
+
+    assert [item.id for item in result.items] == [4]
+    assert result.resolved_identity is None
+    assert result.coverage.page == 2
+    assert result.coverage.page_size == 1
+    assert result.coverage.total == 2
+    assert result.coverage.pages == 2
+    assert result.coverage.returned == 1
+    assert result.coverage.failed == 0
+    assert result.coverage.complete is True
+    assert len(requests) == 2
+    assert all("recPerPage" in request.url.params for request in requests)
+
+
+def test_query_bugs_by_title_all_includes_closed_and_default_includes_resolved() -> (
+    None
+):
+    def handle(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "bugs": [
+                    _title_query_row(2, "Design Unified Panel active", "active"),
+                    _title_query_row(3, "Design Unified Panel closed", "closed"),
+                    _title_query_row(4, "Design Unified Panel resolved", "resolved"),
+                ],
+                "pager": {
+                    "pageID": 1,
+                    "recPerPage": 20,
+                    "recTotal": 3,
+                    "pageTotal": 1,
+                },
+            },
+        )
+
+    instance = provider(httpx.MockTransport(handle))
+    assert [
+        item.id for item in instance.query_bugs_by_title("design unified panel").items
+    ] == [2, 4]
+    assert [
+        item.id
+        for item in instance.query_bugs_by_title(
+            "design unified panel", status="all"
+        ).items
+    ] == [2, 3, 4]
+
+
+def test_query_bugs_by_title_retains_matching_versionless_row_without_detail() -> None:
+    requested_paths: list[str] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requested_paths.append(request.url.path)
+        return httpx.Response(
+            200,
+            json={
+                "bugs": [_title_query_row(7, "Design Unified Panel", version=None)],
+                "pager": {
+                    "pageID": 1,
+                    "recPerPage": 20,
+                    "recTotal": 1,
+                    "pageTotal": 1,
+                },
+            },
+        )
+
+    result = provider(httpx.MockTransport(handle)).query_bugs_by_title(
+        "design unified panel"
+    )
+
+    assert requested_paths == ["/api.php/v2/bugs"]
+    assert [item.id for item in result.items] == [7]
+    assert result.items[0].snapshot_version is None
+    assert result.items[0].snapshot_stable is False
+    assert result.coverage.unstable_snapshots == 1
+
+
+@pytest.mark.parametrize(
+    ("keyword", "page", "page_size", "message"),
+    [
+        (" []()_-:/ ", 1, 20, "title keyword is empty"),
+        ("match", 0, 20, "invalid pagination"),
+        ("match", 1, 0, "invalid pagination"),
+        ("match", 1, 101, "invalid pagination"),
+    ],
+)
+def test_query_bugs_by_title_validates_before_network_access(
+    keyword: str, page: int, page_size: int, message: str
+) -> None:
+    calls = 0
+
+    def handle(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(500)
+
+    with pytest.raises(ValueError, match=f"^{message}$"):
+        provider(httpx.MockTransport(handle)).query_bugs_by_title(
+            keyword, page=page, page_size=page_size
+        )
+    assert calls == 0
+
+
+@pytest.mark.parametrize(
+    "scenario",
+    [
+        "repeated_page",
+        "same_page_duplicate",
+        "cross_page_overlap",
+        "contradictory_pager",
+    ],
+)
+def test_query_bugs_by_title_preserves_matches_when_scan_is_incomplete(
+    scenario: str,
+) -> None:
+    def handle(request: httpx.Request) -> httpx.Response:
+        page = int(request.url.params["pageID"])
+        if scenario == "same_page_duplicate":
+            rows = [
+                _title_query_row(1, "needle one"),
+                _title_query_row(1, "needle duplicate"),
+            ]
+            pager = {
+                "pageID": 1,
+                "recPerPage": 20,
+                "recTotal": 2,
+                "pageTotal": 1,
+            }
+        elif scenario == "repeated_page":
+            rows = [_title_query_row(1, "needle one")]
+            pager = None
+        elif scenario == "cross_page_overlap":
+            rows = (
+                [_title_query_row(1, "needle one")]
+                if page == 1
+                else [
+                    _title_query_row(1, "needle overlap"),
+                    _title_query_row(2, "needle two"),
+                ]
+            )
+            pager = None
+        else:
+            rows = [_title_query_row(page, f"needle {page}")]
+            pager = {
+                "pageID": page,
+                "recPerPage": 1,
+                "recTotal": 2 if page == 1 else 3,
+                "pageTotal": 2 if page == 1 else 3,
+            }
+        payload: dict[str, object] = {"bugs": rows}
+        if pager is not None:
+            payload["pager"] = pager
+        return httpx.Response(200, json=payload)
+
+    result = provider(httpx.MockTransport(handle)).query_bugs_by_title("needle")
+
+    assert result.items
+    assert result.coverage.complete is False
+    assert result.coverage.total == -1
+    assert result.coverage.pages is None
+
+
+def test_query_bugs_by_title_marks_max_page_exhaustion_incomplete(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(HttpZentaoProvider, "_MAX_USER_BUG_PAGES", 2)
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        page = int(request.url.params["pageID"])
+        return httpx.Response(
+            200, json={"bugs": [_title_query_row(page, f"needle {page}")]}
+        )
+
+    result = provider(httpx.MockTransport(handle)).query_bugs_by_title("needle")
+
+    assert [item.id for item in result.items] == [1, 2]
+    assert result.coverage.complete is False
+    assert result.coverage.total == -1
+    assert result.coverage.pages is None
+
+
+def test_query_bugs_by_title_handles_malformed_rows_without_raw_data_leakage() -> None:
+    secret = "must-not-leak"
+
+    def handle(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "bugs": [
+                    _title_query_row(1, "needle valid"),
+                    {**_title_query_row(True, "needle malformed"), "secret": secret},
+                    {
+                        **_title_query_row(False, "unrelated malformed"),
+                        "secret": secret,
+                    },
+                    {**_title_query_row(None, {"bad": "title"}), "secret": secret},
+                ],
+                "pager": {
+                    "pageID": 1,
+                    "recPerPage": 20,
+                    "recTotal": 4,
+                    "pageTotal": 1,
+                },
+            },
+        )
+
+    result = provider(httpx.MockTransport(handle)).query_bugs_by_title("needle")
+
+    assert [item.id for item in result.items] == [1]
+    assert len(result.item_failures) == 1
+    assert result.item_failures[0].field == "id"
+    serialized_failures = json.dumps(
+        [failure.model_dump(by_alias=True) for failure in result.item_failures]
+    )
+    assert secret not in serialized_failures
+    assert '"bad"' not in serialized_failures
+    assert result.coverage.complete is False
+    assert result.coverage.total == -1
+    assert result.coverage.pages is None
+
+
 def routing_config(tmp_path) -> AppConfig:
     repositories = {
         key: {
@@ -64,7 +340,9 @@ def routing_config(tmp_path) -> AppConfig:
     )
 
 
-def test_normalized_snapshots_include_configured_routing_before_mcp_output(tmp_path) -> None:
+def test_normalized_snapshots_include_configured_routing_before_mcp_output(
+    tmp_path,
+) -> None:
     instance = provider(
         httpx.MockTransport(
             lambda request: httpx.Response(
@@ -151,7 +429,9 @@ def test_query_user_bugs_rejects_member_pair_without_an_exact_identity_match() -
         )
     )
 
-    with pytest.raises(IdentityNotFoundError, match="^query_user_bugs: identity not found$"):
+    with pytest.raises(
+        IdentityNotFoundError, match="^query_user_bugs: identity not found$"
+    ):
         provider(
             transport, endpoints=ZentaoEndpoints(userBugs="/api.php/v2/bugs")
         ).query_user_bugs("zhou")
@@ -1022,7 +1302,11 @@ def test_query_my_bugs_unknown_and_ambiguous_scopes_are_incomplete() -> None:
     assert paths == ["/api.php/v2/products"]
     assert result.items == ()
     assert result.coverage.total == -1 and result.coverage.pages is None
-    assert (result.coverage.returned, result.coverage.failed, result.coverage.complete) == (
+    assert (
+        result.coverage.returned,
+        result.coverage.failed,
+        result.coverage.complete,
+    ) == (
         0,
         0,
         False,
@@ -2627,10 +2911,14 @@ def test_custom_user_bugs_infers_stable_matching_legacy_versions() -> None:
         )
     )
 
-    item = provider(
-        transport,
-        endpoints=ZentaoEndpoints(userBugs="/custom/users/{user}/assigned"),
-    ).query_user_bugs("alice").items[0]
+    item = (
+        provider(
+            transport,
+            endpoints=ZentaoEndpoints(userBugs="/custom/users/{user}/assigned"),
+        )
+        .query_user_bugs("alice")
+        .items[0]
+    )
 
     assert item.snapshot_version == "custom-v1"
     assert item.snapshot_stable is True

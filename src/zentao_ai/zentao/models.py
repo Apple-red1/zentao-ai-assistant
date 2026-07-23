@@ -198,6 +198,7 @@ class ZentaoEndpoints(FrozenModel):
     )
     my_bugs: str = Field("/api/bugs/mine", alias="myBugs")
     user_bugs: str = Field("/api/bugs/user/{user}", alias="userBugs")
+    global_bugs: str = Field("/api.php/v2/bugs", alias="globalBugs")
     bug_detail: str = Field("/api.php/v2/bugs/{bug_id}", alias="bugDetail")
     bug_history: str | None = Field(None, alias="bugHistory")
     statistics: str = "/api/bugs/statistics"
