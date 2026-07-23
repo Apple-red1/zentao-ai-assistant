@@ -180,6 +180,30 @@ def mine(
             typer.echo(render_bug_table(page))
 
 
+@bugs_app.command("search")
+@guarded
+def search(
+    ctx: typer.Context,
+    title: str = typer.Option(..., "--title"),
+    status: Literal["all", "unclosed"] = typer.Option("unclosed", "--status"),
+    page: int = typer.Option(1, "--page", min=1),
+    page_size: int = typer.Option(20, "--page-size", min=1, max=100),
+    project: Path = typer.Option(Path.cwd()),
+    json_output: bool = typer.Option(False, "--json"),
+) -> None:
+    with _runtime(ctx, project) as runtime:
+        result = runtime.provider.query_bugs_by_title(
+            title,
+            status=status,
+            page=page,
+            page_size=page_size,
+        )
+        if json_output:
+            _emit(result, True)
+        else:
+            typer.echo(render_bug_table(result))
+
+
 @bugs_app.command("user")
 @guarded
 def user(

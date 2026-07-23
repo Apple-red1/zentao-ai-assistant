@@ -120,6 +120,12 @@ class Provider:
             coverage=Coverage(page=1, pageSize=20, total=2, pages=1),
         )
 
+    def query_bugs_by_title(
+        self, title: str, *, status: str, page: int, page_size: int
+    ) -> BugPage:
+        self.calls.append(("title", title, status, page, page_size))
+        return BugPage(items=(), coverage=Coverage(total=0))
+
     def bug_statistics(self) -> dict[str, int]:
         return {"active": 1}
 
@@ -272,6 +278,184 @@ def test_bugs_mine_uses_configured_user_endpoint_and_filters(
         item["id"] for item in json.loads(result.stdout)["data"]["items"]
     ] == expected
     assert provider.calls == [("user", "weiwenting", (), 1, 20, "assigntome")]
+
+
+def test_bugs_search_uses_global_title_provider_defaults(tmp_path: Path) -> None:
+    provider = Provider()
+
+    result = CliRunner().invoke(
+        app,
+        ["bugs", "search", "--title", "regression", "--json"],
+        obj=factory(tmp_path, provider=provider),
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout)["data"]["items"] == []
+    assert provider.calls == [("title", "regression", "unclosed", 1, 20)]
+
+
+def test_bugs_search_renders_existing_table_with_unstable_row(tmp_path: Path) -> None:
+    class UnstableProvider(Provider):
+        def query_bugs_by_title(
+            self, title: str, *, status: str, page: int, page_size: int
+        ) -> BugPage:
+            return BugPage(
+                items=(
+                    BugSnapshot(
+                        id=3422,
+                        title="SEO | Rule\nTwitter",
+                        priority="P3",
+                        status="active",
+                        assignee="zhouhaiyin",
+                        version=None,
+                        snapshotVersion=None,
+                        snapshotStable=False,
+                    ),
+                ),
+                coverage=Coverage(total=1, pages=1, returned=1, unstableSnapshots=1),
+            )
+
+    result = CliRunner().invoke(
+        app,
+        ["bugs", "search", "--title", "SEO"],
+        obj=factory(tmp_path, provider=UnstableProvider()),
+    )
+
+    assert result.exit_code == 0
+    assert "| Bug号 | 标题 | 优先级 | 状态 | 负责人 | 快照稳定性 |" in result.stdout
+    assert (
+        "| 3422 | SEO &#124; Rule Twitter | P3 | active | zhouhaiyin | 不稳定 |"
+        in result.stdout
+    )
+
+
+def test_bugs_search_maps_options_and_preserves_partial_json_data(tmp_path: Path) -> None:
+    class PartialProvider(Provider):
+        def query_bugs_by_title(
+            self, title: str, *, status: str, page: int, page_size: int
+        ) -> BugPage:
+            self.calls.append(("title", title, status, page, page_size))
+            return BugPage(
+                items=(
+                    BugSnapshot(
+                        id=3422,
+                        title="versionless regression",
+                        status="active",
+                        version=None,
+                        snapshotVersion=None,
+                        snapshotStable=False,
+                        missingPresentationFields=("assignee",),
+                    ),
+                ),
+                coverage=Coverage(
+                    page=2,
+                    pageSize=50,
+                    total=-1,
+                    pages=None,
+                    returned=1,
+                    failed=1,
+                    complete=False,
+                    unstableSnapshots=1,
+                    missingPresentationFields={"assignee": 1},
+                ),
+                itemFailures=(
+                    ItemFailure(
+                        bugId="3423",
+                        code="MISSING_STABLE_VERSION",
+                        field="version",
+                        message="missing stable version",
+                    ),
+                ),
+                resolvedIdentity=None,
+            )
+
+    provider = PartialProvider()
+    result = CliRunner().invoke(
+        app,
+        [
+            "bugs",
+            "search",
+            "--title",
+            "regression",
+            "--status",
+            "all",
+            "--page",
+            "2",
+            "--page-size",
+            "50",
+            "--json",
+        ],
+        obj=factory(tmp_path, provider=provider),
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert provider.calls == [("title", "regression", "all", 2, 50)]
+    assert payload["ok"] is True
+    assert payload["data"]["items"][0]["version"] is None
+    assert payload["data"]["coverage"] == {
+        "page": 2,
+        "pageSize": 50,
+        "total": -1,
+        "pages": None,
+        "returned": 1,
+        "failed": 1,
+        "complete": False,
+        "unstableSnapshots": 1,
+        "missingPresentationFields": {"assignee": 1},
+    }
+    assert payload["data"]["itemFailures"][0]["bugId"] == "3423"
+    assert payload["data"]["resolvedIdentity"] is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        ["bugs", "search"],
+        ["bugs", "search", "--title", "bug", "--status", "closed"],
+        ["bugs", "search", "--title", "bug", "--page", "0"],
+        ["bugs", "search", "--title", "bug", "--page-size", "0"],
+        ["bugs", "search", "--title", "bug", "--page-size", "101"],
+    ],
+)
+def test_bugs_search_rejects_invalid_arguments_before_provider_call(
+    tmp_path: Path, command: list[str]
+) -> None:
+    provider = Provider()
+
+    result = CliRunner().invoke(app, command, obj=factory(tmp_path, provider=provider))
+
+    assert result.exit_code == 2
+    assert provider.calls == []
+
+
+def test_bugs_search_redacts_provider_business_error(tmp_path: Path) -> None:
+    class FailingProvider(Provider):
+        def query_bugs_by_title(
+            self, title: str, *, status: str, page: int, page_size: int
+        ) -> BugPage:
+            raise ValueError("title keyword is empty; token=top-secret")
+
+    result = CliRunner().invoke(
+        app,
+        ["bugs", "search", "--title", "bug", "--json"],
+        obj=factory(tmp_path, provider=FailingProvider()),
+    )
+
+    assert result.exit_code == 2
+    assert "top-secret" not in result.output
+    assert json.loads(result.stdout)["error"]["type"] == "input"
+
+
+def test_bugs_search_help_lists_exact_options() -> None:
+    result = CliRunner().invoke(app, ["bugs", "--help"])
+    search_help = CliRunner().invoke(app, ["bugs", "search", "--help"])
+
+    assert result.exit_code == 0
+    assert "search" in result.stdout
+    assert search_help.exit_code == 0
+    for option in ("--title", "--status", "--page", "--page-size", "--project", "--json"):
+        assert option in search_help.stdout
 
 
 def test_bugs_user_session_visible_queries_explicit_user_without_team_membership(

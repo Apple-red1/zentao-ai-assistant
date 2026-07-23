@@ -6,7 +6,12 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
+from typer.testing import CliRunner
 
+from zentao_ai.cli.app import app
+from zentao_ai.cli.runtime import AppRuntime, DependencyFactory, RunPlan
+from zentao_ai.config.models import AppConfig
+from zentao_ai.mcp_server.tools import ZentaoTools
 from zentao_ai.safety.authorization import authorize
 from zentao_ai.state.models import OutboxRecord, OutboxStatus
 from zentao_ai.workflows.analysis import analyze_bug
@@ -29,6 +34,83 @@ from zentao_ai.zentao.models import (
     HistoryPage,
     StepUpdateResult,
 )
+
+
+def test_mcp_and_cli_bugs_search_return_equal_structured_data(tmp_path: Path) -> None:
+    class Provider:
+        def __init__(self, page: BugPage) -> None:
+            self.page = page
+
+        def query_bugs_by_title(
+            self, title: str, *, status: str, page: int, page_size: int
+        ) -> BugPage:
+            assert (title, status, page, page_size) == ("regression", "all", 2, 50)
+            return self.page
+
+    page = BugPage(
+        items=(
+            BugSnapshot(
+                id=3422,
+                title="versionless regression",
+                status="active",
+                version=None,
+                snapshotVersion=None,
+                snapshotStable=False,
+                missingPresentationFields=("assignee",),
+            ),
+        ),
+        coverage=Coverage(
+            page=2,
+            pageSize=50,
+            total=-1,
+            pages=None,
+            returned=1,
+            failed=1,
+            complete=False,
+            unstableSnapshots=1,
+            missingPresentationFields={"assignee": 1},
+        ),
+    )
+    config = AppConfig.model_validate(
+        {
+            "configVersion": 1,
+            "zentao": {"account": "alice"},
+            "personal": {"scopeNames": ["mine"]},
+            "team": {"scopeNames": ["team"], "members": []},
+            "repositories": {},
+        }
+    )
+    runtime = AppRuntime(config, Provider(page), object(), lambda: None, "parity")
+    dependencies = DependencyFactory(
+        lambda _project: runtime, plan_builder=lambda _project: RunPlan(config)
+    )
+
+    mcp = ZentaoTools(runtime).call(
+        "query_bugs_by_title",
+        {"titleKeyword": "regression", "status": "all", "page": 2, "pageSize": 50},
+    )["data"]
+    result = CliRunner().invoke(
+        app,
+        [
+            "bugs",
+            "search",
+            "--title",
+            "regression",
+            "--status",
+            "all",
+            "--page",
+            "2",
+            "--page-size",
+            "50",
+            "--json",
+        ],
+        obj=dependencies,
+    )
+
+    assert result.exit_code == 0
+    cli = json.loads(result.stdout)["data"]
+    for field in ("items", "coverage", "itemFailures", "resolvedIdentity"):
+        assert cli[field] == mcp[field]
 
 
 def _payload(
