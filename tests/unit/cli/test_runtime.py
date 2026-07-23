@@ -55,6 +55,7 @@ def test_production_runtime_falls_back_to_password_and_configures_login(
     assert (
         captured["endpoints"].product_bugs == "/api.php/v2/products/{product_id}/bugs"
     )
+    assert captured["endpoints"].global_bugs == "/api.php/v2/bugs"
     assert captured["endpoints"].bug_history == "/api.php/v2/bugs/{bug_id}"
 
 

@@ -224,6 +224,7 @@ class DependencyFactory:
                 productBugs="/api.php/v2/products/{product_id}/bugs",
                 myBugs="/api/bugs/mine",
                 userBugs="/api.php/v2/bugs",
+                globalBugs="/api.php/v2/bugs",
                 bugDetail="/api.php/v2/bugs/{bug_id}",
                 bugHistory="/api.php/v2/bugs/{bug_id}",
                 statistics="/api/bugs/statistics",
