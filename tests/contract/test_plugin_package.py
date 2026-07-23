@@ -290,10 +290,14 @@ def test_packaged_skill_documents_global_title_search_contract() -> None:
         "只读",
         "当前禅道会话权限",
         "不得转入个人或团队报告",
-        "【】[]（）()-—_:：?",
+        "【】[]（）()-—_:：/",
         "顺序连续子串匹配",
+        "不进行模糊词元或编辑距离匹配",
+        "page=1",
+        "pageSize=20",
     ):
         assert phrase in skill
+    assert "模糊匹配" not in skill
 
 
 def test_personal_skill_keeps_title_search_ad_hoc_and_read_only() -> None:

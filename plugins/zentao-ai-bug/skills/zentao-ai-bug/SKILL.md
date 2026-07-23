@@ -28,7 +28,7 @@ description: Use when 需要处理禅道 Zentao 个人 Bug、生成团队或每�
 
 ### 全局标题临时查询
 
-当用户说“不针对人”“全局”“标题包含/模糊匹配”时，调用 `mcp__zentao__query_bugs_by_title`，而不是个人或团队发现工具。参数 `titleKeyword` 必须是非空关键词；默认 `status=unclosed`，只有用户明确要求全部状态或包含已关闭时才传 `all`；可选分页字段是 `page` 与 `pageSize`。例如：
+当用户说“不针对人”“全局”“标题包含/标题有/标题匹配”时，调用 `mcp__zentao__query_bugs_by_title`，而不是个人或团队发现工具。参数 `titleKeyword` 必须是非空关键词；默认 `status=unclosed`，只有用户明确要求全部状态或包含已关闭时才传 `all`；可选分页字段是 `page` 与 `pageSize`，未传时默认 `page=1`、`pageSize=20`。例如：
 
 ```json
 {
@@ -39,7 +39,7 @@ description: Use when 需要处理禅道 Zentao 个人 Bug、生成团队或每�
 }
 ```
 
-这是不限定负责人的临时只读查询：不用 `personal.scopeNames`、`team.scopeNames` 或 `team.members`，只受当前禅道会话权限约束，默认返回当前会话可见的全部未关闭匹配；不得转入个人或团队报告，也不得触发评论、代码或 Bug 状态副作用。标题在 Unicode NFC/casefold 后忽略空白及 `【】[]（）()-—_:：?`，再执行顺序连续子串匹配。结果须如实保留不稳定快照与完整性；缺少稳定版本不得移除只读行。仅列出匹配行时不需要详情或历史。
+这是不限定负责人的临时只读查询：不用 `personal.scopeNames`、`team.scopeNames` 或 `team.members`，只受当前禅道会话权限约束，默认返回当前会话可见的全部未关闭匹配；不得转入个人或团队报告，也不得触发评论、代码或 Bug 状态副作用。标题在 Unicode NFC/casefold 后忽略空白及 `【】[]（）()-—_:：/`，再执行顺序连续子串匹配；不进行模糊词元或编辑距离匹配。结果须如实保留不稳定快照与完整性；缺少稳定版本不得移除只读行。仅列出匹配行时不需要详情或历史。
 
 ### 降级查询契约
 
