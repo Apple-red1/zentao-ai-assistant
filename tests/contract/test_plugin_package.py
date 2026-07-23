@@ -300,6 +300,22 @@ def test_packaged_skill_documents_global_title_search_contract() -> None:
     assert "模糊匹配" not in skill
 
 
+def test_skill_discovery_surfaces_advertise_global_assignee_independent_title_search() -> None:
+    skill = (PLUGIN / "skills" / "zentao-ai-bug" / "SKILL.md").read_text(encoding="utf-8")
+    frontmatter = skill.split("---", 2)[1]
+    description = next(
+        line.removeprefix("description: ").strip()
+        for line in frontmatter.splitlines()
+        if line.startswith("description: ")
+    )
+    usage_scenarios = skill.split("## 使用场景", 1)[1].split("## 输入方式", 1)[0]
+
+    for discovery_surface in (description, usage_scenarios):
+        assert "全局" in discovery_surface
+        assert "不限定负责人" in discovery_surface
+        assert "标题关键词" in discovery_surface
+
+
 def test_personal_skill_keeps_title_search_ad_hoc_and_read_only() -> None:
     text = (PLUGIN / "skills" / "zentao-ai-bug" / "personal-bug-agent.md").read_text(encoding="utf-8")
     assert "mcp__zentao__query_bugs_by_title" in text
