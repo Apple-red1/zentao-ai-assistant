@@ -1,0 +1,4 @@
+interface:
+  display_name: "禅道 AI Bug 管理助手"
+  short_description: "分析禅道 Bug，安全辅助修复并生成个人与团队日报"
+  default_prompt: "使用 $zentao-ai-bug 分析未关闭 Bug，按权限策略处理并生成日报。"

@@ -4,10 +4,10 @@
 .env*
 
 # Runtime and workflow data
-reports/
-state/
-ledger/
-outbox/
+/reports/
+/state/
+/ledger/
+/outbox/
 *checkpoint*
 *outbox*
 *.sqlite3

@@ -1,0 +1,20 @@
+{
+  "name": "zentao-team",
+  "interface": {
+    "displayName": "Zentao Team"
+  },
+  "plugins": [
+    {
+      "name": "zentao-ai-bug",
+      "source": {
+        "source": "local",
+        "path": "./plugins/zentao-ai-bug"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

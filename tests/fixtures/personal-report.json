@@ -1,0 +1,50 @@
+{
+  "run": {
+    "businessDate": "2099-01-02",
+    "snapshotCutoff": "2099-01-02T08:00:00+08:00",
+    "runType": "SYNTHETIC_FIXTURE"
+  },
+  "coverage": {
+    "scopes": ["example-web", "example-api", "example-ai-web", "example-ai-api"],
+    "completeness": "Synthetic complete fixture."
+  },
+  "informationBugs": [{
+    "id": "BUG-1001",
+    "status": "active",
+    "decision": "NEEDS_REPORTER_INFO",
+    "routing": {
+      "selectedRepository": null,
+      "layer": "frontend",
+      "candidates": ["example-web", "example-ai-web"],
+      "matchedKeywords": ["example", "synthetic"]
+    },
+    "patchChanged": false,
+    "snapshotVersion": "fixture-version-1001",
+    "reason": "Synthetic reproduction detail is intentionally missing.",
+    "comment": {
+      "status": "FAILED",
+      "commentId": null,
+      "text": "@example-reporter Please provide the synthetic reproduction detail."
+    }
+  }],
+  "walkthroughBugs": [{
+    "id": "BUG-1002",
+    "status": "active",
+    "decision": "PATCH_RETAINED_FOR_HUMAN_VALIDATION",
+    "routing": {
+      "selectedRepository": "example-ai-web",
+      "layer": "frontend",
+      "candidates": ["example-ai-web"],
+      "matchedKeywords": ["example", "link"]
+    },
+    "patchChanged": true,
+    "snapshotVersion": "fixture-version-1002",
+    "gateSummary": "Synthetic branch gate passed for example/fixture-branch.",
+    "rootCauseEvidence": "Synthetic fixture evidence points to example/component.ts.",
+    "tests": {
+      "completed": false,
+      "summary": "Synthetic test command failed; 未声称修复完成。"
+    },
+    "comment": {"status": "NOT_SENT", "commentId": null, "text": null}
+  }]
+}

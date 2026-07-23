@@ -429,7 +429,7 @@ git commit -m "refactor: share deterministic v2 report renderer"
 
 - [ ] **Step 1: 写路由回归测试**
 
-固定 `BUG-3397 -> ce-site-backend`、`BUG-2537 -> ai-site-builder`，并覆盖站点后台、CMS 后台、AI 建站、UI、链接、API、数据库、权限关键词。
+固定合成示例 `BUG-1001 -> example-web`、`BUG-1002 -> example-ai-web`，并覆盖合成站点后台、合成 CMS 后台、合成 AI 建站、UI、链接、API、数据库、权限关键词。
 
 - [ ] **Step 2: 写 Git 门禁测试**
 

@@ -1,0 +1,5 @@
+{
+  "electron-saved-workspace-roots": ["${PROJECT_ROOT}", "${OTHER_PROJECT}"],
+  "project-order": ["${PROJECT_ROOT}", "${OTHER_PROJECT}"],
+  "config-paths": ["${PROJECT_ROOT}/tests/fixtures/config/valid.yaml"]
+}
