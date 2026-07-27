@@ -51,6 +51,25 @@ class User(StrictModel):
     deleted: bool = False
 
 
+class UserRef(StrictModel):
+    id: str
+    account: str
+    real_name: str = ""
+    kind: Literal["inside", "outside"]
+
+
+class TeamValidationFailure(StrictModel):
+    name: str
+    account: str
+    code: str
+    reason: str
+
+
+class TeamValidationResult(StrictModel):
+    resolved: list[UserRef] = Field(default_factory=list)
+    failures: list[TeamValidationFailure] = Field(default_factory=list)
+
+
 class Bug(StrictModel):
     id: int
     title: str
@@ -84,4 +103,3 @@ class ActionResult(StrictModel):
     before: Bug | None = None
     after: Bug | None = None
     message: str
-
