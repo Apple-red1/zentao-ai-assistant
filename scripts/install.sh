@@ -9,8 +9,8 @@ elif [ "$#" -gt 0 ]; then
   exit 2
 fi
 
-script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-repo_root=$(CDPATH= cd -- "${script_dir}/.." && pwd)
+script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+repo_root=$(CDPATH='' cd -- "${script_dir}/.." && pwd)
 python_bin=${PYTHON:-python3}
 
 if ! command -v "$python_bin" >/dev/null 2>&1; then

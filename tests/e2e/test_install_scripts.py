@@ -22,7 +22,7 @@ def fake_environment(tmp_path: Path) -> tuple[dict[str, str], Path]:
     log = tmp_path / "commands.log"
     posix_shim = "#!/bin/sh\nprintf '%s\\n' \"$0 $*\" >> \"$INSTALL_LOG\"\nexit 0\n"
     windows_shim = '@echo off\necho %~f0 %*>> "%INSTALL_LOG%"\nexit /b 0\n'
-    for name in ("python3", "python", "codex", "zentao-ai"):
+    for name in ("python3", "python", "py", "codex", "zentao-ai"):
         if os.name == "nt":
             (fake_bin / f"{name}.cmd").write_text(windows_shim, encoding="utf-8")
         else:
@@ -45,8 +45,24 @@ def test_posix_installer_is_idempotent_and_non_interactive(tmp_path: Path) -> No
     environment, log = fake_environment(tmp_path)
     command = ["/bin/sh", str(ROOT / "scripts" / "install.sh"), "--non-interactive"]
 
-    first = subprocess.run(command, env=environment, text=True, capture_output=True, check=False)
-    second = subprocess.run(command, env=environment, text=True, capture_output=True, check=False)
+    first = subprocess.run(
+        command,
+        env=environment,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        capture_output=True,
+        check=False,
+    )
+    second = subprocess.run(
+        command,
+        env=environment,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        capture_output=True,
+        check=False,
+    )
 
     assert first.returncode == 0, first.stderr
     assert second.returncode == 0, second.stderr
@@ -69,8 +85,24 @@ def test_powershell_installer_is_idempotent_and_non_interactive(tmp_path: Path) 
         "-NonInteractive",
     ]
 
-    first = subprocess.run(command, env=environment, text=True, capture_output=True, check=False)
-    second = subprocess.run(command, env=environment, text=True, capture_output=True, check=False)
+    first = subprocess.run(
+        command,
+        env=environment,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        capture_output=True,
+        check=False,
+    )
+    second = subprocess.run(
+        command,
+        env=environment,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        capture_output=True,
+        check=False,
+    )
 
     assert first.returncode == 0, first.stderr
     assert second.returncode == 0, second.stderr

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import stat
 from pathlib import Path
 
@@ -32,7 +33,8 @@ def test_settings_round_trip_with_private_permissions(tmp_path: Path) -> None:
     saved = save_settings(settings, path)
 
     assert saved == path
-    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    if os.name != "nt":
+        assert stat.S_IMODE(path.stat().st_mode) == 0o600
     assert load_settings(path) == settings
 
 
