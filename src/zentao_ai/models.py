@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_validator
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class StrictModel(BaseModel):
@@ -153,6 +153,40 @@ class BugQueryResult(StrictModel):
     summary: BugSummary
     truncated: bool = False
     partial_failures: list[dict[str, str]] = Field(default_factory=list)
+
+
+class BugChanges(StrictModel):
+    title: str | None = Field(default=None, min_length=1)
+    severity: int | str | None = None
+    priority: int | str | None = None
+    bug_type: str | None = Field(default=None, min_length=1)
+    opened_builds: list[str] | None = None
+    steps: str | None = None
+    project_id: int | None = Field(default=None, gt=0)
+    execution_id: int | None = Field(default=None, gt=0)
+    story_id: int | None = Field(default=None, gt=0)
+
+    @model_validator(mode="after")
+    def require_change(self) -> BugChanges:
+        if not self.model_dump(exclude_none=True):
+            raise ValueError("at least one Bug field must be supplied")
+        if self.opened_builds is not None and not self.opened_builds:
+            raise ValueError("opened_builds cannot be empty")
+        return self
+
+
+class WriteAuthorization(StrictModel):
+    confirm: bool
+    bug_id: int = Field(gt=0)
+    action: Literal["comment", "edit", "activate", "assign"]
+
+
+class BugWriteResult(StrictModel):
+    status: Literal["success", "unknown"]
+    before: BugRecord
+    after: BugRecord | None = None
+    changed_fields: list[str] = Field(default_factory=list)
+    message: str
 
 
 class ActionResult(StrictModel):
