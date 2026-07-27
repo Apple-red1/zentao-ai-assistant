@@ -9,3 +9,4 @@ All notable changes are documented here.
 - Add guarded comment, edit, activate and assign operations.
 - Add OS credential storage and automatic Token refresh after 401.
 - Add cross-platform installers, interactive setup, doctor and three-minute documentation.
+- Add three-platform Python CI, package checks, plugin contracts and a sanitized acceptance checklist.

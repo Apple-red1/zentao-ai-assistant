@@ -20,15 +20,19 @@ def fake_environment(tmp_path: Path) -> tuple[dict[str, str], Path]:
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
     log = tmp_path / "commands.log"
-    shim = "#!/bin/sh\nprintf '%s\\n' \"$0 $*\" >> \"$INSTALL_LOG\"\nexit 0\n"
+    posix_shim = "#!/bin/sh\nprintf '%s\\n' \"$0 $*\" >> \"$INSTALL_LOG\"\nexit 0\n"
+    windows_shim = '@echo off\necho %~f0 %*>> "%INSTALL_LOG%"\nexit /b 0\n'
     for name in ("python3", "python", "codex", "zentao-ai"):
-        write_executable(fake_bin / name, shim)
+        if os.name == "nt":
+            (fake_bin / f"{name}.cmd").write_text(windows_shim, encoding="utf-8")
+        else:
+            write_executable(fake_bin / name, posix_shim)
     config = tmp_path / "config.yaml"
     config.write_text("version: 1\n", encoding="utf-8")
     environment = dict(os.environ)
     environment.update(
         {
-            "PATH": f"{fake_bin}:/bin:/usr/bin",
+            "PATH": os.pathsep.join((str(fake_bin), environment.get("PATH", ""))),
             "INSTALL_LOG": str(log),
             "ZENTAO_CONFIG": str(config),
         }
@@ -36,6 +40,7 @@ def fake_environment(tmp_path: Path) -> tuple[dict[str, str], Path]:
     return environment, log
 
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX shell test runs on macOS and Linux")
 def test_posix_installer_is_idempotent_and_non_interactive(tmp_path: Path) -> None:
     environment, log = fake_environment(tmp_path)
     command = ["/bin/sh", str(ROOT / "scripts" / "install.sh"), "--non-interactive"]
