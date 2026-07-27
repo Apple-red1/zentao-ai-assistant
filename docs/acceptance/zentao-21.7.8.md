@@ -12,7 +12,7 @@
 | 个人/团队/外部人员/组合查询 | PASS | 分页、过滤、汇总、部分失败和人员解析已测试。 |
 | 备注/编辑/激活/指派 | PASS | 当前消息确认、端点、负载、前后快照和删除禁令已测试。 |
 | MCP stdio | PASS | initialize 与 10 个 tools/list 合同已通过。 |
-| 安装器 | PASS/PENDING | POSIX 隔离测试通过；Windows 由 Windows CI 完成。 |
+| 安装器 | PASS | POSIX 与 PowerShell 安装器均在 GitHub 跨平台 CI 中连续运行两次。 |
 
 ## 真实实例
 
