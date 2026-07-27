@@ -1,7 +1,10 @@
 # Local credentials and overrides
 .codex/zentao-ai-bug.yaml
+.codex/zentao-ai-bug/
 .codex/*.local-backup
 .env*
+/config/zentao.yaml
+/config/*.local.yaml
 
 # Runtime and workflow data
 reports/
@@ -21,6 +24,8 @@ __pycache__/
 .ruff_cache/
 .coverage
 htmlcov/
+.venv/
+venv/
 
 # Build and packaging artifacts
 build/

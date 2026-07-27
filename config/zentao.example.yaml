@@ -1,0 +1,17 @@
+version: 1
+zentao:
+  base_url: https://zentao.example.com
+  api_version: v2
+  account: my-account
+team:
+  members:
+    - name: 张三
+      account: zhangsan
+    - name: 李四
+      account: lisi
+query:
+  default_status: unresolved
+  page_size: 100
+  max_results: 500
+writes:
+  enabled: true
