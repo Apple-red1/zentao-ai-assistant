@@ -6,6 +6,7 @@ build-backend = "hatchling.build"
 name = "zentao-ai-assistant"
 version = "0.1.0"
 description = "A local-first Codex plugin for querying and updating ZenTao bugs."
+readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "Apache-2.0"}
 authors = [{name = "wwtweiwenting"}]
@@ -66,4 +67,3 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 python_version = "3.11"
 strict = true
 packages = ["zentao_ai"]
-
