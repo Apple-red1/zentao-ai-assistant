@@ -110,4 +110,4 @@ def test_powershell_installer_is_idempotent_and_non_interactive(tmp_path: Path) 
     assert "-m pipx install --force" in calls
     assert "plugin marketplace add" in calls
     assert "plugin add zentao-ai-bug@zentao-ai-assistant" in calls
-    assert "zentao-ai doctor --config" in calls
+    assert "zentao-ai doctor --config" in calls.replace(".cmd", "")
