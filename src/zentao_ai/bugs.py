@@ -256,7 +256,7 @@ class BugService:
                 path,
                 params={
                     "browseType": "unresolved" if filters.status == "unresolved" else "all",
-                    "page": page,
+                    "pageID": page,
                     "recPerPage": self._settings.query.page_size,
                 },
             )
