@@ -9,6 +9,8 @@
 - [ ] Token 只存在进程内，输出对 password/token/Authorization/Cookie 类字段递归脱敏。
 - [ ] 所有 R3 delete 在缺少 `--yes` 时不发送业务 HTTP。
 - [ ] 写入网络不确定返回 `UNKNOWN_WRITE_RESULT`，不自动重试、不自动 GET。
+- [ ] `.tmp/` 已被 Git 忽略；`resource fetch` 只能从对象附件区/富文本发现资源，并拒绝跨源 URL/重定向。
+- [ ] 资源文件流式写入项目 `.tmp/zentao-resources/`，同名文件不覆盖，部分失败按 `partial_failures` 返回。
 
 ## 全量覆盖
 
@@ -18,7 +20,7 @@
 python skills/zentao/tests/run_all.py
 ```
 
-必须同时得到：Catalog、Internal、CLI、Skill routes、Fake API、Contract tests、CLI E2E 均为 `120 / 120`，`Real API calls: 0`，最终 `Result: PASS`。
+必须同时得到：Catalog、Internal、CLI、Skill routes、Fake API、Contract tests、CLI E2E 均为 `120 / 120`，`Real API calls: 0`，最终 `Result: PASS`；同时 `resource fetch` 的资源发现、二进制下载、部分失败和同源安全 E2E 必须通过。
 
 另外检查报告中的 `Official snapshot` 与 `Specific sources`。前者是 runtime
 catalog 与独立官方快照的比对，后者只统计有 endpoint-specific 官方 deep link 的

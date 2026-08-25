@@ -21,6 +21,8 @@ class FakeState:
             self.next_id = 100
             self.requests: list[dict[str, Any]] = []
             self.faults = {}
+            self.binary_resources: dict[str, dict[str, object]] = {}
+            self.redirects: dict[str, str] = {}
 
     def plan_faults(self, endpoint_id: str, *faults: str) -> None:
         self.faults[endpoint_id] = list(faults)
@@ -32,6 +34,12 @@ class FakeState:
     def record(self, value: dict[str, Any]) -> None:
         with self._lock:
             self.requests.append(copy.deepcopy(value))
+
+    def add_binary(self, path: str, content: bytes, *, content_type: str = "application/octet-stream", filename: str | None = None) -> None:
+        self.binary_resources[path] = {"content": bytes(content), "content_type": content_type, "filename": filename}
+
+    def add_redirect(self, path: str, location: str) -> None:
+        self.redirects[path] = location
 
     def handle(self, route: object, path_params: dict[str, int], query: dict[str, Any], body: dict[str, Any]) -> tuple[int, object | None]:
         endpoint_id = getattr(route, "endpoint_id")

@@ -6,6 +6,8 @@ from typing import Any
 
 
 def render_human(value: Any) -> str:
+    if isinstance(value, dict) and {"object_type", "object_id", "resources", "partial_failures"}.issubset(value):
+        return _resource_fetch(value)
     if isinstance(value, dict):
         for key, items in value.items():
             if isinstance(items, list) and items and all(isinstance(item, dict) for item in items):
@@ -14,6 +16,25 @@ def render_human(value: Any) -> str:
     if isinstance(value, list) and all(isinstance(item, dict) for item in value):
         return _table(value)
     return _scalar(value)
+
+
+def _resource_fetch(value: dict[str, Any]) -> str:
+    lines = [f"object_type: {value['object_type']}", f"object_id: {value['object_id']}", "resources:"]
+    resources = value.get("resources") or []
+    if resources:
+        for item in resources:
+            lines.append(
+                f"- {item.get('file_name', '')} -> {item.get('local_path', '')} "
+                f"({item.get('content_type', '')}, {item.get('size', 0)} bytes)"
+            )
+    else:
+        lines.append("- (empty)")
+    failures = value.get("partial_failures") or []
+    if failures:
+        lines.append("partial_failures:")
+        for item in failures:
+            lines.append(f"- {item.get('code', '')}: {item.get('source', '')} - {item.get('message', '')}")
+    return "\n".join(lines)
 
 
 def _scalar(value: Any) -> str:

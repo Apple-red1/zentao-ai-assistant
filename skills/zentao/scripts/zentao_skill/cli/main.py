@@ -16,6 +16,7 @@ from .epics import commands as cmd_epics
 from .executions import commands as cmd_executions
 from .feedbacks import commands as cmd_feedbacks
 from .files import commands as cmd_files
+from .resources import commands as cmd_resources
 from .products import commands as cmd_products
 from .product_plans import commands as cmd_product_plans
 from .programs import commands as cmd_programs
@@ -80,6 +81,10 @@ def build_parser() -> Parser:
     r_file = top.add_parser('file', help='file resource')
     r_file_actions = r_file.add_subparsers(dest="action", required=True)
     cmd_files.register(r_file_actions)
+
+    r_resource = top.add_parser('resource', help='ZenTao object related resource files')
+    r_resource_actions = r_resource.add_subparsers(dest="action", required=True)
+    cmd_resources.register(r_resource_actions)
 
     r_product = top.add_parser('product', help='product resource')
     r_product_actions = r_product.add_subparsers(dest="action", required=True)

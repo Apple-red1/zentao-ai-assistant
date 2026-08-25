@@ -14,6 +14,8 @@ from ..internal.zentao.feedbacks import FeedbacksAPI
 from .feedbacks.service import FeedbacksService
 from ..internal.zentao.files import FilesAPI
 from .files.service import FilesService
+from ..internal.zentao.resources import ResourcesAPI
+from .resources.service import ResourcesService
 from ..internal.zentao.products import ProductsAPI
 from .products.service import ProductsService
 from ..internal.zentao.product_plans import ProductPlansAPI
@@ -51,6 +53,7 @@ class Services:
         self.execution = ExecutionsService(ExecutionsAPI(self.session))
         self.feedback = FeedbacksService(FeedbacksAPI(self.session))
         self.file = FilesService(FilesAPI(self.session))
+        self.resource = ResourcesService(ResourcesAPI(self.session))
         self.product = ProductsService(ProductsAPI(self.session))
         self.product_plan = ProductPlansService(ProductPlansAPI(self.session))
         self.program = ProgramsService(ProgramsAPI(self.session))

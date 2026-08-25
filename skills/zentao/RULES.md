@@ -473,7 +473,7 @@ Services 可以负责：
 - 组织一个明确用例；
 - 根据 scope 选择对应 ZenTao API v2 调用；
 - 把人类命令语义整理成内部调用语义；
-- 保持一条命令只触发一个明确 API 操作；
+- 官方 API 资源命令保持一条命令只触发一个明确 API 操作；已冻结的只读组合能力（当前仅 `resource fetch`）按其专门合同执行；
 - 将 Internal 的结果交回 CLI。
 
 Services 不负责：
@@ -837,9 +837,9 @@ search_bugs
 
 ---
 
-## 11. 一条命令只执行一个明确操作
+## 11. 官方 API 资源命令只执行一个明确操作
 
-这是硬规则。
+这是官方 API endpoint 命令的硬规则。`resource fetch` 是 Issue #13 已单独冻结的只读组合获取能力：它允许执行一次对象详情读取，再对该对象发现的零到多个同源资源执行 GET；该例外不允许扩展到写命令，也不允许把任意 URL 下载包装成组合操作。
 
 例如：
 
@@ -860,7 +860,7 @@ bug resolve
 - 无依据重试；
 - 因为“展示更完整”而追加额外 API 请求。
 
-如果上层调用者需要多个操作，应显式调用多个命令。
+除 `resource fetch` 的已冻结只读组合合同外，如果上层调用者需要多个业务操作，应显式调用多个命令。
 
 ---
 
@@ -1089,7 +1089,19 @@ python skills/zentao/scripts/zentao.py bug view 123 --json
 
 `bug view` 只读取一次详情，不自动下载附件、不自动读取图片、不自动进行后续请求。
 
-附件 / 图片能力后续另行讨论。
+用户明确要求获取、查看或分析关联资源时，由 Skill 继续显式执行 `resource fetch --object-type bug --object-id <id>`。资源获取是独立只读增强能力，不改变 `bug view` 的单次详情读取合同。
+
+### 15.1 对象关联资源获取
+
+```text
+resource fetch --object-type <type> --object-id <id>
+```
+
+资源发现只覆盖两个来源：对象附件区（`files` 等附件元数据）和对象富文本中的资源引用。发现到的全部资源文件都尝试获取，不按图片类型筛选。HTTP 资源只能位于当前 ZenTao 站点同源范围；跨源地址和跨源重定向拒绝。
+
+资源保存到项目根目录 `.tmp/zentao-resources/<object-type>-<object-id>/`；`.tmp/` 必须被 Git 忽略。同名文件保留全部并自动生成唯一名称，默认不自动清理。HTTP 下载采用流式落盘，不额外增加客户端文件大小、文件数量或总下载量限制。
+
+至少一个资源成功时返回成功结果并附带 `partial_failures`；对象没有资源视为成功空结果；发现资源但全部失败时返回 `RESOURCE_FETCH_FAILED`。
 
 ---
 
@@ -1358,7 +1370,6 @@ cli/output.py
 - 独立 assign/comment 能力；
 - 自动全量分页；
 - 客户端复杂过滤；
-- 图片 / 附件下载和理解；
 - Story；
 - Task；
 - Product 管理；
@@ -1387,7 +1398,7 @@ cli/output.py
 | D-008 | list 原生参数采用薄 CLI 映射 |
 | D-009 | 不继承旧版本未被 API v2 证明的能力 |
 | D-010 | create/edit/resolve/close/activate 按 API v2 契约 |
-| D-011 | 一个命令只执行一个明确操作，不追加隐式 API 调用 |
+| D-011 | 官方 API endpoint 命令只执行一个明确操作，不追加隐式 API 调用；Issue #13 冻结的 `resource fetch` 只读组合获取能力为显式例外 |
 | D-012 | 项目收敛为单一 `zentao` Skill，CLI 为内部 script |
 | D-013 | 根目录 `.env` 最小连接配置，token 不持久化 |
 | D-014 | `scripts/` 分层、可扩展、零第三方依赖目录结构 |

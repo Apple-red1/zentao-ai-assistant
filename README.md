@@ -24,6 +24,7 @@ ZENTAO_PASSWORD=your-password
 python skills/zentao/scripts/zentao.py doctor --json
 python skills/zentao/scripts/zentao.py bug list --product 1 --json
 python skills/zentao/scripts/zentao.py bug view 123 --json
+python skills/zentao/scripts/zentao.py resource fetch --object-type bug --object-id 123 --json
 python skills/zentao/scripts/zentao.py task start 88 --real-started "2026-08-25 09:00:00" --json
 ```
 
@@ -33,7 +34,7 @@ python skills/zentao/scripts/zentao.py task start 88 --real-started "2026-08-25 
 python skills/zentao/scripts/zentao.py bug delete 123 --yes --json
 ```
 
-参数以 `<resource> <action> --help` 为准。资源导航见 `skills/zentao/references/api-v2/`；机器覆盖索引见 `endpoints.json`。
+参数以 `<resource> <action> --help` 为准。官方 API 资源导航见 `skills/zentao/references/api-v2/`；对象附件/富文本资源获取见 `skills/zentao/references/resources.md`；机器覆盖索引见 `endpoints.json`。
 
 ## 测试
 

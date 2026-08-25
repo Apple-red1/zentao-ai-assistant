@@ -1,6 +1,6 @@
 ---
 name: zentao
-description: Use when users ask to read or explicitly change ZenTao through the official API v2 capability surface, including bugs, stories, tasks, products, projects, tests, feedback, tickets, files, users, and related lifecycle operations.
+description: Use when users ask to read or explicitly change ZenTao through the official API v2 capability surface, or fetch object-associated attachment/rich-text resource files for further analysis.
 ---
 
 # 禅道（zentao）
@@ -27,6 +27,7 @@ python skills/zentao/scripts/zentao.py <resource> <action> [scope] [parameters] 
 - `execution` → `references/api-v2/executions.md`
 - `feedback` → `references/api-v2/feedbacks.md`
 - `file` → `references/api-v2/files.md`
+- `resource` → `references/resources.md`（对象关联资源获取，Skill 增强能力）
 - `product` → `references/api-v2/products.md`
 - `product-plan` → `references/api-v2/product-plans.md`
 - `program` → `references/api-v2/programs.md`
@@ -50,7 +51,13 @@ Token 登录由内部 `token.login` 认证适配自动完成，不建立业务 `
 - **R2 Lifecycle**：resolve/close/activate/start/finish；只有当前用户明确要求对应生命周期动作时执行。
 - **R3 Destructive**：delete；必须同时满足“用户当前请求明确删除具体资源”以及 CLI 带 `--yes`。模糊的“处理/清理”不能推断为删除授权。
 
-一条 CLI 命令只执行一个明确业务 endpoint。禁止写后自动 GET、自动第二次写或写请求自动重试。收到 `UNKNOWN_WRITE_RESULT` 时不要直接重放原写操作；在任何后续写入前，先通过显式的只读 `view/list` 命令确认当前状态。
+官方 API 资源命令一条 CLI 命令只执行一个明确业务 endpoint。`resource fetch` 是已单独冻结的只读组合获取能力，可执行一次对象详情读取和零到多个同源资源 GET。禁止写后自动 GET、自动第二次写或写请求自动重试。收到 `UNKNOWN_WRITE_RESULT` 时不要直接重放原写操作；在任何后续写入前，先通过显式的只读 `view/list` 命令确认当前状态。
+
+## 对象关联资源
+
+`view` 只读取对象详情，不自动下载附件。用户明确要求获取、查看或分析对象资源时，先用对应 `view` 获取文本事实，再执行 `resource fetch --object-type <type> --object-id <id> --json`。
+
+`resource fetch` 只从对象附件区和富文本发现资源，尝试获取全部文件并保存到项目 `.tmp/zentao-resources/`；不接受任意 URL。至少一个资源成功时保留成功结果并报告 `partial_failures`，全部失败才返回 `RESOURCE_FETCH_FAILED`。下载后的图片/文档/日志等由宿主按可用能力继续理解。
 
 ## 输出与错误
 

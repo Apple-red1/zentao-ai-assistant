@@ -31,6 +31,28 @@ class FakeZenTao:
 
             def _handle(self) -> None:
                 split = urlsplit(self.path)
+                if self.command == "GET" and (split.path in state.binary_resources or split.path in state.redirects):
+                    if self.headers.get("Token") != "fake-token":
+                        self._send(401, {"error": "invalid token"}); return
+                    state.record({"endpoint_id": "resource.binary", "method": self.command, "path": split.path, "query": {}, "body": {}})
+                    if split.path in state.redirects:
+                        self.send_response(302)
+                        self.send_header("Location", state.redirects[split.path])
+                        self.end_headers()
+                        return
+                    item = state.binary_resources[split.path]
+                    raw = item["content"]
+                    self.send_response(200)
+                    self.send_header("Content-Type", str(item["content_type"]))
+                    self.send_header("Content-Length", str(len(raw)))
+                    if item.get("filename"):
+                        self.send_header("Content-Disposition", f'attachment; filename="{item["filename"]}"')
+                    self.end_headers()
+                    try:
+                        self.wfile.write(raw)
+                    except (BrokenPipeError, ConnectionResetError):
+                        pass
+                    return
                 matched = match(self.command, split.path)
                 if matched is None:
                     self._send(404, {"error": "unknown endpoint"}); return

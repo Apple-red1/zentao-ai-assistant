@@ -41,6 +41,16 @@ class UnknownWriteResult(ZentaoError):
         super().__init__("UNKNOWN_WRITE_RESULT", message, {})
 
 
+class ResourceSecurityError(ZentaoError):
+    def __init__(self, message: str, details: dict[str, Any] | None = None) -> None:
+        super().__init__("RESOURCE_SECURITY_ERROR", message, details)
+
+
+class ResourceFetchError(ZentaoError):
+    def __init__(self, message: str, details: dict[str, Any] | None = None) -> None:
+        super().__init__("RESOURCE_FETCH_FAILED", message, details)
+
+
 class MalformedResponse(ZentaoError):
     def __init__(self, message: str = "ZenTao 返回了无法解析的 JSON") -> None:
         super().__init__("MALFORMED_RESPONSE", message, {})
@@ -54,7 +64,8 @@ class TransportFailure(Exception):
 
 
 class HttpFailure(Exception):
-    def __init__(self, status: int, body: object | None) -> None:
+    def __init__(self, status: int, body: object | None, headers: dict[str, str] | None = None) -> None:
         super().__init__(f"HTTP {status}")
         self.status = status
         self.body = body
+        self.headers = headers or {}

@@ -45,6 +45,10 @@ class RepositoryContractTests(unittest.TestCase):
                         violations.append((str(path.relative_to(REPOSITORY_ROOT)), token))
         self.assertEqual([], violations)
 
+    def test_project_tmp_directory_is_git_ignored(self) -> None:
+        gitignore = (REPOSITORY_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+        self.assertIn(".tmp/", gitignore)
+
     def test_old_mcp_and_standalone_package_are_removed(self) -> None:
         self.assertFalse((REPOSITORY_ROOT / "src" / "zentao_ai").exists())
         self.assertFalse((REPOSITORY_ROOT / "plugins").exists())

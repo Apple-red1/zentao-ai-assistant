@@ -10,6 +10,8 @@ python skills/zentao/scripts/zentao.py doctor --json
 |---|---|---|
 | `CONFIG_ERROR` | `.env`/环境变量缺失或 URL 无效 | 对照 `.env.example` 检查三项连接配置。 |
 | `USAGE_ERROR` | 参数、scope、枚举或删除确认不符合 CLI 合同 | 执行对应 `<resource> <action> --help`。 |
+| `RESOURCE_SECURITY_ERROR` | 对象资源地址或重定向超出当前 ZenTao 同源可信范围 | 检查对象富文本/附件 URL；不要绕过同源校验。 |
+| `RESOURCE_FETCH_FAILED` | 已发现对象资源，但全部获取失败 | 查看 `details.partial_failures`，按各资源错误处理。 |
 | `API_ERROR` | ZenTao 明确返回 HTTP/业务失败 | 根据 `details.status` 与最小必要响应信息检查权限、ID 和字段。 |
 | `NETWORK_ERROR` | 请求确定未送达或 GET 重试耗尽 | 检查地址、DNS、TLS、网络和反向代理。 |
 | `MALFORMED_RESPONSE` | API 返回无法解析的 JSON | 记录目标实例版本和 endpoint，作为兼容性差异处理。 |

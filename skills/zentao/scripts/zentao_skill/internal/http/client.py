@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import http.client
@@ -27,11 +26,24 @@ class _RejectRedirectHandler(request.HTTPRedirectHandler):
                          headers: Any, newurl: str) -> request.Request:
         raise error.HTTPError(req.full_url, code, msg, headers, fp)
 
+class _NoRedirectHandler(request.HTTPRedirectHandler):
+    def redirect_request(
+        self,
+        req: request.Request,
+        fp: object,
+        code: int,
+        msg: str,
+        headers: object,
+        newurl: str,
+    ) -> request.Request | None:
+        return None
+
 
 class HttpClient:
     def __init__(self, *, timeout: float = 10.0) -> None:
         self.timeout = timeout
         self._opener = request.build_opener(_RejectRedirectHandler())
+        self._download_opener = request.build_opener(_NoRedirectHandler())
 
     def request(
         self,
@@ -63,23 +75,73 @@ class HttpClient:
                 except (UnicodeDecodeError, json.JSONDecodeError) as exc:
                     raise MalformedResponse() from exc
         except error.HTTPError as exc:
-            raw = exc.read()
-            body: object | None = None
-            if raw:
-                try:
-                    body = json.loads(raw.decode("utf-8"))
-                except (UnicodeDecodeError, json.JSONDecodeError):
-                    body = {"message": raw.decode("utf-8", errors="replace")[:500]}
-            raise HttpFailure(exc.code, body) from exc
+            raise self._http_failure(exc) from exc
         except error.URLError as exc:
-            reason = exc.reason
-            definitely_not_sent = isinstance(reason, (ConnectionRefusedError, socket.gaierror, ssl.SSLError))
-            if isinstance(reason, (TimeoutError, socket.timeout, ConnectionResetError)):
-                definitely_not_sent = False
-            raise TransportFailure(str(reason), definitely_not_sent=definitely_not_sent) from exc
+            raise self._transport_failure(exc) from exc
         except (TimeoutError, socket.timeout, ConnectionResetError, BrokenPipeError,
                 http.client.RemoteDisconnected, http.client.IncompleteRead) as exc:
             raise TransportFailure(str(exc), definitely_not_sent=False) from exc
+
+    def download(
+        self,
+        url: str,
+        destination: str | Path,
+        *,
+        headers: dict[str, str] | None = None,
+        chunk_size: int = 64 * 1024,
+    ) -> dict[str, object]:
+        path = Path(destination)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        req = request.Request(url, method="GET", headers=dict(headers or {}))
+        try:
+            with self._download_opener.open(req, timeout=self.timeout) as response:
+                total = 0
+                with path.open("wb") as stream:
+                    while True:
+                        chunk = response.read(chunk_size)
+                        if not chunk:
+                            break
+                        stream.write(chunk)
+                        total += len(chunk)
+                return {
+                    "url": response.geturl(),
+                    "content_type": response.headers.get_content_type() or "application/octet-stream",
+                    "content_disposition": response.headers.get("Content-Disposition"),
+                    "size": total,
+                }
+        except error.HTTPError as exc:
+            path.unlink(missing_ok=True)
+            raise self._http_failure(exc, limit=4096) from exc
+        except error.URLError as exc:
+            path.unlink(missing_ok=True)
+            raise self._transport_failure(exc) from exc
+        except (TimeoutError, socket.timeout, ConnectionResetError, BrokenPipeError,
+                http.client.RemoteDisconnected, http.client.IncompleteRead) as exc:
+            path.unlink(missing_ok=True)
+            raise TransportFailure(str(exc), definitely_not_sent=False) from exc
+        except OSError:
+            path.unlink(missing_ok=True)
+            raise
+
+    @staticmethod
+    def _http_failure(exc: error.HTTPError, *, limit: int | None = None) -> HttpFailure:
+        raw = exc.read() if limit is None else exc.read(limit)
+        body: object | None = None
+        if raw:
+            try:
+                body = json.loads(raw.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                body = {"message": raw.decode("utf-8", errors="replace")[:500]}
+        headers = {str(key): str(value) for key, value in exc.headers.items()} if exc.headers else {}
+        return HttpFailure(exc.code, body, headers=headers)
+
+    @staticmethod
+    def _transport_failure(exc: error.URLError) -> TransportFailure:
+        reason = exc.reason
+        definitely_not_sent = isinstance(reason, (ConnectionRefusedError, socket.gaierror, ssl.SSLError))
+        if isinstance(reason, (TimeoutError, socket.timeout, ConnectionResetError)):
+            definitely_not_sent = False
+        return TransportFailure(str(reason), definitely_not_sent=definitely_not_sent)
 
     @staticmethod
     def _encode_multipart(values: dict[str, Any]) -> tuple[bytes, str]:
