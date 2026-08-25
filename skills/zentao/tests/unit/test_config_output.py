@@ -36,13 +36,13 @@ class UnitTests(unittest.TestCase):
         for password in passwords:
             with self.subTest(password_shape=len(password)), tempfile.TemporaryDirectory() as td:
                 root = Path(td)
-                args = Namespace(base_url="https://zentao.example.com/", account="admin")
+                args = Namespace(base_url="https://localhost/", account="admin")
                 with patch("zentao_skill.cli.main.project_root", return_value=root), patch("zentao_skill.cli.main.getpass.getpass", return_value=password):
                     result = _run_setup(None, args)
                 self.assertEqual({"status": "success", "path": str(root / ".env")}, result)
                 with patch("zentao_skill.internal.config.project_root", return_value=root), patch.dict(os.environ, {}, clear=True):
                     config = load_config()
-                self.assertEqual("https://zentao.example.com", config.base_url)
+                self.assertEqual("https://localhost", config.base_url)
                 self.assertEqual("admin", config.account)
                 self.assertEqual(password, config.password)
 
@@ -75,7 +75,7 @@ class UnitTests(unittest.TestCase):
             previous = os.umask(0)
             try:
                 with patch("zentao_skill.cli.main.project_root", return_value=root), patch("zentao_skill.cli.main.getpass.getpass", return_value="safe-secret"):
-                    _run_setup(None, Namespace(base_url="https://zentao.example.com", account="admin"))
+                    _run_setup(None, Namespace(base_url="https://localhost", account="admin"))
             finally:
                 os.umask(previous)
             if os.name == "posix":
