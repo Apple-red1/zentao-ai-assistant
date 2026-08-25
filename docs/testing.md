@@ -10,4 +10,10 @@
 - T4：真实 CLI subprocess E2E 120/120。
 - T5：典型多步 Skill 场景。
 
+合同测试还会读取独立的 `skills/zentao/references/api-v2/official-contract.json`。
+它是人工核对的官方 API v2 evidence snapshot，不参与运行时路由，也不从
+`endpoints.json` 生成。测试报告将实现覆盖（各 surface 的 120/120）、官方快照
+匹配数和 endpoint-specific deep-link 数分开显示。ZenTao 21.7.8 的真实观察只记录
+在 `skills/zentao/references/compatibility/zentao-21.7.8.json`，不会覆盖官方合同。
+
 Fake 每条合同/E2E 前重置为确定性状态；自动化测试不登录或访问真实 ZenTao。

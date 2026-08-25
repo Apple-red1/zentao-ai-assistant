@@ -20,6 +20,10 @@ python skills/zentao/tests/run_all.py
 
 必须同时得到：Catalog、Internal、CLI、Skill routes、Fake API、Contract tests、CLI E2E 均为 `120 / 120`，`Real API calls: 0`，最终 `Result: PASS`。
 
+另外检查报告中的 `Official snapshot` 与 `Specific sources`。前者是 runtime
+catalog 与独立官方快照的比对，后者只统计有 endpoint-specific 官方 deep link 的
+条目；generic index URL 必须带明确的待核对说明，不能伪装成已逐项验证。
+
 ## 兼容性
 
-自动化发布门槛使用完整本地 Fake ZenTao。真实 ZenTao 21.7.8 或其他版本的差异根据实际运行证据更新 `endpoints.json` 的 compatibility 信息，不用 Fake 结果冒充真实实例兼容性。
+自动化发布门槛使用完整本地 Fake ZenTao。真实 ZenTao 21.7.8 或其他版本的差异根据实际运行证据记录在独立的 `skills/zentao/references/compatibility/` evidence 文件中；必要时再同步 `endpoints.json` 的 compatibility 元数据，不用 Fake 结果冒充真实实例兼容性。

@@ -36,6 +36,20 @@ def main() -> int:
     suite=unittest.defaultTestLoader.discover(str(ROOT/"tests"),pattern="test_*.py",top_level_dir=str(ROOT))
     result=unittest.TextTestRunner(verbosity=2).run(suite)
     surfaces, exact=coverage_summary()
+    from tests.contract.official_oracle import (
+        OFFICIAL_ENDPOINTS,
+        assert_catalog_matches_official,
+        specific_source_count,
+    )
+    from tests.support import CATALOG
+
+    official_match = 0
+    for item in CATALOG:
+        try:
+            assert_catalog_matches_official(item)
+        except AssertionError:
+            continue
+        official_match += 1
     status="PASS" if result.wasSuccessful() and exact else "FAIL"
     print("\nZenTao API v2 coverage\n")
     for label,actual,expected in surfaces:
@@ -46,6 +60,8 @@ def main() -> int:
             print(f"  missing: {', '.join(missing)}")
         if extra:
             print(f"  extra:   {', '.join(extra)}")
+    print(f"Official snapshot:  {official_match:>3} / {len(OFFICIAL_ENDPOINTS)}")
+    print(f"Specific sources:   {specific_source_count():>3} / {len(OFFICIAL_ENDPOINTS)}")
     print("\nReal API calls:      0")
     print(f"Result: {status}")
     return 0 if status == "PASS" else 1

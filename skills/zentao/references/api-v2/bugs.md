@@ -16,3 +16,8 @@
 | `bug.delete` | `DELETE` `/api.php/v2/bugs/{bugID}` | `bug delete` | R3 | 删除 Bug |
 
 风险：R0 读取；R1 普通写；R2 生命周期；R3 删除。R3 只有当前用户明确要求删除具体对象时才允许执行，并必须给 CLI 传 `--yes`。
+
+Bug 列表的官方 `browseType` 范围按 scope 区分：产品支持
+`all | unclosed | assignedtome | openedbyme | assignedbyme`；项目和执行支持
+`all | unresolved`。CLI 的 `assigned-to-me`、`opened-by-me`、`assigned-by-me`
+会映射为对应 API 值。详见独立官方合同快照和 #9 的 API v2 deep-link 证据。

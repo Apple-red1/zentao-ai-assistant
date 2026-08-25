@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "target": "ZenTao 21.7.8",
+  "evidence_type": "runtime_observation",
+  "observed_on": "2026-08-25",
+  "source": "docs/acceptance/zentao-21.7.8.md",
+  "note": "This file records observed target-version differences only. It is not an official API contract and never drives runtime dispatch.",
+  "observations": [
+    {
+      "endpoint_ids": ["test-case.create", "test-task.create"],
+      "status": "observed",
+      "detail": "The instance requires productID and the compatibility field product."
+    },
+    {
+      "endpoint_ids": ["user.create"],
+      "status": "observed",
+      "detail": "The instance requires visions; the CLI defaults it to rnd."
+    },
+    {
+      "endpoint_ids": ["requirement.change", "user.edit"],
+      "status": "observed",
+      "detail": "The instance requires reviewer for requirement.change and account for user.edit."
+    },
+    {
+      "endpoint_ids": ["requirement.edit", "epic.edit"],
+      "status": "observed",
+      "detail": "The instance accepts classification strings as well as numeric IDs."
+    },
+    {
+      "endpoint_ids": ["product-plan.create", "product-plan.edit", "release.create", "release.edit"],
+      "status": "observed",
+      "detail": "The instance requires the documented compatibility fields and status/date preservation described in the acceptance record."
+    },
+    {
+      "endpoint_ids": ["feedback.create", "feedback.list_product", "feedback.view", "ticket.create", "ticket.list_product", "ticket.view", "file.upload", "file.edit"],
+      "status": "observed_limit",
+      "detail": "The target returned empty responses or reported an unavailable module; the implementation reports an API error instead of treating the response as success."
+    }
+  ]
+}

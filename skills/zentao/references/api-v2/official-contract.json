@@ -1,0 +1,7094 @@
+{
+  "schema_version": 1,
+  "snapshot_date": "2026-08-25",
+  "endpoint_count": 120,
+  "source": "ZenTao API v2 official documentation snapshot; this file is hand-maintained and is never loaded to dispatch runtime requests.",
+  "source_policy": "specific deep links are marked specific; generic index references are explicit exceptions pending endpoint-level verification.",
+  "endpoints": [
+    {
+      "endpoint_id": "bug.create",
+      "method": "POST",
+      "path": "/api.php/v2/bugs",
+      "official_doc": "https://www.zentao.net/book/api/post-bugs-2192.html",
+      "source_status": "specific",
+      "parameters": {
+        "path": [],
+        "query": [],
+        "body": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "title",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "openedBuild",
+            "type": "array",
+            "required": true,
+            "repeatable": true
+          },
+          {
+            "api_name": "branch",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "module",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "project",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "execution",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "story",
+            "type": "integer",
+            "required": false,
+            "repeatable": false,
+            "domain": "non_negative_relation_id",
+            "minimum": 0
+          },
+          {
+            "api_name": "task",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "severity",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pri",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "type",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "automation",
+              "codeerror",
+              "config",
+              "designdefect",
+              "install",
+              "others",
+              "performance",
+              "security",
+              "standard"
+            ]
+          },
+          {
+            "api_name": "os",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "browser",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "steps",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "assignedTo",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "deadline",
+            "type": "date/string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "keywords",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      }
+    },
+    {
+      "endpoint_id": "bug.edit",
+      "method": "PUT",
+      "path": "/api.php/v2/bugs/{bugID}",
+      "official_doc": "https://www.zentao.net/book/api/put-bugs-bugid-2193.html",
+      "source_status": "specific",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "bugID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "title",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "severity",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pri",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "type",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "automation",
+              "codeerror",
+              "config",
+              "designdefect",
+              "install",
+              "others",
+              "performance",
+              "security",
+              "standard"
+            ]
+          },
+          {
+            "api_name": "openedBuild",
+            "type": "array<string>",
+            "required": false,
+            "repeatable": true
+          },
+          {
+            "api_name": "steps",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "project",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "execution",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "story",
+            "type": "integer",
+            "required": false,
+            "repeatable": false,
+            "domain": "non_negative_relation_id",
+            "minimum": 0
+          },
+          {
+            "api_name": "assignedTo",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      }
+    },
+    {
+      "endpoint_id": "bug.list_product",
+      "method": "GET",
+      "path": "/api.php/v2/products/{productID}/bugs",
+      "official_doc": "https://www.zentao.net/book/api/get-products-productid-bugs-2194.html",
+      "source_status": "specific",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [
+          {
+            "api_name": "branch",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "all",
+              "assignedbyme",
+              "assignedtome",
+              "openedbyme",
+              "unclosed"
+            ]
+          },
+          {
+            "api_name": "module",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "filters",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "groupJoin",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "bugs"
+      }
+    },
+    {
+      "endpoint_id": "bug.list_project",
+      "method": "GET",
+      "path": "/api.php/v2/projects/{projectID}/bugs",
+      "official_doc": "https://www.zentao.net/book/api/get-projects-projectid-bugs-2195.html",
+      "source_status": "specific",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "projectID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [
+          {
+            "api_name": "executionID",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "all",
+              "unresolved"
+            ]
+          },
+          {
+            "api_name": "param",
+            "type": "string/integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "filters",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "groupJoin",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "bugs"
+      }
+    },
+    {
+      "endpoint_id": "bug.list_execution",
+      "method": "GET",
+      "path": "/api.php/v2/executions/{executionID}/bugs",
+      "official_doc": "https://www.zentao.net/book/api/get-executions-executionid-bugs-2196.html",
+      "source_status": "specific",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "executionID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "all",
+              "unresolved"
+            ]
+          },
+          {
+            "api_name": "param",
+            "type": "string/integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "filters",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "groupJoin",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "bugs"
+      }
+    },
+    {
+      "endpoint_id": "bug.view",
+      "method": "GET",
+      "path": "/api.php/v2/bugs/{bugID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "bugID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "bug"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "bug.resolve",
+      "method": "PUT",
+      "path": "/api.php/v2/bugs/{bugID}/resolve",
+      "official_doc": "https://www.zentao.net/book/api/put-bugs-bugid-resolve-2198.html",
+      "source_status": "specific",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "bugID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "resolution",
+            "type": "string",
+            "required": true,
+            "repeatable": false,
+            "enum_values": [
+              "bydesign",
+              "duplicate",
+              "external",
+              "fixed",
+              "notrepro",
+              "postponed",
+              "tostory",
+              "willnotfix"
+            ]
+          },
+          {
+            "api_name": "resolvedDate",
+            "type": "string/date/datetime",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "resolvedBuild",
+            "type": "string / integer（版本相关）",
+            "required": false,
+            "repeatable": false,
+            "domain": "build_reference",
+            "allowed_special_values": [
+              "trunk"
+            ]
+          },
+          {
+            "api_name": "duplicateBug",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "assignedTo",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "comment",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      }
+    },
+    {
+      "endpoint_id": "bug.close",
+      "method": "PUT",
+      "path": "/api.php/v2/bugs/{bugID}/close",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "bugID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "comment",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "bug.activate",
+      "method": "PUT",
+      "path": "/api.php/v2/bugs/{bugID}/activate",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "bugID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "openedBuild",
+            "type": "array<string>",
+            "required": false,
+            "repeatable": true
+          },
+          {
+            "api_name": "assignedTo",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "comment",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "bug.delete",
+      "method": "DELETE",
+      "path": "/api.php/v2/bugs/{bugID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "bugID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "status",
+          "id"
+        ],
+        "status": "success"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "build.create",
+      "method": "POST",
+      "path": "/api.php/v2/builds",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [],
+        "query": [],
+        "body": [
+          {
+            "api_name": "executionID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "product",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "name",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "system",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "builder",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "date",
+            "type": "string/date",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "scmPath",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "filePath",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "desc",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "build.edit",
+      "method": "PUT",
+      "path": "/api.php/v2/builds/{buildID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "buildID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "execution",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "product",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "name",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "system",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "builder",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "date",
+            "type": "string/date",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "scmPath",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "filePath",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "desc",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "build.list_project",
+      "method": "GET",
+      "path": "/api.php/v2/projects/{projectID}/builds",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "projectID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "active",
+              "all",
+              "closed"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "filters",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "groupJoin",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "builds"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "build.list_execution",
+      "method": "GET",
+      "path": "/api.php/v2/executions/{executionID}/builds",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "executionID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "active",
+              "all",
+              "closed"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "filters",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "groupJoin",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "builds"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "build.delete",
+      "method": "DELETE",
+      "path": "/api.php/v2/builds/{buildID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "buildID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "status",
+          "id"
+        ],
+        "status": "success"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "epic.create",
+      "method": "POST",
+      "path": "/api.php/v2/epics",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [],
+        "query": [],
+        "body": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "title",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "pri",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "module",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "parent",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "estimate",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "spec",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "category",
+            "type": "integer/string（版本相关）",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "experience",
+              "feature",
+              "improve",
+              "interface",
+              "other",
+              "performance",
+              "safe"
+            ]
+          },
+          {
+            "api_name": "source",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "bug",
+              "competitor",
+              "customer",
+              "dev",
+              "forum",
+              "market",
+              "operation",
+              "other",
+              "partner",
+              "po",
+              "service",
+              "support",
+              "tester",
+              "user"
+            ]
+          },
+          {
+            "api_name": "verify",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "assignedTo",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "reviewer",
+            "type": "array<string>",
+            "required": false,
+            "repeatable": true
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "epic.edit",
+      "method": "PUT",
+      "path": "/api.php/v2/epics/{storyID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "storyID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "product",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "title",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "status",
+            "type": "string",
+            "required": true,
+            "repeatable": false,
+            "enum_values": [
+              "closed",
+              "doing",
+              "done",
+              "wait"
+            ]
+          },
+          {
+            "api_name": "pri",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "module",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "parent",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "estimate",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "category",
+            "type": "integer/string（版本相关）",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "source",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "assignedTo",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "epic.change",
+      "method": "PUT",
+      "path": "/api.php/v2/epics/{storyID}/change",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "storyID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "title",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "reviewer",
+            "type": "array<string>",
+            "required": true,
+            "repeatable": true
+          },
+          {
+            "api_name": "spec",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "verify",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "epic.list_product",
+      "method": "GET",
+      "path": "/api.php/v2/products/{productID}/epics",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "allstory",
+              "assignedtome",
+              "draftstory",
+              "openedbyme",
+              "reviewbyme",
+              "unclosed"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "filters",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "groupJoin",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "epics"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "epic.view",
+      "method": "GET",
+      "path": "/api.php/v2/epics/{storyID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "storyID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "epic"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "epic.close",
+      "method": "PUT",
+      "path": "/api.php/v2/epics/{storyID}/close",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "storyID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "closedReason",
+            "type": "string",
+            "required": true,
+            "repeatable": false,
+            "enum_values": [
+              "bydesign",
+              "cancel",
+              "done",
+              "duplicate",
+              "postponed",
+              "subdivided",
+              "willnotdo"
+            ]
+          },
+          {
+            "api_name": "comment",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "epic.activate",
+      "method": "PUT",
+      "path": "/api.php/v2/epics/{storyID}/activate",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "storyID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "assignedTo",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "comment",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "epic.delete",
+      "method": "DELETE",
+      "path": "/api.php/v2/epics/{storyID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "storyID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "status",
+          "id"
+        ],
+        "status": "success"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "execution.create",
+      "method": "POST",
+      "path": "/api.php/v2/executions",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [],
+        "query": [],
+        "body": [
+          {
+            "api_name": "project",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "name",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "type",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "kanban",
+              "sprint",
+              "stage"
+            ]
+          },
+          {
+            "api_name": "parent",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "attribute",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "concept",
+              "design",
+              "dev",
+              "develop",
+              "launch",
+              "mix",
+              "other",
+              "plan",
+              "qa",
+              "qualify",
+              "release",
+              "request",
+              "review"
+            ]
+          },
+          {
+            "api_name": "lifetime",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "long",
+              "ops",
+              "short"
+            ]
+          },
+          {
+            "api_name": "begin",
+            "type": "date/string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "end",
+            "type": "date/string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "days",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "products",
+            "type": "array<string>",
+            "required": true,
+            "repeatable": true
+          },
+          {
+            "api_name": "plans",
+            "type": "object",
+            "required": false,
+            "repeatable": true
+          },
+          {
+            "api_name": "PO",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "QD",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "PM",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "RD",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "acl",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "open",
+              "private"
+            ]
+          },
+          {
+            "api_name": "milestone",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "execution.edit",
+      "method": "PUT",
+      "path": "/api.php/v2/executions/{executionID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "executionID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "name",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "begin",
+            "type": "date/string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "end",
+            "type": "date/string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "project",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "lifetime",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "days",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "products",
+            "type": "array<string>",
+            "required": false,
+            "repeatable": true
+          },
+          {
+            "api_name": "plans",
+            "type": "object",
+            "required": false,
+            "repeatable": true
+          },
+          {
+            "api_name": "PO",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "QD",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "PM",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "RD",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "acl",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "execution.list",
+      "method": "GET",
+      "path": "/api.php/v2/executions",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "all",
+              "doing",
+              "undone",
+              "wait"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "filters",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "groupJoin",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "executions"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "execution.list_project",
+      "method": "GET",
+      "path": "/api.php/v2/projects/{projectID}/executions",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "projectID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "all",
+              "doing",
+              "undone",
+              "wait"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "executions"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "execution.view",
+      "method": "GET",
+      "path": "/api.php/v2/executions/{executionID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "executionID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "execution"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "execution.delete",
+      "method": "DELETE",
+      "path": "/api.php/v2/executions/{executionID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "executionID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "status",
+          "id"
+        ],
+        "status": "success"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "feedback.create",
+      "method": "POST",
+      "path": "/api.php/v2/feedbacks",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [],
+        "query": [],
+        "body": [
+          {
+            "api_name": "product",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "title",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "module",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "type",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "advice",
+              "bug",
+              "issue",
+              "opportunity",
+              "risk",
+              "story",
+              "task",
+              "todo"
+            ]
+          },
+          {
+            "api_name": "desc",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "feedbackBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "source",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "feedback.edit",
+      "method": "PUT",
+      "path": "/api.php/v2/feedbacks/{feedbackID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "feedbackID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "product",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "title",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "module",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "type",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "advice",
+              "bug",
+              "issue",
+              "opportunity",
+              "risk",
+              "story",
+              "task",
+              "todo"
+            ]
+          },
+          {
+            "api_name": "desc",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "feedbackBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "source",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "feedback.list_product",
+      "method": "GET",
+      "path": "/api.php/v2/products/{productID}/feedbacks",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "all",
+              "assigntome",
+              "doing",
+              "openedbyme",
+              "review",
+              "toclosed",
+              "wait"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "filters",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "groupJoin",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "feedbacks"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "feedback.view",
+      "method": "GET",
+      "path": "/api.php/v2/feedbacks/{feedbackID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "feedbackID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "feedback"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "feedback.close",
+      "method": "PUT",
+      "path": "/api.php/v2/feedbacks/{feedbackID}/close",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "feedbackID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "closedReason",
+            "type": "string",
+            "required": true,
+            "repeatable": false,
+            "enum_values": [
+              "commented",
+              "refuse",
+              "repeat"
+            ]
+          },
+          {
+            "api_name": "comment",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "confirmClose",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "feedback.activate",
+      "method": "PUT",
+      "path": "/api.php/v2/feedbacks/{feedbackID}/activate",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "feedbackID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "assignedTo",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "comment",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "feedback.delete",
+      "method": "DELETE",
+      "path": "/api.php/v2/feedbacks/{feedbackID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "feedbackID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "status",
+          "id"
+        ],
+        "status": "success"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "file.upload",
+      "method": "POST",
+      "path": "/api.php/v2/files",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [],
+        "query": [],
+        "body": [],
+        "form": [
+          {
+            "api_name": "file",
+            "type": "binary/file",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "objectType",
+            "type": "string",
+            "required": true,
+            "repeatable": false,
+            "enum_values": [
+              "bug",
+              "story",
+              "task",
+              "testcase"
+            ]
+          },
+          {
+            "api_name": "objectID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ]
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "file.edit",
+      "method": "PUT",
+      "path": "/api.php/v2/files/{fileID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "fileID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "fileName",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "file.delete",
+      "method": "DELETE",
+      "path": "/api.php/v2/files/{fileID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "fileID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "status",
+          "id"
+        ],
+        "status": "success"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "product.create",
+      "method": "POST",
+      "path": "/api.php/v2/products",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [],
+        "query": [],
+        "body": [
+          {
+            "api_name": "name",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "program",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "line",
+            "type": "integer",
+            "required": false,
+            "repeatable": false,
+            "domain": "non_negative_relation_id",
+            "minimum": 0
+          },
+          {
+            "api_name": "type",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "branch",
+              "normal",
+              "platform"
+            ]
+          },
+          {
+            "api_name": "PO",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "reviewer",
+            "type": "array<string>",
+            "required": false,
+            "repeatable": true
+          },
+          {
+            "api_name": "desc",
+            "type": "array<string>（当前 SDK schema）",
+            "required": false,
+            "repeatable": true
+          },
+          {
+            "api_name": "QD",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "RD",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "acl",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "open",
+              "private"
+            ]
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "product.edit",
+      "method": "PUT",
+      "path": "/api.php/v2/products/{productID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "name",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "program",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "line",
+            "type": "integer",
+            "required": false,
+            "repeatable": false,
+            "domain": "non_negative_relation_id",
+            "minimum": 0
+          },
+          {
+            "api_name": "type",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "branch",
+              "normal",
+              "platform"
+            ]
+          },
+          {
+            "api_name": "PO",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "reviewer",
+            "type": "array<string>",
+            "required": false,
+            "repeatable": true
+          },
+          {
+            "api_name": "desc",
+            "type": "array<string>",
+            "required": false,
+            "repeatable": true
+          },
+          {
+            "api_name": "QD",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "RD",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "acl",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "open",
+              "private"
+            ]
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "product.list",
+      "method": "GET",
+      "path": "/api.php/v2/products",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "all",
+              "closed",
+              "noclosed"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "products"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "product.list_program",
+      "method": "GET",
+      "path": "/api.php/v2/programs/{programID}/products",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "programID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "all",
+              "closed",
+              "noclosed"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "products"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "product.view",
+      "method": "GET",
+      "path": "/api.php/v2/products/{productID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "product"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "product.delete",
+      "method": "DELETE",
+      "path": "/api.php/v2/products/{productID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "status",
+          "id"
+        ],
+        "status": "success"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "product-plan.create",
+      "method": "POST",
+      "path": "/api.php/v2/productplans",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [],
+        "query": [],
+        "body": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "product",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "title",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "parent",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "begin",
+            "type": "string/date",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "end",
+            "type": "string/date",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "branchID",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "branch",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "desc",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "product-plan.edit",
+      "method": "PUT",
+      "path": "/api.php/v2/productplans/{planID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "planID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "product",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "title",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "status",
+            "type": "string",
+            "required": true,
+            "repeatable": false,
+            "enum_values": [
+              "closed",
+              "doing",
+              "done",
+              "wait"
+            ]
+          },
+          {
+            "api_name": "parent",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "begin",
+            "type": "date/string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "end",
+            "type": "date/string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "branchID",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "branch",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "desc",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "product-plan.list_product",
+      "method": "GET",
+      "path": "/api.php/v2/products/{productID}/productplans",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "all",
+              "doing",
+              "undone",
+              "wait"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "filters",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "groupJoin",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "productplans"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "product-plan.view",
+      "method": "GET",
+      "path": "/api.php/v2/productplans/{planID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "planID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "productplan"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "product-plan.delete",
+      "method": "DELETE",
+      "path": "/api.php/v2/productplans/{planID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "planID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "status",
+          "id"
+        ],
+        "status": "success"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "program.create",
+      "method": "POST",
+      "path": "/api.php/v2/programs",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [],
+        "query": [],
+        "body": [
+          {
+            "api_name": "name",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "begin",
+            "type": "string/date",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "end",
+            "type": "string/date",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "PM",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "desc",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "program.edit",
+      "method": "PUT",
+      "path": "/api.php/v2/programs/{programID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "programID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "name",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "begin",
+            "type": "date/string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "end",
+            "type": "date/string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "PM",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "desc",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "program.list",
+      "method": "GET",
+      "path": "/api.php/v2/programs",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "all",
+              "closed",
+              "delayed",
+              "doing",
+              "suspended",
+              "unclosed",
+              "wait"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "filters",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "groupJoin",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "programs"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "program.view",
+      "method": "GET",
+      "path": "/api.php/v2/programs/{programID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "programID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "program"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "program.delete",
+      "method": "DELETE",
+      "path": "/api.php/v2/programs/{programID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "programID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "status",
+          "id"
+        ],
+        "status": "success"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "project.create",
+      "method": "POST",
+      "path": "/api.php/v2/projects",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [],
+        "query": [],
+        "body": [
+          {
+            "api_name": "name",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "model",
+            "type": "string",
+            "required": true,
+            "repeatable": false,
+            "enum_values": [
+              "agileplus",
+              "kanban",
+              "scrum",
+              "waterfall",
+              "waterfallplus"
+            ]
+          },
+          {
+            "api_name": "begin",
+            "type": "string/date",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "end",
+            "type": "string/date",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "products",
+            "type": "array<string>",
+            "required": false,
+            "repeatable": true
+          },
+          {
+            "api_name": "parent",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "workflowGroup",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "PM",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "project.edit",
+      "method": "PUT",
+      "path": "/api.php/v2/projects/{projectID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "projectID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "name",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "model",
+            "type": "string",
+            "required": true,
+            "repeatable": false,
+            "enum_values": [
+              "agileplus",
+              "kanban",
+              "scrum",
+              "waterfall",
+              "waterfallplus"
+            ]
+          },
+          {
+            "api_name": "begin",
+            "type": "string/date",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "end",
+            "type": "string/date",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "products",
+            "type": "array<string>",
+            "required": false,
+            "repeatable": true
+          },
+          {
+            "api_name": "parent",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "workflowGroup",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "PM",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "project.list",
+      "method": "GET",
+      "path": "/api.php/v2/projects",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "all",
+              "doing",
+              "undone",
+              "wait"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "filters",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "groupJoin",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "projects"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "project.list_program",
+      "method": "GET",
+      "path": "/api.php/v2/programs/{programID}/projects",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "programID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "all",
+              "doing",
+              "undone",
+              "wait"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "projects"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "project.delete",
+      "method": "DELETE",
+      "path": "/api.php/v2/projects/{projectID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "projectID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "status",
+          "id"
+        ],
+        "status": "success"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "release.create",
+      "method": "POST",
+      "path": "/api.php/v2/releases",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [],
+        "query": [],
+        "body": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "system",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "name",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "build",
+            "type": "array<integer>",
+            "required": true,
+            "repeatable": true
+          },
+          {
+            "api_name": "status",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "fail",
+              "normal",
+              "terminate",
+              "wait"
+            ]
+          },
+          {
+            "api_name": "date",
+            "type": "string/date",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "releasedDate",
+            "type": "string/date",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "desc",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "release.edit",
+      "method": "PUT",
+      "path": "/api.php/v2/releases/{releaseID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "releaseID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "product",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "system",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "name",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "build",
+            "type": "array<integer>",
+            "required": true,
+            "repeatable": true
+          },
+          {
+            "api_name": "status",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "fail",
+              "normal",
+              "terminate",
+              "wait"
+            ]
+          },
+          {
+            "api_name": "date",
+            "type": "string/date",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "releasedDate",
+            "type": "string/date",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "desc",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "release.list_product",
+      "method": "GET",
+      "path": "/api.php/v2/products/{productID}/releases",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "all",
+              "fail",
+              "normal",
+              "terminate",
+              "wait"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "filters",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "groupJoin",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "releases"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "release.delete",
+      "method": "DELETE",
+      "path": "/api.php/v2/releases/{releaseID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "releaseID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "status",
+          "id"
+        ],
+        "status": "success"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "requirement.create",
+      "method": "POST",
+      "path": "/api.php/v2/requirements",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [],
+        "query": [],
+        "body": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "title",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "pri",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "module",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "parent",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "estimate",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "spec",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "category",
+            "type": "integer/string（版本相关）",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "experience",
+              "feature",
+              "improve",
+              "interface",
+              "other",
+              "performance",
+              "safe"
+            ]
+          },
+          {
+            "api_name": "source",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "bug",
+              "competitor",
+              "customer",
+              "dev",
+              "forum",
+              "market",
+              "operation",
+              "other",
+              "partner",
+              "po",
+              "service",
+              "support",
+              "tester",
+              "user"
+            ]
+          },
+          {
+            "api_name": "verify",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "assignedTo",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "reviewer",
+            "type": "array<string>",
+            "required": false,
+            "repeatable": true
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "requirement.edit",
+      "method": "PUT",
+      "path": "/api.php/v2/requirements/{storyID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "storyID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "title",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "pri",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "module",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "parent",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "estimate",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "category",
+            "type": "integer/string（版本相关）",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "source",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "assignedTo",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "requirement.change",
+      "method": "PUT",
+      "path": "/api.php/v2/requirements/{storyID}/change",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "storyID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "title",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "reviewer",
+            "type": "array<string>",
+            "required": true,
+            "repeatable": true
+          },
+          {
+            "api_name": "spec",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "verify",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "requirement.list_product",
+      "method": "GET",
+      "path": "/api.php/v2/products/{productID}/requirements",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "allstory",
+              "assignedtome",
+              "draftstory",
+              "openedbyme",
+              "reviewbyme",
+              "unclosed"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "filters",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "groupJoin",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "requirements"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "requirement.view",
+      "method": "GET",
+      "path": "/api.php/v2/requirements/{storyID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "storyID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "requirement"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "requirement.close",
+      "method": "PUT",
+      "path": "/api.php/v2/requirements/{storyID}/close",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "storyID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "closedReason",
+            "type": "string",
+            "required": true,
+            "repeatable": false,
+            "enum_values": [
+              "bydesign",
+              "cancel",
+              "done",
+              "duplicate",
+              "postponed",
+              "subdivided",
+              "willnotdo"
+            ]
+          },
+          {
+            "api_name": "comment",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "requirement.activate",
+      "method": "PUT",
+      "path": "/api.php/v2/requirements/{storyID}/activate",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "storyID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "assignedTo",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "comment",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "requirement.delete",
+      "method": "DELETE",
+      "path": "/api.php/v2/requirements/{storyID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "storyID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "status",
+          "id"
+        ],
+        "status": "success"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "story.create",
+      "method": "POST",
+      "path": "/api.php/v2/stories",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [],
+        "query": [],
+        "body": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "title",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "pri",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "module",
+            "type": "integer",
+            "required": false,
+            "repeatable": false,
+            "domain": "non_negative_relation_id",
+            "minimum": 0
+          },
+          {
+            "api_name": "parent",
+            "type": "integer",
+            "required": false,
+            "repeatable": false,
+            "domain": "non_negative_relation_id",
+            "minimum": 0
+          },
+          {
+            "api_name": "estimate",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "spec",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "category",
+            "type": "integer/string（版本相关）",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "experience",
+              "feature",
+              "improve",
+              "interface",
+              "other",
+              "performance",
+              "safe"
+            ]
+          },
+          {
+            "api_name": "source",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "bug",
+              "competitor",
+              "customer",
+              "dev",
+              "forum",
+              "market",
+              "operation",
+              "other",
+              "partner",
+              "po",
+              "service",
+              "support",
+              "tester",
+              "user"
+            ]
+          },
+          {
+            "api_name": "verify",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "assignedTo",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "reviewer",
+            "type": "array<string>",
+            "required": false,
+            "repeatable": true
+          },
+          {
+            "api_name": "project",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "execution",
+            "type": "integer",
+            "required": false,
+            "repeatable": false,
+            "domain": "non_negative_relation_id",
+            "minimum": 0
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "story.edit",
+      "method": "PUT",
+      "path": "/api.php/v2/stories/{storyID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "storyID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "title",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "pri",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "module",
+            "type": "integer",
+            "required": false,
+            "repeatable": false,
+            "domain": "non_negative_relation_id",
+            "minimum": 0
+          },
+          {
+            "api_name": "parent",
+            "type": "integer",
+            "required": false,
+            "repeatable": false,
+            "domain": "non_negative_relation_id",
+            "minimum": 0
+          },
+          {
+            "api_name": "estimate",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "category",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "source",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "assignedTo",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "plan",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "story.change",
+      "method": "PUT",
+      "path": "/api.php/v2/stories/{storyID}/change",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "storyID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "title",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "reviewer",
+            "type": "array<string>",
+            "required": true,
+            "repeatable": true
+          },
+          {
+            "api_name": "spec",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "verify",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "story.list_product",
+      "method": "GET",
+      "path": "/api.php/v2/products/{productID}/stories",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "allstory",
+              "assignedtome",
+              "draftstory",
+              "openedbyme",
+              "reviewbyme"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "filters",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "groupJoin",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "storys"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "story.list_project",
+      "method": "GET",
+      "path": "/api.php/v2/projects/{projectID}/stories",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "projectID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "allstory",
+              "assignedtome",
+              "draftstory",
+              "openedbyme",
+              "reviewbyme"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "filters",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "groupJoin",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "storys"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "story.list_execution",
+      "method": "GET",
+      "path": "/api.php/v2/executions/{executionID}/stories",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "executionID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "allstory"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "filters",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "groupJoin",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "storys"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "story.view",
+      "method": "GET",
+      "path": "/api.php/v2/stories/{storyID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "storyID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "story"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "story.close",
+      "method": "PUT",
+      "path": "/api.php/v2/stories/{storyID}/close",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "storyID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "closedReason",
+            "type": "string",
+            "required": true,
+            "repeatable": false,
+            "enum_values": [
+              "bydesign",
+              "cancel",
+              "done",
+              "duplicate",
+              "postponed",
+              "subdivided",
+              "willnotdo"
+            ]
+          },
+          {
+            "api_name": "comment",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "story.activate",
+      "method": "PUT",
+      "path": "/api.php/v2/stories/{storyID}/activate",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "storyID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "assignedTo",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "comment",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "story.delete",
+      "method": "DELETE",
+      "path": "/api.php/v2/stories/{storyID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "storyID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "status",
+          "id"
+        ],
+        "status": "success"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "system.create",
+      "method": "POST",
+      "path": "/api.php/v2/systems",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [],
+        "query": [],
+        "body": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "integrated",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "children",
+            "type": "array<string>",
+            "required": true,
+            "repeatable": true
+          },
+          {
+            "api_name": "name",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "desc",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "system.edit",
+      "method": "PUT",
+      "path": "/api.php/v2/systems/{systemID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "systemID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "name",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "children",
+            "type": "array<string>",
+            "required": true,
+            "repeatable": true
+          },
+          {
+            "api_name": "desc",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "system.list_product",
+      "method": "GET",
+      "path": "/api.php/v2/products/{productID}/systems",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "systems"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "task.create",
+      "method": "POST",
+      "path": "/api.php/v2/tasks",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [],
+        "query": [],
+        "body": [
+          {
+            "api_name": "name",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "executionID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "type",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "assignedTo",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "estStarted",
+            "type": "string/date",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "deadline",
+            "type": "string/date",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pri",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "estimate",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "module",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "story",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "desc",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "parent",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "task.edit",
+      "method": "PUT",
+      "path": "/api.php/v2/tasks/{taskID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "taskID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "name",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "type",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "assignedTo",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "estStarted",
+            "type": "string/date",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "deadline",
+            "type": "string/date",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pri",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "estimate",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "module",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "story",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "desc",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "parent",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "task.list_execution",
+      "method": "GET",
+      "path": "/api.php/v2/executions/{executionID}/tasks",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "executionID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "all",
+              "assignedbyme",
+              "assignedtome",
+              "myinvolved",
+              "unclosed"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "tasks"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "task.view",
+      "method": "GET",
+      "path": "/api.php/v2/tasks/{taskID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "taskID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "task"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "task.start",
+      "method": "PUT",
+      "path": "/api.php/v2/tasks/{taskID}/start",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "taskID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "assignedTo",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "realStarted",
+            "type": "string/datetime",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "consumed",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "left",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "comment",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "task.finish",
+      "method": "PUT",
+      "path": "/api.php/v2/tasks/{taskID}/finish",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "taskID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "currentConsumed",
+            "type": "number",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "assignedTo",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "consumed",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "realStarted",
+            "type": "string/datetime",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "finishedDate",
+            "type": "string/datetime",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "comment",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "task.close",
+      "method": "PUT",
+      "path": "/api.php/v2/tasks/{taskID}/close",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "taskID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "comment",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "task.activate",
+      "method": "PUT",
+      "path": "/api.php/v2/tasks/{taskID}/activate",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "taskID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "left",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "assignedTo",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "comment",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "task.delete",
+      "method": "DELETE",
+      "path": "/api.php/v2/tasks/{taskID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "taskID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "status",
+          "id"
+        ],
+        "status": "success"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "test-case.create",
+      "method": "POST",
+      "path": "/api.php/v2/testcases",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [],
+        "query": [],
+        "body": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "product",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "title",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "module",
+            "type": "integer",
+            "required": false,
+            "repeatable": false,
+            "domain": "non_negative_relation_id",
+            "minimum": 0
+          },
+          {
+            "api_name": "story",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pri",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "type",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "config",
+              "feature",
+              "install",
+              "interface",
+              "other",
+              "performance",
+              "security",
+              "unit"
+            ]
+          },
+          {
+            "api_name": "precondition",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "steps",
+            "type": "array<string>",
+            "required": false,
+            "repeatable": true
+          },
+          {
+            "api_name": "expects",
+            "type": "array<string>",
+            "required": false,
+            "repeatable": true
+          },
+          {
+            "api_name": "stepType",
+            "type": "array<string>",
+            "required": false,
+            "repeatable": true,
+            "enum_values": [
+              "group",
+              "step"
+            ]
+          },
+          {
+            "api_name": "project",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "execution",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "test-case.edit",
+      "method": "PUT",
+      "path": "/api.php/v2/testcases/{caseID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "caseID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "title",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "module",
+            "type": "integer",
+            "required": false,
+            "repeatable": false,
+            "domain": "non_negative_relation_id",
+            "minimum": 0
+          },
+          {
+            "api_name": "story",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pri",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "type",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "config",
+              "feature",
+              "install",
+              "interface",
+              "other",
+              "performance",
+              "security",
+              "unit"
+            ]
+          },
+          {
+            "api_name": "precondition",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "steps",
+            "type": "array<string>",
+            "required": false,
+            "repeatable": true
+          },
+          {
+            "api_name": "expects",
+            "type": "array<string>",
+            "required": false,
+            "repeatable": true
+          },
+          {
+            "api_name": "stepType",
+            "type": "array<string>",
+            "required": false,
+            "repeatable": true,
+            "enum_values": [
+              "group",
+              "step"
+            ]
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "test-case.list_product",
+      "method": "GET",
+      "path": "/api.php/v2/products/{productID}/testcases",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "all",
+              "needconfirm",
+              "wait"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "filters",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "groupJoin",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "testcases"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "test-case.list_project",
+      "method": "GET",
+      "path": "/api.php/v2/projects/{projectID}/testcases",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "projectID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "all",
+              "needconfirm",
+              "wait"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "filters",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "groupJoin",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "testcases"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "test-case.list_execution",
+      "method": "GET",
+      "path": "/api.php/v2/executions/{executionID}/testcases",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "executionID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "all",
+              "needconfirm",
+              "wait"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "filters",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "groupJoin",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "testcases"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "test-case.view",
+      "method": "GET",
+      "path": "/api.php/v2/testcases/{caseID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "caseID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "testcase"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "test-case.delete",
+      "method": "DELETE",
+      "path": "/api.php/v2/testcases/{caseID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "caseID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "status",
+          "id"
+        ],
+        "status": "success"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "test-task.create",
+      "method": "POST",
+      "path": "/api.php/v2/testtasks",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [],
+        "query": [],
+        "body": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "product",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "name",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "build",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "execution",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "type",
+            "type": "array<string>",
+            "required": false,
+            "repeatable": true,
+            "enum_values": [
+              "acceptance",
+              "integrate",
+              "performance",
+              "safety",
+              "system"
+            ]
+          },
+          {
+            "api_name": "owner",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "status",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "blocked",
+              "doing",
+              "done",
+              "wait"
+            ]
+          },
+          {
+            "api_name": "begin",
+            "type": "string/date",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "end",
+            "type": "string/date",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "desc",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "test-task.edit",
+      "method": "PUT",
+      "path": "/api.php/v2/testtasks/{testtaskID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "testtaskID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "name",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "build",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "execution",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "type",
+            "type": "array<string>",
+            "required": false,
+            "repeatable": true,
+            "enum_values": [
+              "acceptance",
+              "integrate",
+              "performance",
+              "safety",
+              "system"
+            ]
+          },
+          {
+            "api_name": "owner",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "status",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "blocked",
+              "doing",
+              "done",
+              "wait"
+            ]
+          },
+          {
+            "api_name": "begin",
+            "type": "string/date",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "end",
+            "type": "string/date",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "desc",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "test-task.list_product",
+      "method": "GET",
+      "path": "/api.php/v2/products/{productID}/testtasks",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "all",
+              "blocked",
+              "doing",
+              "done",
+              "wait"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "testtasks"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "test-task.list_project",
+      "method": "GET",
+      "path": "/api.php/v2/projects/{projectID}/testtasks",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "projectID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "all",
+              "blocked",
+              "doing",
+              "done",
+              "wait"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "testtasks"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "test-task.list_execution",
+      "method": "GET",
+      "path": "/api.php/v2/executions/{executionID}/testtasks",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "executionID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "all",
+              "blocked",
+              "doing",
+              "done",
+              "wait"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "testtasks"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "test-task.delete",
+      "method": "DELETE",
+      "path": "/api.php/v2/testtasks/{testtaskID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "testtaskID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "status",
+          "id"
+        ],
+        "status": "success"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "ticket.create",
+      "method": "POST",
+      "path": "/api.php/v2/tickets",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [],
+        "query": [],
+        "body": [
+          {
+            "api_name": "product",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "module",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "title",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "type",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "affair",
+              "code",
+              "data",
+              "security",
+              "stuck"
+            ]
+          },
+          {
+            "api_name": "desc",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "assignedTo",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "deadline",
+            "type": "string/date",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "openedBuild",
+            "type": "array<string>",
+            "required": false,
+            "repeatable": true
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "ticket.edit",
+      "method": "PUT",
+      "path": "/api.php/v2/tickets/{ticketID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "ticketID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "product",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "module",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "title",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "type",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "affair",
+              "code",
+              "data",
+              "security",
+              "stuck"
+            ]
+          },
+          {
+            "api_name": "desc",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "assignedTo",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "deadline",
+            "type": "date/string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "openedBuild",
+            "type": "array<string>",
+            "required": false,
+            "repeatable": true
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "ticket.list_product",
+      "method": "GET",
+      "path": "/api.php/v2/products/{productID}/tickets",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "productID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "all",
+              "assigntome",
+              "doing",
+              "done",
+              "finishedbyme",
+              "openedbyme",
+              "unclosed",
+              "wait"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "filters",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "groupJoin",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "tickets"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "ticket.view",
+      "method": "GET",
+      "path": "/api.php/v2/tickets/{ticketID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "ticketID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "ticket"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "ticket.close",
+      "method": "PUT",
+      "path": "/api.php/v2/tickets/{ticketID}/close",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "ticketID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "closedReason",
+            "type": "string",
+            "required": true,
+            "repeatable": false,
+            "enum_values": [
+              "commented",
+              "refuse",
+              "repeat"
+            ]
+          },
+          {
+            "api_name": "comment",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "ticket.activate",
+      "method": "PUT",
+      "path": "/api.php/v2/tickets/{ticketID}/activate",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "ticketID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "assignedTo",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "comment",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "ticket.delete",
+      "method": "DELETE",
+      "path": "/api.php/v2/tickets/{ticketID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "ticketID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "status",
+          "id"
+        ],
+        "status": "success"
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "token.login",
+      "method": "POST",
+      "path": "/api.php/v2/users/login",
+      "official_doc": "https://www.zentao.net/book/api/post-users-login-2142.html",
+      "source_status": "specific",
+      "parameters": {
+        "path": [],
+        "query": [],
+        "body": [
+          {
+            "api_name": "account",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "password",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "token"
+        ]
+      }
+    },
+    {
+      "endpoint_id": "user.create",
+      "method": "POST",
+      "path": "/api.php/v2/users",
+      "official_doc": "https://www.zentao.net/book/api/post-users-2143.html",
+      "source_status": "specific",
+      "parameters": {
+        "path": [],
+        "query": [],
+        "body": [
+          {
+            "api_name": "account",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "realname",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "password",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "visions",
+            "type": "array<string>",
+            "required": true,
+            "repeatable": true,
+            "enum_values": [
+              "lite",
+              "rnd"
+            ]
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      }
+    },
+    {
+      "endpoint_id": "user.edit",
+      "method": "PUT",
+      "path": "/api.php/v2/users/{userID}",
+      "official_doc": "https://www.zentao.net/book/api/put-users-userid-2144.html",
+      "source_status": "specific",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "userID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [
+          {
+            "api_name": "account",
+            "type": "string",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "realname",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "dept",
+            "type": "integer",
+            "required": false,
+            "repeatable": false,
+            "domain": "non_negative_relation_id",
+            "minimum": 0
+          },
+          {
+            "api_name": "join",
+            "type": "string/date",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "group",
+            "type": "array",
+            "required": false,
+            "repeatable": true
+          },
+          {
+            "api_name": "email",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "visions",
+            "type": "array<string>",
+            "required": false,
+            "repeatable": true,
+            "enum_values": [
+              "lite",
+              "rnd"
+            ]
+          },
+          {
+            "api_name": "mobile",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "weixin",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "password",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "id"
+        ]
+      }
+    },
+    {
+      "endpoint_id": "user.list",
+      "method": "GET",
+      "path": "/api.php/v2/users",
+      "official_doc": "https://www.zentao.net/book/api/get-users-2145.html",
+      "source_status": "specific",
+      "parameters": {
+        "path": [],
+        "query": [
+          {
+            "api_name": "browseType",
+            "type": "string",
+            "required": false,
+            "repeatable": false,
+            "enum_values": [
+              "inside",
+              "outside"
+            ]
+          },
+          {
+            "api_name": "orderBy",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "recPerPage",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "pageID",
+            "type": "number",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "filters",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "groupJoin",
+            "type": "string",
+            "required": false,
+            "repeatable": false
+          }
+        ],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "list",
+        "collection": "users"
+      }
+    },
+    {
+      "endpoint_id": "user.view",
+      "method": "GET",
+      "path": "/api.php/v2/users/{userID}",
+      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "source_status": "index_reference",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "userID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "user"
+        ]
+      },
+      "source_note": "Endpoint-specific deep link is not yet available in the upstream snapshot; retain the index URL as an explicit verification exception."
+    },
+    {
+      "endpoint_id": "user.delete",
+      "method": "DELETE",
+      "path": "/api.php/v2/users/{userID}",
+      "official_doc": "https://www.zentao.net/book/api/delete-users-userid-2255.html",
+      "source_status": "specific",
+      "parameters": {
+        "path": [
+          {
+            "api_name": "userID",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ],
+        "query": [],
+        "body": [],
+        "form": []
+      },
+      "response_contract": {
+        "kind": "object",
+        "required_fields": [
+          "status",
+          "id"
+        ],
+        "status": "success"
+      }
+    }
+  ]
+}
+

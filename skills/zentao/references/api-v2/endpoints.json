@@ -327,7 +327,7 @@
       "scope": "product",
       "method": "GET",
       "path": "/api.php/v2/products/{productID}/bugs",
-      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "official_doc": "https://www.zentao.net/book/api/get-products-productid-bugs-2194.html",
       "risk_class": "R0",
       "internal_adapter": "bugs.BugsAPI.list_product",
       "service": "bugs.BugsService.list_product",
@@ -364,16 +364,13 @@
             "type": "string",
             "required": false,
             "repeatable": false,
-            "enum_map": {
-              "all": "all",
-              "unconfirmed": "unconfirmed",
-              "unclosed": "unclosed",
-              "unresolved": "unresolved",
-              "to-closed": "toclosed",
-              "long-life-bugs": "longlifebugs",
-              "postponed-by-me": "postponedbyme",
-              "resolved-by-me": "resolvedbyme"
-            }
+              "enum_map": {
+                "all": "all",
+                "unclosed": "unclosed",
+                "assigned-to-me": "assignedtome",
+                "opened-by-me": "openedbyme",
+                "assigned-by-me": "assignedbyme"
+              }
           },
           {
             "api_name": "module",
@@ -437,7 +434,7 @@
       "scope": "project",
       "method": "GET",
       "path": "/api.php/v2/projects/{projectID}/bugs",
-      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "official_doc": "https://www.zentao.net/book/api/get-projects-projectid-bugs-2195.html",
       "risk_class": "R0",
       "internal_adapter": "bugs.BugsAPI.list_project",
       "service": "bugs.BugsService.list_project",
@@ -474,15 +471,10 @@
             "type": "string",
             "required": false,
             "repeatable": false,
-            "enum_map": {
-              "all": "all",
-              "unconfirmed": "unconfirmed",
-              "unclosed": "unclosed",
-              "unresolved": "unresolved",
-              "to-closed": "toclosed",
-              "long-life-bugs": "longlifebugs",
-              "postponed-by-me": "postponedbyme"
-            }
+              "enum_map": {
+                "all": "all",
+                "unresolved": "unresolved"
+              }
           },
           {
             "api_name": "param",
@@ -546,7 +538,7 @@
       "scope": "execution",
       "method": "GET",
       "path": "/api.php/v2/executions/{executionID}/bugs",
-      "official_doc": "https://www.zentao.net/book/api/2309.html",
+      "official_doc": "https://www.zentao.net/book/api/get-executions-executionid-bugs-2196.html",
       "risk_class": "R0",
       "internal_adapter": "bugs.BugsAPI.list_execution",
       "service": "bugs.BugsService.list_execution",
@@ -575,15 +567,10 @@
             "type": "string",
             "required": false,
             "repeatable": false,
-            "enum_map": {
-              "all": "all",
-              "unconfirmed": "unconfirmed",
-              "unclosed": "unclosed",
-              "unresolved": "unresolved",
-              "to-closed": "toclosed",
-              "long-life-bugs": "longlifebugs",
-              "postponed-by-me": "postponedbyme"
-            }
+              "enum_map": {
+                "all": "all",
+                "unresolved": "unresolved"
+              }
           },
           {
             "api_name": "param",
