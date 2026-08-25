@@ -20,6 +20,7 @@ class OfficialContractEvidenceTest(unittest.TestCase):
         self.assertGreater(specific_source_count(), 0)
         for item in OFFICIAL_ENDPOINTS.values():
             self.assertIn(item["source_status"], {"specific", "index_reference"})
+            self.assertEqual("2026-08-25", item.get("official_doc_last_checked"), item["endpoint_id"])
             if item["source_status"] == "index_reference":
                 self.assertTrue(item.get("source_note"), item["endpoint_id"])
 

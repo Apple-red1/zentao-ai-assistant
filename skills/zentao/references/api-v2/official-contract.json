@@ -11,6 +11,7 @@
       "path": "/api.php/v2/bugs",
       "official_doc": "https://www.zentao.net/book/api/post-bugs-2192.html",
       "source_status": "specific",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [],
         "query": [],
@@ -152,6 +153,7 @@
       "path": "/api.php/v2/bugs/{bugID}",
       "official_doc": "https://www.zentao.net/book/api/put-bugs-bugid-2193.html",
       "source_status": "specific",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -252,6 +254,7 @@
       "path": "/api.php/v2/products/{productID}/bugs",
       "official_doc": "https://www.zentao.net/book/api/get-products-productid-bugs-2194.html",
       "source_status": "specific",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -332,6 +335,7 @@
       "path": "/api.php/v2/projects/{projectID}/bugs",
       "official_doc": "https://www.zentao.net/book/api/get-projects-projectid-bugs-2195.html",
       "source_status": "specific",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -409,6 +413,7 @@
       "path": "/api.php/v2/executions/{executionID}/bugs",
       "official_doc": "https://www.zentao.net/book/api/get-executions-executionid-bugs-2196.html",
       "source_status": "specific",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -480,6 +485,7 @@
       "path": "/api.php/v2/bugs/{bugID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -507,6 +513,7 @@
       "path": "/api.php/v2/bugs/{bugID}/resolve",
       "official_doc": "https://www.zentao.net/book/api/put-bugs-bugid-resolve-2198.html",
       "source_status": "specific",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -584,6 +591,7 @@
       "path": "/api.php/v2/bugs/{bugID}/close",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -618,6 +626,7 @@
       "path": "/api.php/v2/bugs/{bugID}/activate",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -664,6 +673,7 @@
       "path": "/api.php/v2/bugs/{bugID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -693,6 +703,7 @@
       "path": "/api.php/v2/builds",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [],
         "query": [],
@@ -768,6 +779,7 @@
       "path": "/api.php/v2/builds/{buildID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -850,6 +862,7 @@
       "path": "/api.php/v2/projects/{projectID}/builds",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -917,6 +930,7 @@
       "path": "/api.php/v2/executions/{executionID}/builds",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -984,6 +998,7 @@
       "path": "/api.php/v2/builds/{buildID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -1013,6 +1028,7 @@
       "path": "/api.php/v2/epics",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [],
         "query": [],
@@ -1131,6 +1147,7 @@
       "path": "/api.php/v2/epics/{storyID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -1231,6 +1248,7 @@
       "path": "/api.php/v2/epics/{storyID}/change",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -1283,6 +1301,7 @@
       "path": "/api.php/v2/products/{productID}/epics",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -1353,6 +1372,7 @@
       "path": "/api.php/v2/epics/{storyID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -1380,6 +1400,7 @@
       "path": "/api.php/v2/epics/{storyID}/close",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -1429,6 +1450,7 @@
       "path": "/api.php/v2/epics/{storyID}/activate",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -1469,6 +1491,7 @@
       "path": "/api.php/v2/epics/{storyID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -1498,6 +1521,7 @@
       "path": "/api.php/v2/executions",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [],
         "query": [],
@@ -1650,6 +1674,7 @@
       "path": "/api.php/v2/executions/{executionID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -1756,6 +1781,7 @@
       "path": "/api.php/v2/executions",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [],
         "query": [
@@ -1817,6 +1843,7 @@
       "path": "/api.php/v2/projects/{projectID}/executions",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -1873,6 +1900,7 @@
       "path": "/api.php/v2/executions/{executionID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -1900,6 +1928,7 @@
       "path": "/api.php/v2/executions/{executionID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -1929,6 +1958,7 @@
       "path": "/api.php/v2/feedbacks",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [],
         "query": [],
@@ -2002,6 +2032,7 @@
       "path": "/api.php/v2/feedbacks/{feedbackID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -2082,6 +2113,7 @@
       "path": "/api.php/v2/products/{productID}/feedbacks",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -2153,6 +2185,7 @@
       "path": "/api.php/v2/feedbacks/{feedbackID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -2180,6 +2213,7 @@
       "path": "/api.php/v2/feedbacks/{feedbackID}/close",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -2231,6 +2265,7 @@
       "path": "/api.php/v2/feedbacks/{feedbackID}/activate",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -2271,6 +2306,7 @@
       "path": "/api.php/v2/feedbacks/{feedbackID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -2300,6 +2336,7 @@
       "path": "/api.php/v2/files",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [],
         "query": [],
@@ -2345,6 +2382,7 @@
       "path": "/api.php/v2/files/{fileID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -2379,6 +2417,7 @@
       "path": "/api.php/v2/files/{fileID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -2408,6 +2447,7 @@
       "path": "/api.php/v2/products",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [],
         "query": [],
@@ -2500,6 +2540,7 @@
       "path": "/api.php/v2/products/{productID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -2599,6 +2640,7 @@
       "path": "/api.php/v2/products",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [],
         "query": [
@@ -2647,6 +2689,7 @@
       "path": "/api.php/v2/programs/{programID}/products",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -2702,6 +2745,7 @@
       "path": "/api.php/v2/products/{productID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -2729,6 +2773,7 @@
       "path": "/api.php/v2/products/{productID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -2758,6 +2803,7 @@
       "path": "/api.php/v2/productplans",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [],
         "query": [],
@@ -2833,6 +2879,7 @@
       "path": "/api.php/v2/productplans/{planID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -2927,6 +2974,7 @@
       "path": "/api.php/v2/products/{productID}/productplans",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -2995,6 +3043,7 @@
       "path": "/api.php/v2/productplans/{planID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -3022,6 +3071,7 @@
       "path": "/api.php/v2/productplans/{planID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -3051,6 +3101,7 @@
       "path": "/api.php/v2/programs",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [],
         "query": [],
@@ -3102,6 +3153,7 @@
       "path": "/api.php/v2/programs/{programID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -3160,6 +3212,7 @@
       "path": "/api.php/v2/programs",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [],
         "query": [
@@ -3224,6 +3277,7 @@
       "path": "/api.php/v2/programs/{programID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -3251,6 +3305,7 @@
       "path": "/api.php/v2/programs/{programID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -3280,6 +3335,7 @@
       "path": "/api.php/v2/projects",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [],
         "query": [],
@@ -3356,6 +3412,7 @@
       "path": "/api.php/v2/projects/{projectID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -3439,6 +3496,7 @@
       "path": "/api.php/v2/projects",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [],
         "query": [
@@ -3500,6 +3558,7 @@
       "path": "/api.php/v2/programs/{programID}/projects",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -3556,6 +3615,7 @@
       "path": "/api.php/v2/projects/{projectID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -3585,6 +3645,7 @@
       "path": "/api.php/v2/releases",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [],
         "query": [],
@@ -3660,6 +3721,7 @@
       "path": "/api.php/v2/releases/{releaseID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -3748,6 +3810,7 @@
       "path": "/api.php/v2/products/{productID}/releases",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -3817,6 +3880,7 @@
       "path": "/api.php/v2/releases/{releaseID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -3846,6 +3910,7 @@
       "path": "/api.php/v2/requirements",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [],
         "query": [],
@@ -3964,6 +4029,7 @@
       "path": "/api.php/v2/requirements/{storyID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -4040,6 +4106,7 @@
       "path": "/api.php/v2/requirements/{storyID}/change",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -4092,6 +4159,7 @@
       "path": "/api.php/v2/products/{productID}/requirements",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -4162,6 +4230,7 @@
       "path": "/api.php/v2/requirements/{storyID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -4189,6 +4258,7 @@
       "path": "/api.php/v2/requirements/{storyID}/close",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -4238,6 +4308,7 @@
       "path": "/api.php/v2/requirements/{storyID}/activate",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -4278,6 +4349,7 @@
       "path": "/api.php/v2/requirements/{storyID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -4307,6 +4379,7 @@
       "path": "/api.php/v2/stories",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [],
         "query": [],
@@ -4443,6 +4516,7 @@
       "path": "/api.php/v2/stories/{storyID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -4529,6 +4603,7 @@
       "path": "/api.php/v2/stories/{storyID}/change",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -4581,6 +4656,7 @@
       "path": "/api.php/v2/products/{productID}/stories",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -4650,6 +4726,7 @@
       "path": "/api.php/v2/projects/{projectID}/stories",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -4719,6 +4796,7 @@
       "path": "/api.php/v2/executions/{executionID}/stories",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -4784,6 +4862,7 @@
       "path": "/api.php/v2/stories/{storyID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -4811,6 +4890,7 @@
       "path": "/api.php/v2/stories/{storyID}/close",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -4860,6 +4940,7 @@
       "path": "/api.php/v2/stories/{storyID}/activate",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -4900,6 +4981,7 @@
       "path": "/api.php/v2/stories/{storyID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -4929,6 +5011,7 @@
       "path": "/api.php/v2/systems",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [],
         "query": [],
@@ -4980,6 +5063,7 @@
       "path": "/api.php/v2/systems/{systemID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -5026,6 +5110,7 @@
       "path": "/api.php/v2/products/{productID}/systems",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -5070,6 +5155,7 @@
       "path": "/api.php/v2/tasks",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [],
         "query": [],
@@ -5163,6 +5249,7 @@
       "path": "/api.php/v2/tasks/{taskID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -5257,6 +5344,7 @@
       "path": "/api.php/v2/executions/{executionID}/tasks",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -5314,6 +5402,7 @@
       "path": "/api.php/v2/tasks/{taskID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -5341,6 +5430,7 @@
       "path": "/api.php/v2/tasks/{taskID}/start",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -5399,6 +5489,7 @@
       "path": "/api.php/v2/tasks/{taskID}/finish",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -5463,6 +5554,7 @@
       "path": "/api.php/v2/tasks/{taskID}/close",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -5497,6 +5589,7 @@
       "path": "/api.php/v2/tasks/{taskID}/activate",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -5543,6 +5636,7 @@
       "path": "/api.php/v2/tasks/{taskID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -5572,6 +5666,7 @@
       "path": "/api.php/v2/testcases",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [],
         "query": [],
@@ -5687,6 +5782,7 @@
       "path": "/api.php/v2/testcases/{caseID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -5785,6 +5881,7 @@
       "path": "/api.php/v2/products/{productID}/testcases",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -5852,6 +5949,7 @@
       "path": "/api.php/v2/projects/{projectID}/testcases",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -5919,6 +6017,7 @@
       "path": "/api.php/v2/executions/{executionID}/testcases",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -5986,6 +6085,7 @@
       "path": "/api.php/v2/testcases/{caseID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -6013,6 +6113,7 @@
       "path": "/api.php/v2/testcases/{caseID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -6042,6 +6143,7 @@
       "path": "/api.php/v2/testtasks",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [],
         "query": [],
@@ -6142,6 +6244,7 @@
       "path": "/api.php/v2/testtasks/{testtaskID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -6237,6 +6340,7 @@
       "path": "/api.php/v2/products/{productID}/testtasks",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -6294,6 +6398,7 @@
       "path": "/api.php/v2/projects/{projectID}/testtasks",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -6351,6 +6456,7 @@
       "path": "/api.php/v2/executions/{executionID}/testtasks",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -6408,6 +6514,7 @@
       "path": "/api.php/v2/testtasks/{testtaskID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -6437,6 +6544,7 @@
       "path": "/api.php/v2/tickets",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [],
         "query": [],
@@ -6513,6 +6621,7 @@
       "path": "/api.php/v2/tickets/{ticketID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -6596,6 +6705,7 @@
       "path": "/api.php/v2/products/{productID}/tickets",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -6668,6 +6778,7 @@
       "path": "/api.php/v2/tickets/{ticketID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -6695,6 +6806,7 @@
       "path": "/api.php/v2/tickets/{ticketID}/close",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -6740,6 +6852,7 @@
       "path": "/api.php/v2/tickets/{ticketID}/activate",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -6780,6 +6893,7 @@
       "path": "/api.php/v2/tickets/{ticketID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -6809,6 +6923,7 @@
       "path": "/api.php/v2/users/login",
       "official_doc": "https://www.zentao.net/book/api/post-users-login-2142.html",
       "source_status": "specific",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [],
         "query": [],
@@ -6841,6 +6956,7 @@
       "path": "/api.php/v2/users",
       "official_doc": "https://www.zentao.net/book/api/post-users-2143.html",
       "source_status": "specific",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [],
         "query": [],
@@ -6889,6 +7005,7 @@
       "path": "/api.php/v2/users/{userID}",
       "official_doc": "https://www.zentao.net/book/api/put-users-userid-2144.html",
       "source_status": "specific",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -6982,6 +7099,7 @@
       "path": "/api.php/v2/users",
       "official_doc": "https://www.zentao.net/book/api/get-users-2145.html",
       "source_status": "specific",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [],
         "query": [
@@ -7040,6 +7158,7 @@
       "path": "/api.php/v2/users/{userID}",
       "official_doc": "https://www.zentao.net/book/api/2309.html",
       "source_status": "index_reference",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -7067,6 +7186,7 @@
       "path": "/api.php/v2/users/{userID}",
       "official_doc": "https://www.zentao.net/book/api/delete-users-userid-2255.html",
       "source_status": "specific",
+      "official_doc_last_checked": "2026-08-25",
       "parameters": {
         "path": [
           {
@@ -7091,4 +7211,3 @@
     }
   ]
 }
-

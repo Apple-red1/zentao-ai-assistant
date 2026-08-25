@@ -40,6 +40,9 @@ def _catalog_projection(item: dict[str, Any]) -> dict[str, Any]:
         "method": item["method"],
         "path": item["path"],
         "official_doc": item["official_doc"],
+        "official_doc_last_checked": item["official_doc_last_checked"],
+        "source_status": item["source_status"],
+        **({"source_note": item["source_note"]} if item.get("source_note") else {}),
         "parameters": {
             location: [_parameter_projection(param) for param in item["parameters"][location]]
             for location in ("path", "query", "body", "form")
@@ -58,6 +61,9 @@ def assert_catalog_matches_official(item: dict[str, Any]) -> None:
         "method": expected["method"],
         "path": expected["path"],
         "official_doc": expected["official_doc"],
+        "official_doc_last_checked": expected["official_doc_last_checked"],
+        "source_status": expected["source_status"],
+        **({"source_note": expected["source_note"]} if expected.get("source_note") else {}),
         "parameters": expected["parameters"],
     }
     if actual != expected_projection:
