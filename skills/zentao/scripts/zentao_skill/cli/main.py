@@ -6,7 +6,7 @@ import os
 import sys
 from pathlib import Path
 
-from ..internal.config import project_root
+from ..internal.config import encode_env_value, project_root
 from ..internal.errors import ConfigError, UsageError, ZentaoError
 from ..services.container import Services
 from .common import Parser, add_json_flag
@@ -143,10 +143,7 @@ def _run_setup(_: object, args: argparse.Namespace) -> object:
     if not base_url or not account or not password:
         raise UsageError("base URL、account、password 都不能为空")
     env_path = project_root() / ".env"
-    def quote(value: str) -> str:
-        escaped = value.replace(chr(92), chr(92) + chr(92)).replace(chr(34), chr(92) + chr(34))
-        return chr(34) + escaped + chr(34)
-    env_path.write_text("ZENTAO_BASE_URL=" + quote(base_url.rstrip("/")) + "\n" + "ZENTAO_ACCOUNT=" + quote(account) + "\n" + "ZENTAO_PASSWORD=" + quote(password) + "\n", encoding="utf-8")
+    env_path.write_text("ZENTAO_BASE_URL=" + encode_env_value(base_url.rstrip("/")) + "\n" + "ZENTAO_ACCOUNT=" + encode_env_value(account) + "\n" + "ZENTAO_PASSWORD=" + encode_env_value(password) + "\n", encoding="utf-8")
     try:
         os.chmod(env_path, 0o600)
     except OSError:
