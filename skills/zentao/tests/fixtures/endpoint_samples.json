@@ -1,0 +1,3146 @@
+{
+  "bug.create": {
+    "adapter_kwargs": {
+      "product": 1,
+      "title": "sample-value",
+      "affected_build": [
+        "trunk"
+      ],
+      "branch": 1,
+      "module": 1,
+      "project": 1,
+      "execution": 1,
+      "story": 1,
+      "task": 1,
+      "severity": 1,
+      "priority": 1,
+      "type": "automation",
+      "os": "sample",
+      "browser": "sample",
+      "steps": "sample text",
+      "assignee": "admin",
+      "deadline": "2026-08-31",
+      "keywords": "sample"
+    },
+    "cli_argv": [
+      "bug",
+      "create",
+      "--product",
+      "1",
+      "--title",
+      "sample-value",
+      "--affected-build",
+      "trunk",
+      "--branch",
+      "1",
+      "--module",
+      "1",
+      "--project",
+      "1",
+      "--execution",
+      "1",
+      "--story",
+      "1",
+      "--task",
+      "1",
+      "--severity",
+      "1",
+      "--priority",
+      "1",
+      "--type",
+      "automation",
+      "--os",
+      "sample",
+      "--browser",
+      "sample",
+      "--steps",
+      "sample text",
+      "--assignee",
+      "admin",
+      "--deadline",
+      "2026-08-31",
+      "--keywords",
+      "sample",
+      "--json"
+    ]
+  },
+  "bug.edit": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "title": "sample-value",
+      "severity": 1,
+      "priority": 1,
+      "type": "automation",
+      "affected_build": [
+        "trunk"
+      ],
+      "steps": "sample text",
+      "project": 1,
+      "execution": 1,
+      "story": 1,
+      "assignee": "admin"
+    },
+    "cli_argv": [
+      "bug",
+      "edit",
+      "1",
+      "--title",
+      "sample-value",
+      "--severity",
+      "1",
+      "--priority",
+      "1",
+      "--type",
+      "automation",
+      "--affected-build",
+      "trunk",
+      "--steps",
+      "sample text",
+      "--project",
+      "1",
+      "--execution",
+      "1",
+      "--story",
+      "1",
+      "--assignee",
+      "admin",
+      "--json"
+    ]
+  },
+  "bug.list_product": {
+    "adapter_kwargs": {
+      "product": 1,
+      "branch": 1,
+      "browse": "all",
+      "module": 1,
+      "sort": "id",
+      "order": "desc",
+      "page": 1,
+      "per_page": 1,
+      "filters": "sample",
+      "group_join": "sample"
+    },
+    "cli_argv": [
+      "bug",
+      "list",
+      "--product",
+      "1",
+      "--branch",
+      "1",
+      "--browse",
+      "all",
+      "--module",
+      "1",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--page",
+      "1",
+      "--per-page",
+      "1",
+      "--filters",
+      "sample",
+      "--group-join",
+      "sample",
+      "--json"
+    ]
+  },
+  "bug.list_project": {
+    "adapter_kwargs": {
+      "project": 1,
+      "execution_filter": 1,
+      "browse": "all",
+      "param": 1,
+      "sort": "id",
+      "order": "desc",
+      "page": 1,
+      "per_page": 1,
+      "filters": "sample",
+      "group_join": "sample"
+    },
+    "cli_argv": [
+      "bug",
+      "list",
+      "--project",
+      "1",
+      "--execution-filter",
+      "1",
+      "--browse",
+      "all",
+      "--param",
+      "1",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--page",
+      "1",
+      "--per-page",
+      "1",
+      "--filters",
+      "sample",
+      "--group-join",
+      "sample",
+      "--json"
+    ]
+  },
+  "bug.list_execution": {
+    "adapter_kwargs": {
+      "execution": 1,
+      "browse": "all",
+      "param": 1,
+      "sort": "id",
+      "order": "desc",
+      "page": 1,
+      "per_page": 1,
+      "filters": "sample",
+      "group_join": "sample"
+    },
+    "cli_argv": [
+      "bug",
+      "list",
+      "--execution",
+      "1",
+      "--browse",
+      "all",
+      "--param",
+      "1",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--page",
+      "1",
+      "--per-page",
+      "1",
+      "--filters",
+      "sample",
+      "--group-join",
+      "sample",
+      "--json"
+    ]
+  },
+  "bug.view": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "bug",
+      "view",
+      "1",
+      "--json"
+    ]
+  },
+  "bug.resolve": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "resolution": "fixed",
+      "resolved_date": "sample",
+      "resolved_build": 1,
+      "duplicate_bug": null,
+      "assignee": "admin",
+      "comment": "sample text"
+    },
+    "cli_argv": [
+      "bug",
+      "resolve",
+      "1",
+      "--resolution",
+      "fixed",
+      "--resolved-date",
+      "sample",
+      "--resolved-build",
+      "1",
+      "--assignee",
+      "admin",
+      "--comment",
+      "sample text",
+      "--json"
+    ]
+  },
+  "bug.close": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "comment": "sample text"
+    },
+    "cli_argv": [
+      "bug",
+      "close",
+      "1",
+      "--comment",
+      "sample text",
+      "--json"
+    ]
+  },
+  "bug.activate": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "affected_build": [
+        "trunk"
+      ],
+      "assignee": "admin",
+      "comment": "sample text"
+    },
+    "cli_argv": [
+      "bug",
+      "activate",
+      "1",
+      "--affected-build",
+      "trunk",
+      "--assignee",
+      "admin",
+      "--comment",
+      "sample text",
+      "--json"
+    ]
+  },
+  "bug.delete": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "bug",
+      "delete",
+      "1",
+      "--yes",
+      "--json"
+    ]
+  },
+  "build.create": {
+    "adapter_kwargs": {
+      "execution": 1,
+      "product": 1,
+      "name": "sample-value",
+      "system": 1,
+      "builder": "admin",
+      "date": "2026-08-31",
+      "scm_path": "sample",
+      "file_path": "sample",
+      "desc": "sample text"
+    },
+    "cli_argv": [
+      "build",
+      "create",
+      "--execution",
+      "1",
+      "--product",
+      "1",
+      "--name",
+      "sample-value",
+      "--system",
+      "1",
+      "--builder",
+      "admin",
+      "--date",
+      "2026-08-31",
+      "--scm-path",
+      "sample",
+      "--file-path",
+      "sample",
+      "--desc",
+      "sample text",
+      "--json"
+    ]
+  },
+  "build.edit": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "execution": 1,
+      "product": 1,
+      "name": "sample-value",
+      "system": 1,
+      "builder": "admin",
+      "date": "2026-08-31",
+      "scm_path": "sample",
+      "file_path": "sample",
+      "desc": "sample text"
+    },
+    "cli_argv": [
+      "build",
+      "edit",
+      "1",
+      "--execution",
+      "1",
+      "--product",
+      "1",
+      "--name",
+      "sample-value",
+      "--system",
+      "1",
+      "--builder",
+      "admin",
+      "--date",
+      "2026-08-31",
+      "--scm-path",
+      "sample",
+      "--file-path",
+      "sample",
+      "--desc",
+      "sample text",
+      "--json"
+    ]
+  },
+  "build.list_project": {
+    "adapter_kwargs": {
+      "project": 1,
+      "browse": "all",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1,
+      "filters": "sample",
+      "group_join": "sample"
+    },
+    "cli_argv": [
+      "build",
+      "list",
+      "--project",
+      "1",
+      "--browse",
+      "all",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--filters",
+      "sample",
+      "--group-join",
+      "sample",
+      "--json"
+    ]
+  },
+  "build.list_execution": {
+    "adapter_kwargs": {
+      "execution": 1,
+      "browse": "all",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1,
+      "filters": "sample",
+      "group_join": "sample"
+    },
+    "cli_argv": [
+      "build",
+      "list",
+      "--execution",
+      "1",
+      "--browse",
+      "all",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--filters",
+      "sample",
+      "--group-join",
+      "sample",
+      "--json"
+    ]
+  },
+  "build.delete": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "build",
+      "delete",
+      "1",
+      "--yes",
+      "--json"
+    ]
+  },
+  "epic.create": {
+    "adapter_kwargs": {
+      "product": 1,
+      "title": "sample-value",
+      "priority": 1,
+      "module": 1,
+      "parent": 1,
+      "estimate": 1.0,
+      "spec": "sample text",
+      "category": "feature",
+      "source": "bug",
+      "verify": "sample text",
+      "assignee": "admin",
+      "reviewer": [
+        "1"
+      ]
+    },
+    "cli_argv": [
+      "epic",
+      "create",
+      "--product",
+      "1",
+      "--title",
+      "sample-value",
+      "--priority",
+      "1",
+      "--module",
+      "1",
+      "--parent",
+      "1",
+      "--estimate",
+      "1.0",
+      "--spec",
+      "sample text",
+      "--category",
+      "feature",
+      "--source",
+      "bug",
+      "--verify",
+      "sample text",
+      "--assignee",
+      "admin",
+      "--reviewer",
+      "1",
+      "--json"
+    ]
+  },
+  "epic.edit": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "title": "sample-value",
+      "priority": 1,
+      "module": 1,
+      "parent": 1,
+      "estimate": 1.0,
+      "category": 1,
+      "source": "sample",
+      "assignee": "admin"
+    },
+    "cli_argv": [
+      "epic",
+      "edit",
+      "1",
+      "--title",
+      "sample-value",
+      "--priority",
+      "1",
+      "--module",
+      "1",
+      "--parent",
+      "1",
+      "--estimate",
+      "1.0",
+      "--category",
+      "1",
+      "--source",
+      "sample",
+      "--assignee",
+      "admin",
+      "--json"
+    ]
+  },
+  "epic.change": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "title": "sample-value",
+      "reviewer": [
+        "1"
+      ],
+      "spec": "sample text",
+      "verify": "sample text"
+    },
+    "cli_argv": [
+      "epic",
+      "change",
+      "1",
+      "--title",
+      "sample-value",
+      "--reviewer",
+      "1",
+      "--spec",
+      "sample text",
+      "--verify",
+      "sample text",
+      "--json"
+    ]
+  },
+  "epic.list_product": {
+    "adapter_kwargs": {
+      "product": 1,
+      "browse": "all-story",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1,
+      "filters": "sample",
+      "group_join": "sample"
+    },
+    "cli_argv": [
+      "epic",
+      "list",
+      "--product",
+      "1",
+      "--browse",
+      "all-story",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--filters",
+      "sample",
+      "--group-join",
+      "sample",
+      "--json"
+    ]
+  },
+  "epic.view": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "epic",
+      "view",
+      "1",
+      "--json"
+    ]
+  },
+  "epic.close": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "closed_reason": "done",
+      "comment": "sample text"
+    },
+    "cli_argv": [
+      "epic",
+      "close",
+      "1",
+      "--closed-reason",
+      "done",
+      "--comment",
+      "sample text",
+      "--json"
+    ]
+  },
+  "epic.activate": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "assignee": "admin",
+      "comment": "sample text"
+    },
+    "cli_argv": [
+      "epic",
+      "activate",
+      "1",
+      "--assignee",
+      "admin",
+      "--comment",
+      "sample text",
+      "--json"
+    ]
+  },
+  "epic.delete": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "epic",
+      "delete",
+      "1",
+      "--yes",
+      "--json"
+    ]
+  },
+  "execution.create": {
+    "adapter_kwargs": {
+      "project": 1,
+      "name": "sample-value",
+      "type": "kanban",
+      "parent": 1,
+      "attribute": "concept",
+      "lifetime": "long",
+      "begin": "2026-08-01",
+      "end": "2026-08-31",
+      "days": 1,
+      "product": [
+        "1"
+      ],
+      "plan": [
+        {
+          "1": [
+            1
+          ]
+        }
+      ],
+      "po": "admin",
+      "qd": "admin",
+      "pm": "admin",
+      "rd": "admin",
+      "acl": "open",
+      "milestone": 1
+    },
+    "cli_argv": [
+      "execution",
+      "create",
+      "--project",
+      "1",
+      "--name",
+      "sample-value",
+      "--type",
+      "kanban",
+      "--parent",
+      "1",
+      "--attribute",
+      "concept",
+      "--lifetime",
+      "long",
+      "--begin",
+      "2026-08-01",
+      "--end",
+      "2026-08-31",
+      "--days",
+      "1",
+      "--product",
+      "1",
+      "--plan",
+      "{\"1\":[1]}",
+      "--po",
+      "admin",
+      "--qd",
+      "admin",
+      "--pm",
+      "admin",
+      "--rd",
+      "admin",
+      "--acl",
+      "open",
+      "--milestone",
+      "1",
+      "--json"
+    ]
+  },
+  "execution.edit": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "name": "sample-value",
+      "begin": "2026-08-01",
+      "end": "2026-08-31",
+      "project": 1,
+      "lifetime": "sample",
+      "days": 1,
+      "product": [
+        "1"
+      ],
+      "plan": [
+        {
+          "1": [
+            1
+          ]
+        }
+      ],
+      "po": "admin",
+      "qd": "admin",
+      "pm": "admin",
+      "rd": "admin",
+      "acl": "sample"
+    },
+    "cli_argv": [
+      "execution",
+      "edit",
+      "1",
+      "--name",
+      "sample-value",
+      "--begin",
+      "2026-08-01",
+      "--end",
+      "2026-08-31",
+      "--project",
+      "1",
+      "--lifetime",
+      "sample",
+      "--days",
+      "1",
+      "--product",
+      "1",
+      "--plan",
+      "{\"1\":[1]}",
+      "--po",
+      "admin",
+      "--qd",
+      "admin",
+      "--pm",
+      "admin",
+      "--rd",
+      "admin",
+      "--acl",
+      "sample",
+      "--json"
+    ]
+  },
+  "execution.list": {
+    "adapter_kwargs": {
+      "browse": "all",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1,
+      "filters": "sample",
+      "group_join": "sample"
+    },
+    "cli_argv": [
+      "execution",
+      "list",
+      "--browse",
+      "all",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--filters",
+      "sample",
+      "--group-join",
+      "sample",
+      "--json"
+    ]
+  },
+  "execution.list_project": {
+    "adapter_kwargs": {
+      "project": 1,
+      "browse": "all",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1
+    },
+    "cli_argv": [
+      "execution",
+      "list",
+      "--project",
+      "1",
+      "--browse",
+      "all",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--json"
+    ]
+  },
+  "execution.view": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "execution",
+      "view",
+      "1",
+      "--json"
+    ]
+  },
+  "execution.delete": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "execution",
+      "delete",
+      "1",
+      "--yes",
+      "--json"
+    ]
+  },
+  "feedback.create": {
+    "adapter_kwargs": {
+      "product": 1,
+      "title": "sample-value",
+      "module": 1,
+      "type": "bug",
+      "desc": "sample text",
+      "feedback_by": "admin",
+      "source": "sample"
+    },
+    "cli_argv": [
+      "feedback",
+      "create",
+      "--product",
+      "1",
+      "--title",
+      "sample-value",
+      "--module",
+      "1",
+      "--type",
+      "bug",
+      "--desc",
+      "sample text",
+      "--feedback-by",
+      "admin",
+      "--source",
+      "sample",
+      "--json"
+    ]
+  },
+  "feedback.edit": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "product": 1,
+      "title": "sample-value",
+      "module": 1,
+      "type": "bug",
+      "desc": "sample text",
+      "feedback_by": "admin",
+      "source": "sample"
+    },
+    "cli_argv": [
+      "feedback",
+      "edit",
+      "1",
+      "--product",
+      "1",
+      "--title",
+      "sample-value",
+      "--module",
+      "1",
+      "--type",
+      "bug",
+      "--desc",
+      "sample text",
+      "--feedback-by",
+      "admin",
+      "--source",
+      "sample",
+      "--json"
+    ]
+  },
+  "feedback.list_product": {
+    "adapter_kwargs": {
+      "product": 1,
+      "browse": "all",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1,
+      "filters": "sample",
+      "group_join": "sample"
+    },
+    "cli_argv": [
+      "feedback",
+      "list",
+      "--product",
+      "1",
+      "--browse",
+      "all",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--filters",
+      "sample",
+      "--group-join",
+      "sample",
+      "--json"
+    ]
+  },
+  "feedback.view": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "feedback",
+      "view",
+      "1",
+      "--json"
+    ]
+  },
+  "feedback.close": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "closed_reason": "commented",
+      "comment": "sample text",
+      "confirm_close": "sample"
+    },
+    "cli_argv": [
+      "feedback",
+      "close",
+      "1",
+      "--closed-reason",
+      "commented",
+      "--comment",
+      "sample text",
+      "--confirm-close",
+      "sample",
+      "--json"
+    ]
+  },
+  "feedback.activate": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "assignee": "admin",
+      "comment": "sample text"
+    },
+    "cli_argv": [
+      "feedback",
+      "activate",
+      "1",
+      "--assignee",
+      "admin",
+      "--comment",
+      "sample text",
+      "--json"
+    ]
+  },
+  "feedback.delete": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "feedback",
+      "delete",
+      "1",
+      "--yes",
+      "--json"
+    ]
+  },
+  "file.upload": {
+    "adapter_kwargs": {
+      "file": "${FIXTURE_FILE}",
+      "object_type": "bug",
+      "object_id": 1
+    },
+    "cli_argv": [
+      "file",
+      "upload",
+      "--file",
+      "${FIXTURE_FILE}",
+      "--object-type",
+      "bug",
+      "--object-id",
+      "1",
+      "--json"
+    ]
+  },
+  "file.edit": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "file_name": "sample-value"
+    },
+    "cli_argv": [
+      "file",
+      "edit",
+      "1",
+      "--file-name",
+      "sample-value",
+      "--json"
+    ]
+  },
+  "file.delete": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "file",
+      "delete",
+      "1",
+      "--yes",
+      "--json"
+    ]
+  },
+  "product.create": {
+    "adapter_kwargs": {
+      "name": "sample-value",
+      "program": 1,
+      "line": 1,
+      "type": "normal",
+      "po": "admin",
+      "reviewer": [
+        "1"
+      ],
+      "desc": [
+        "1"
+      ],
+      "qd": "admin",
+      "rd": "admin",
+      "acl": "open"
+    },
+    "cli_argv": [
+      "product",
+      "create",
+      "--name",
+      "sample-value",
+      "--program",
+      "1",
+      "--line",
+      "1",
+      "--type",
+      "normal",
+      "--po",
+      "admin",
+      "--reviewer",
+      "1",
+      "--desc",
+      "1",
+      "--qd",
+      "admin",
+      "--rd",
+      "admin",
+      "--acl",
+      "open",
+      "--json"
+    ]
+  },
+  "product.edit": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "name": "sample-value",
+      "program": 1,
+      "line": 1,
+      "type": "normal",
+      "po": "admin",
+      "reviewer": [
+        "1"
+      ],
+      "desc": [
+        "1"
+      ],
+      "qd": "admin",
+      "rd": "admin",
+      "acl": "open"
+    },
+    "cli_argv": [
+      "product",
+      "edit",
+      "1",
+      "--name",
+      "sample-value",
+      "--program",
+      "1",
+      "--line",
+      "1",
+      "--type",
+      "normal",
+      "--po",
+      "admin",
+      "--reviewer",
+      "1",
+      "--desc",
+      "1",
+      "--qd",
+      "admin",
+      "--rd",
+      "admin",
+      "--acl",
+      "open",
+      "--json"
+    ]
+  },
+  "product.list": {
+    "adapter_kwargs": {
+      "browse": "all",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1
+    },
+    "cli_argv": [
+      "product",
+      "list",
+      "--browse",
+      "all",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--json"
+    ]
+  },
+  "product.list_program": {
+    "adapter_kwargs": {
+      "program": 1,
+      "browse": "all",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1
+    },
+    "cli_argv": [
+      "product",
+      "list",
+      "--program",
+      "1",
+      "--browse",
+      "all",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--json"
+    ]
+  },
+  "product.view": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "product",
+      "view",
+      "1",
+      "--json"
+    ]
+  },
+  "product.delete": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "product",
+      "delete",
+      "1",
+      "--yes",
+      "--json"
+    ]
+  },
+  "product-plan.create": {
+    "adapter_kwargs": {
+      "product": 1,
+      "title": "sample-value",
+      "parent": 1,
+      "begin": "2026-08-01",
+      "end": "2026-08-31",
+      "branch": 1,
+      "desc": "sample text"
+    },
+    "cli_argv": [
+      "product-plan",
+      "create",
+      "--product",
+      "1",
+      "--title",
+      "sample-value",
+      "--parent",
+      "1",
+      "--begin",
+      "2026-08-01",
+      "--end",
+      "2026-08-31",
+      "--branch",
+      "1",
+      "--desc",
+      "sample text",
+      "--json"
+    ]
+  },
+  "product-plan.edit": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "title": "sample-value",
+      "parent": 1,
+      "begin": "2026-08-01",
+      "end": "2026-08-31",
+      "branch": 1,
+      "desc": "sample text"
+    },
+    "cli_argv": [
+      "product-plan",
+      "edit",
+      "1",
+      "--title",
+      "sample-value",
+      "--parent",
+      "1",
+      "--begin",
+      "2026-08-01",
+      "--end",
+      "2026-08-31",
+      "--branch",
+      "1",
+      "--desc",
+      "sample text",
+      "--json"
+    ]
+  },
+  "product-plan.list_product": {
+    "adapter_kwargs": {
+      "product": 1,
+      "browse": "all",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1,
+      "filters": "sample",
+      "group_join": "sample"
+    },
+    "cli_argv": [
+      "product-plan",
+      "list",
+      "--product",
+      "1",
+      "--browse",
+      "all",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--filters",
+      "sample",
+      "--group-join",
+      "sample",
+      "--json"
+    ]
+  },
+  "product-plan.view": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "product-plan",
+      "view",
+      "1",
+      "--json"
+    ]
+  },
+  "product-plan.delete": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "product-plan",
+      "delete",
+      "1",
+      "--yes",
+      "--json"
+    ]
+  },
+  "program.create": {
+    "adapter_kwargs": {
+      "name": "sample-value",
+      "begin": "2026-08-01",
+      "end": "2026-08-31",
+      "pm": "admin",
+      "desc": "sample text"
+    },
+    "cli_argv": [
+      "program",
+      "create",
+      "--name",
+      "sample-value",
+      "--begin",
+      "2026-08-01",
+      "--end",
+      "2026-08-31",
+      "--pm",
+      "admin",
+      "--desc",
+      "sample text",
+      "--json"
+    ]
+  },
+  "program.edit": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "name": "sample-value",
+      "begin": "2026-08-01",
+      "end": "2026-08-31",
+      "pm": "admin",
+      "desc": "sample text"
+    },
+    "cli_argv": [
+      "program",
+      "edit",
+      "1",
+      "--name",
+      "sample-value",
+      "--begin",
+      "2026-08-01",
+      "--end",
+      "2026-08-31",
+      "--pm",
+      "admin",
+      "--desc",
+      "sample text",
+      "--json"
+    ]
+  },
+  "program.list": {
+    "adapter_kwargs": {
+      "browse": "all",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1,
+      "filters": "sample",
+      "group_join": "sample"
+    },
+    "cli_argv": [
+      "program",
+      "list",
+      "--browse",
+      "all",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--filters",
+      "sample",
+      "--group-join",
+      "sample",
+      "--json"
+    ]
+  },
+  "program.view": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "program",
+      "view",
+      "1",
+      "--json"
+    ]
+  },
+  "program.delete": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "program",
+      "delete",
+      "1",
+      "--yes",
+      "--json"
+    ]
+  },
+  "project.create": {
+    "adapter_kwargs": {
+      "name": "sample-value",
+      "model": "scrum",
+      "begin": "2026-08-01",
+      "end": "2026-08-31",
+      "product": [
+        "1"
+      ],
+      "parent": 1,
+      "workflow_group": 1,
+      "pm": "admin"
+    },
+    "cli_argv": [
+      "project",
+      "create",
+      "--name",
+      "sample-value",
+      "--model",
+      "scrum",
+      "--begin",
+      "2026-08-01",
+      "--end",
+      "2026-08-31",
+      "--product",
+      "1",
+      "--parent",
+      "1",
+      "--workflow-group",
+      "1",
+      "--pm",
+      "admin",
+      "--json"
+    ]
+  },
+  "project.edit": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "name": "sample-value",
+      "model": "scrum",
+      "begin": "2026-08-01",
+      "end": "2026-08-31",
+      "product": [
+        "1"
+      ],
+      "parent": 1,
+      "workflow_group": 1,
+      "pm": "admin"
+    },
+    "cli_argv": [
+      "project",
+      "edit",
+      "1",
+      "--name",
+      "sample-value",
+      "--model",
+      "scrum",
+      "--begin",
+      "2026-08-01",
+      "--end",
+      "2026-08-31",
+      "--product",
+      "1",
+      "--parent",
+      "1",
+      "--workflow-group",
+      "1",
+      "--pm",
+      "admin",
+      "--json"
+    ]
+  },
+  "project.list": {
+    "adapter_kwargs": {
+      "browse": "all",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1,
+      "filters": "sample",
+      "group_join": "sample"
+    },
+    "cli_argv": [
+      "project",
+      "list",
+      "--browse",
+      "all",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--filters",
+      "sample",
+      "--group-join",
+      "sample",
+      "--json"
+    ]
+  },
+  "project.list_program": {
+    "adapter_kwargs": {
+      "program": 1,
+      "browse": "all",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1
+    },
+    "cli_argv": [
+      "project",
+      "list",
+      "--program",
+      "1",
+      "--browse",
+      "all",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--json"
+    ]
+  },
+  "project.delete": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "project",
+      "delete",
+      "1",
+      "--yes",
+      "--json"
+    ]
+  },
+  "release.create": {
+    "adapter_kwargs": {
+      "product": 1,
+      "system": 1,
+      "name": "sample-value",
+      "build": [
+        1
+      ],
+      "status": "normal",
+      "date": "2026-08-31",
+      "desc": "sample text"
+    },
+    "cli_argv": [
+      "release",
+      "create",
+      "--product",
+      "1",
+      "--system",
+      "1",
+      "--name",
+      "sample-value",
+      "--build",
+      "1",
+      "--status",
+      "normal",
+      "--date",
+      "2026-08-31",
+      "--desc",
+      "sample text",
+      "--json"
+    ]
+  },
+  "release.edit": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "system": 1,
+      "name": "sample-value",
+      "build": [
+        1
+      ],
+      "status": "normal",
+      "date": "2026-08-31",
+      "desc": "sample text"
+    },
+    "cli_argv": [
+      "release",
+      "edit",
+      "1",
+      "--system",
+      "1",
+      "--name",
+      "sample-value",
+      "--build",
+      "1",
+      "--status",
+      "normal",
+      "--date",
+      "2026-08-31",
+      "--desc",
+      "sample text",
+      "--json"
+    ]
+  },
+  "release.list_product": {
+    "adapter_kwargs": {
+      "product": 1,
+      "browse": "all",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1,
+      "filters": "sample",
+      "group_join": "sample"
+    },
+    "cli_argv": [
+      "release",
+      "list",
+      "--product",
+      "1",
+      "--browse",
+      "all",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--filters",
+      "sample",
+      "--group-join",
+      "sample",
+      "--json"
+    ]
+  },
+  "release.delete": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "release",
+      "delete",
+      "1",
+      "--yes",
+      "--json"
+    ]
+  },
+  "requirement.create": {
+    "adapter_kwargs": {
+      "product": 1,
+      "title": "sample-value",
+      "priority": 1,
+      "module": 1,
+      "parent": 1,
+      "estimate": 1.0,
+      "spec": "sample text",
+      "category": "feature",
+      "source": "bug",
+      "verify": "sample text",
+      "assignee": "admin",
+      "reviewer": [
+        "1"
+      ]
+    },
+    "cli_argv": [
+      "requirement",
+      "create",
+      "--product",
+      "1",
+      "--title",
+      "sample-value",
+      "--priority",
+      "1",
+      "--module",
+      "1",
+      "--parent",
+      "1",
+      "--estimate",
+      "1.0",
+      "--spec",
+      "sample text",
+      "--category",
+      "feature",
+      "--source",
+      "bug",
+      "--verify",
+      "sample text",
+      "--assignee",
+      "admin",
+      "--reviewer",
+      "1",
+      "--json"
+    ]
+  },
+  "requirement.edit": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "title": "sample-value",
+      "priority": 1,
+      "module": 1,
+      "parent": 1,
+      "estimate": 1.0,
+      "category": 1,
+      "source": "sample",
+      "assignee": "admin"
+    },
+    "cli_argv": [
+      "requirement",
+      "edit",
+      "1",
+      "--title",
+      "sample-value",
+      "--priority",
+      "1",
+      "--module",
+      "1",
+      "--parent",
+      "1",
+      "--estimate",
+      "1.0",
+      "--category",
+      "1",
+      "--source",
+      "sample",
+      "--assignee",
+      "admin",
+      "--json"
+    ]
+  },
+  "requirement.change": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "reviewer": [
+        "1"
+      ],
+      "title": "sample-value",
+      "spec": "sample text",
+      "verify": "sample text"
+    },
+    "cli_argv": [
+      "requirement",
+      "change",
+      "1",
+      "--reviewer",
+      "1",
+      "--title",
+      "sample-value",
+      "--spec",
+      "sample text",
+      "--verify",
+      "sample text",
+      "--json"
+    ]
+  },
+  "requirement.list_product": {
+    "adapter_kwargs": {
+      "product": 1,
+      "browse": "all-story",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1,
+      "filters": "sample",
+      "group_join": "sample"
+    },
+    "cli_argv": [
+      "requirement",
+      "list",
+      "--product",
+      "1",
+      "--browse",
+      "all-story",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--filters",
+      "sample",
+      "--group-join",
+      "sample",
+      "--json"
+    ]
+  },
+  "requirement.view": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "requirement",
+      "view",
+      "1",
+      "--json"
+    ]
+  },
+  "requirement.close": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "closed_reason": "done",
+      "comment": "sample text"
+    },
+    "cli_argv": [
+      "requirement",
+      "close",
+      "1",
+      "--closed-reason",
+      "done",
+      "--comment",
+      "sample text",
+      "--json"
+    ]
+  },
+  "requirement.activate": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "assignee": "admin",
+      "comment": "sample text"
+    },
+    "cli_argv": [
+      "requirement",
+      "activate",
+      "1",
+      "--assignee",
+      "admin",
+      "--comment",
+      "sample text",
+      "--json"
+    ]
+  },
+  "requirement.delete": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "requirement",
+      "delete",
+      "1",
+      "--yes",
+      "--json"
+    ]
+  },
+  "story.create": {
+    "adapter_kwargs": {
+      "product": 1,
+      "title": "sample-value",
+      "priority": 1,
+      "module": 1,
+      "parent": 1,
+      "estimate": 1.0,
+      "spec": "sample text",
+      "category": "feature",
+      "source": "bug",
+      "verify": "sample text",
+      "assignee": "admin",
+      "reviewer": [
+        "1"
+      ],
+      "project": 1,
+      "execution": 1
+    },
+    "cli_argv": [
+      "story",
+      "create",
+      "--product",
+      "1",
+      "--title",
+      "sample-value",
+      "--priority",
+      "1",
+      "--module",
+      "1",
+      "--parent",
+      "1",
+      "--estimate",
+      "1.0",
+      "--spec",
+      "sample text",
+      "--category",
+      "feature",
+      "--source",
+      "bug",
+      "--verify",
+      "sample text",
+      "--assignee",
+      "admin",
+      "--reviewer",
+      "1",
+      "--project",
+      "1",
+      "--execution",
+      "1",
+      "--json"
+    ]
+  },
+  "story.edit": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "title": "sample-value",
+      "priority": 1,
+      "module": 1,
+      "parent": 1,
+      "estimate": 1.0,
+      "category": "sample",
+      "source": "sample",
+      "assignee": "admin",
+      "plan": 1
+    },
+    "cli_argv": [
+      "story",
+      "edit",
+      "1",
+      "--title",
+      "sample-value",
+      "--priority",
+      "1",
+      "--module",
+      "1",
+      "--parent",
+      "1",
+      "--estimate",
+      "1.0",
+      "--category",
+      "sample",
+      "--source",
+      "sample",
+      "--assignee",
+      "admin",
+      "--plan",
+      "1",
+      "--json"
+    ]
+  },
+  "story.change": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "title": "sample-value",
+      "reviewer": [
+        "1"
+      ],
+      "spec": "sample text",
+      "verify": "sample text"
+    },
+    "cli_argv": [
+      "story",
+      "change",
+      "1",
+      "--title",
+      "sample-value",
+      "--reviewer",
+      "1",
+      "--spec",
+      "sample text",
+      "--verify",
+      "sample text",
+      "--json"
+    ]
+  },
+  "story.list_product": {
+    "adapter_kwargs": {
+      "product": 1,
+      "browse": "all-story",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1,
+      "filters": "sample",
+      "group_join": "sample"
+    },
+    "cli_argv": [
+      "story",
+      "list",
+      "--product",
+      "1",
+      "--browse",
+      "all-story",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--filters",
+      "sample",
+      "--group-join",
+      "sample",
+      "--json"
+    ]
+  },
+  "story.list_project": {
+    "adapter_kwargs": {
+      "project": 1,
+      "browse": "all-story",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1,
+      "filters": "sample",
+      "group_join": "sample"
+    },
+    "cli_argv": [
+      "story",
+      "list",
+      "--project",
+      "1",
+      "--browse",
+      "all-story",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--filters",
+      "sample",
+      "--group-join",
+      "sample",
+      "--json"
+    ]
+  },
+  "story.list_execution": {
+    "adapter_kwargs": {
+      "execution": 1,
+      "browse": "all-story",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1,
+      "filters": "sample",
+      "group_join": "sample"
+    },
+    "cli_argv": [
+      "story",
+      "list",
+      "--execution",
+      "1",
+      "--browse",
+      "all-story",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--filters",
+      "sample",
+      "--group-join",
+      "sample",
+      "--json"
+    ]
+  },
+  "story.view": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "story",
+      "view",
+      "1",
+      "--json"
+    ]
+  },
+  "story.close": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "closed_reason": "done",
+      "comment": "sample text"
+    },
+    "cli_argv": [
+      "story",
+      "close",
+      "1",
+      "--closed-reason",
+      "done",
+      "--comment",
+      "sample text",
+      "--json"
+    ]
+  },
+  "story.activate": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "assignee": "admin",
+      "comment": "sample text"
+    },
+    "cli_argv": [
+      "story",
+      "activate",
+      "1",
+      "--assignee",
+      "admin",
+      "--comment",
+      "sample text",
+      "--json"
+    ]
+  },
+  "story.delete": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "story",
+      "delete",
+      "1",
+      "--yes",
+      "--json"
+    ]
+  },
+  "system.create": {
+    "adapter_kwargs": {
+      "product": 1,
+      "integrated": 1,
+      "child": [
+        "1"
+      ],
+      "name": "sample-value",
+      "desc": "sample text"
+    },
+    "cli_argv": [
+      "system",
+      "create",
+      "--product",
+      "1",
+      "--integrated",
+      "1",
+      "--child",
+      "1",
+      "--name",
+      "sample-value",
+      "--desc",
+      "sample text",
+      "--json"
+    ]
+  },
+  "system.edit": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "name": "sample-value",
+      "child": [
+        "1"
+      ],
+      "desc": "sample text"
+    },
+    "cli_argv": [
+      "system",
+      "edit",
+      "1",
+      "--name",
+      "sample-value",
+      "--child",
+      "1",
+      "--desc",
+      "sample text",
+      "--json"
+    ]
+  },
+  "system.list_product": {
+    "adapter_kwargs": {
+      "product": 1,
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1
+    },
+    "cli_argv": [
+      "system",
+      "list",
+      "--product",
+      "1",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--json"
+    ]
+  },
+  "task.create": {
+    "adapter_kwargs": {
+      "name": "sample-value",
+      "execution": 1,
+      "type": "sample",
+      "assignee": "admin",
+      "estimated_start": "sample",
+      "deadline": "2026-08-31",
+      "priority": 1,
+      "estimate": 1.0,
+      "module": 1,
+      "story": 1,
+      "desc": "sample text",
+      "parent": 1
+    },
+    "cli_argv": [
+      "task",
+      "create",
+      "--name",
+      "sample-value",
+      "--execution",
+      "1",
+      "--type",
+      "sample",
+      "--assignee",
+      "admin",
+      "--estimated-start",
+      "sample",
+      "--deadline",
+      "2026-08-31",
+      "--priority",
+      "1",
+      "--estimate",
+      "1.0",
+      "--module",
+      "1",
+      "--story",
+      "1",
+      "--desc",
+      "sample text",
+      "--parent",
+      "1",
+      "--json"
+    ]
+  },
+  "task.edit": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "name": "sample-value",
+      "type": "sample",
+      "assignee": "admin",
+      "estimated_start": "sample",
+      "deadline": "2026-08-31",
+      "priority": 1,
+      "estimate": 1.0,
+      "module": 1,
+      "story": 1,
+      "desc": "sample text",
+      "parent": 1
+    },
+    "cli_argv": [
+      "task",
+      "edit",
+      "1",
+      "--name",
+      "sample-value",
+      "--type",
+      "sample",
+      "--assignee",
+      "admin",
+      "--estimated-start",
+      "sample",
+      "--deadline",
+      "2026-08-31",
+      "--priority",
+      "1",
+      "--estimate",
+      "1.0",
+      "--module",
+      "1",
+      "--story",
+      "1",
+      "--desc",
+      "sample text",
+      "--parent",
+      "1",
+      "--json"
+    ]
+  },
+  "task.list_execution": {
+    "adapter_kwargs": {
+      "execution": 1,
+      "browse": "all",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1
+    },
+    "cli_argv": [
+      "task",
+      "list",
+      "--execution",
+      "1",
+      "--browse",
+      "all",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--json"
+    ]
+  },
+  "task.view": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "task",
+      "view",
+      "1",
+      "--json"
+    ]
+  },
+  "task.start": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "assignee": "admin",
+      "real_started": "2026-08-25 09:00:00",
+      "consumed": 1.0,
+      "left": 1.0,
+      "comment": "sample text"
+    },
+    "cli_argv": [
+      "task",
+      "start",
+      "1",
+      "--assignee",
+      "admin",
+      "--real-started",
+      "2026-08-25 09:00:00",
+      "--consumed",
+      "1.0",
+      "--left",
+      "1.0",
+      "--comment",
+      "sample text",
+      "--json"
+    ]
+  },
+  "task.finish": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "current_consumed": 1.0,
+      "assignee": "admin",
+      "consumed": 1.0,
+      "real_started": "2026-08-25 09:00:00",
+      "finished_date": "2026-08-25 10:00:00",
+      "comment": "sample text"
+    },
+    "cli_argv": [
+      "task",
+      "finish",
+      "1",
+      "--current-consumed",
+      "1.0",
+      "--assignee",
+      "admin",
+      "--consumed",
+      "1.0",
+      "--real-started",
+      "2026-08-25 09:00:00",
+      "--finished-date",
+      "2026-08-25 10:00:00",
+      "--comment",
+      "sample text",
+      "--json"
+    ]
+  },
+  "task.close": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "comment": "sample text"
+    },
+    "cli_argv": [
+      "task",
+      "close",
+      "1",
+      "--comment",
+      "sample text",
+      "--json"
+    ]
+  },
+  "task.activate": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "left": 1.0,
+      "assignee": "admin",
+      "comment": "sample text"
+    },
+    "cli_argv": [
+      "task",
+      "activate",
+      "1",
+      "--left",
+      "1.0",
+      "--assignee",
+      "admin",
+      "--comment",
+      "sample text",
+      "--json"
+    ]
+  },
+  "task.delete": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "task",
+      "delete",
+      "1",
+      "--yes",
+      "--json"
+    ]
+  },
+  "test-case.create": {
+    "adapter_kwargs": {
+      "product": 1,
+      "title": "sample-value",
+      "module": 1,
+      "story": 1,
+      "priority": 1,
+      "type": "feature",
+      "precondition": "sample text",
+      "step": [
+        "1"
+      ],
+      "expect": [
+        "1"
+      ],
+      "step_type": [
+        "step"
+      ],
+      "project": 1,
+      "execution": 1
+    },
+    "cli_argv": [
+      "test-case",
+      "create",
+      "--product",
+      "1",
+      "--title",
+      "sample-value",
+      "--module",
+      "1",
+      "--story",
+      "1",
+      "--priority",
+      "1",
+      "--type",
+      "feature",
+      "--precondition",
+      "sample text",
+      "--step",
+      "1",
+      "--expect",
+      "1",
+      "--step-type",
+      "step",
+      "--project",
+      "1",
+      "--execution",
+      "1",
+      "--json"
+    ]
+  },
+  "test-case.edit": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "title": "sample-value",
+      "module": 1,
+      "story": 1,
+      "priority": 1,
+      "type": "feature",
+      "precondition": "sample text",
+      "step": [
+        "1"
+      ],
+      "expect": [
+        "1"
+      ],
+      "step_type": [
+        "step"
+      ]
+    },
+    "cli_argv": [
+      "test-case",
+      "edit",
+      "1",
+      "--title",
+      "sample-value",
+      "--module",
+      "1",
+      "--story",
+      "1",
+      "--priority",
+      "1",
+      "--type",
+      "feature",
+      "--precondition",
+      "sample text",
+      "--step",
+      "1",
+      "--expect",
+      "1",
+      "--step-type",
+      "step",
+      "--json"
+    ]
+  },
+  "test-case.list_product": {
+    "adapter_kwargs": {
+      "product": 1,
+      "browse": "all",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1,
+      "filters": "sample",
+      "group_join": "sample"
+    },
+    "cli_argv": [
+      "test-case",
+      "list",
+      "--product",
+      "1",
+      "--browse",
+      "all",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--filters",
+      "sample",
+      "--group-join",
+      "sample",
+      "--json"
+    ]
+  },
+  "test-case.list_project": {
+    "adapter_kwargs": {
+      "project": 1,
+      "browse": "all",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1,
+      "filters": "sample",
+      "group_join": "sample"
+    },
+    "cli_argv": [
+      "test-case",
+      "list",
+      "--project",
+      "1",
+      "--browse",
+      "all",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--filters",
+      "sample",
+      "--group-join",
+      "sample",
+      "--json"
+    ]
+  },
+  "test-case.list_execution": {
+    "adapter_kwargs": {
+      "execution": 1,
+      "browse": "all",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1,
+      "filters": "sample",
+      "group_join": "sample"
+    },
+    "cli_argv": [
+      "test-case",
+      "list",
+      "--execution",
+      "1",
+      "--browse",
+      "all",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--filters",
+      "sample",
+      "--group-join",
+      "sample",
+      "--json"
+    ]
+  },
+  "test-case.view": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "test-case",
+      "view",
+      "1",
+      "--json"
+    ]
+  },
+  "test-case.delete": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "test-case",
+      "delete",
+      "1",
+      "--yes",
+      "--json"
+    ]
+  },
+  "test-task.create": {
+    "adapter_kwargs": {
+      "product": 1,
+      "name": "sample-value",
+      "build": 1,
+      "execution": 1,
+      "type": [
+        "acceptance"
+      ],
+      "owner": "admin",
+      "status": "done",
+      "begin": "2026-08-01",
+      "end": "2026-08-31",
+      "desc": "sample text"
+    },
+    "cli_argv": [
+      "test-task",
+      "create",
+      "--product",
+      "1",
+      "--name",
+      "sample-value",
+      "--build",
+      "1",
+      "--execution",
+      "1",
+      "--type",
+      "acceptance",
+      "--owner",
+      "admin",
+      "--status",
+      "done",
+      "--begin",
+      "2026-08-01",
+      "--end",
+      "2026-08-31",
+      "--desc",
+      "sample text",
+      "--json"
+    ]
+  },
+  "test-task.edit": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "name": "sample-value",
+      "build": 1,
+      "execution": 1,
+      "type": [
+        "acceptance"
+      ],
+      "owner": "admin",
+      "status": "done",
+      "begin": "2026-08-01",
+      "end": "2026-08-31",
+      "desc": "sample text"
+    },
+    "cli_argv": [
+      "test-task",
+      "edit",
+      "1",
+      "--name",
+      "sample-value",
+      "--build",
+      "1",
+      "--execution",
+      "1",
+      "--type",
+      "acceptance",
+      "--owner",
+      "admin",
+      "--status",
+      "done",
+      "--begin",
+      "2026-08-01",
+      "--end",
+      "2026-08-31",
+      "--desc",
+      "sample text",
+      "--json"
+    ]
+  },
+  "test-task.list_product": {
+    "adapter_kwargs": {
+      "product": 1,
+      "browse": "all",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1
+    },
+    "cli_argv": [
+      "test-task",
+      "list",
+      "--product",
+      "1",
+      "--browse",
+      "all",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--json"
+    ]
+  },
+  "test-task.list_project": {
+    "adapter_kwargs": {
+      "project": 1,
+      "browse": "all",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1
+    },
+    "cli_argv": [
+      "test-task",
+      "list",
+      "--project",
+      "1",
+      "--browse",
+      "all",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--json"
+    ]
+  },
+  "test-task.list_execution": {
+    "adapter_kwargs": {
+      "execution": 1,
+      "browse": "all",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1
+    },
+    "cli_argv": [
+      "test-task",
+      "list",
+      "--execution",
+      "1",
+      "--browse",
+      "all",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--json"
+    ]
+  },
+  "test-task.delete": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "test-task",
+      "delete",
+      "1",
+      "--yes",
+      "--json"
+    ]
+  },
+  "ticket.create": {
+    "adapter_kwargs": {
+      "product": 1,
+      "module": 1,
+      "title": "sample-value",
+      "type": "affair",
+      "desc": "sample text",
+      "assignee": "admin",
+      "deadline": "2026-08-31",
+      "affected_build": [
+        "trunk"
+      ]
+    },
+    "cli_argv": [
+      "ticket",
+      "create",
+      "--product",
+      "1",
+      "--module",
+      "1",
+      "--title",
+      "sample-value",
+      "--type",
+      "affair",
+      "--desc",
+      "sample text",
+      "--assignee",
+      "admin",
+      "--deadline",
+      "2026-08-31",
+      "--affected-build",
+      "trunk",
+      "--json"
+    ]
+  },
+  "ticket.edit": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "product": 1,
+      "module": 1,
+      "title": "sample-value",
+      "type": "affair",
+      "desc": "sample text",
+      "assignee": "admin",
+      "deadline": "2026-08-31",
+      "affected_build": [
+        "trunk"
+      ]
+    },
+    "cli_argv": [
+      "ticket",
+      "edit",
+      "1",
+      "--product",
+      "1",
+      "--module",
+      "1",
+      "--title",
+      "sample-value",
+      "--type",
+      "affair",
+      "--desc",
+      "sample text",
+      "--assignee",
+      "admin",
+      "--deadline",
+      "2026-08-31",
+      "--affected-build",
+      "trunk",
+      "--json"
+    ]
+  },
+  "ticket.list_product": {
+    "adapter_kwargs": {
+      "product": 1,
+      "browse": "all",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1,
+      "filters": "sample",
+      "group_join": "sample"
+    },
+    "cli_argv": [
+      "ticket",
+      "list",
+      "--product",
+      "1",
+      "--browse",
+      "all",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--filters",
+      "sample",
+      "--group-join",
+      "sample",
+      "--json"
+    ]
+  },
+  "ticket.view": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "ticket",
+      "view",
+      "1",
+      "--json"
+    ]
+  },
+  "ticket.close": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "closed_reason": "commented",
+      "comment": "sample text"
+    },
+    "cli_argv": [
+      "ticket",
+      "close",
+      "1",
+      "--closed-reason",
+      "commented",
+      "--comment",
+      "sample text",
+      "--json"
+    ]
+  },
+  "ticket.activate": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "assignee": "admin",
+      "comment": "sample text"
+    },
+    "cli_argv": [
+      "ticket",
+      "activate",
+      "1",
+      "--assignee",
+      "admin",
+      "--comment",
+      "sample text",
+      "--json"
+    ]
+  },
+  "ticket.delete": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "ticket",
+      "delete",
+      "1",
+      "--yes",
+      "--json"
+    ]
+  },
+  "token.login": {
+    "adapter_kwargs": {
+      "account": "admin",
+      "password": "secret"
+    },
+    "cli_argv": [
+      "doctor",
+      "--json"
+    ]
+  },
+  "user.create": {
+    "adapter_kwargs": {
+      "account": "sample-user",
+      "realname": "Sample User",
+      "password": "sample-secret",
+      "vision": [
+        "rnd"
+      ]
+    },
+    "cli_argv": [
+      "user",
+      "create",
+      "--account",
+      "sample-user",
+      "--realname",
+      "Sample User",
+      "--password",
+      "sample-secret",
+      "--vision",
+      "rnd",
+      "--json"
+    ]
+  },
+  "user.edit": {
+    "adapter_kwargs": {
+      "item_id": 1,
+      "account": "admin",
+      "realname": "Sample User",
+      "dept": 1,
+      "join": "sample",
+      "group": [
+        "1"
+      ],
+      "email": "sample",
+      "vision": [
+        "rnd"
+      ],
+      "mobile": "sample",
+      "weixin": "sample",
+      "password": "sample-secret"
+    },
+    "cli_argv": [
+      "user",
+      "edit",
+      "1",
+      "--account",
+      "admin",
+      "--realname",
+      "Sample User",
+      "--dept",
+      "1",
+      "--join",
+      "sample",
+      "--group",
+      "1",
+      "--email",
+      "sample",
+      "--vision",
+      "rnd",
+      "--mobile",
+      "sample",
+      "--weixin",
+      "sample",
+      "--password",
+      "sample-secret",
+      "--json"
+    ]
+  },
+  "user.list": {
+    "adapter_kwargs": {
+      "browse": "inside",
+      "sort": "id",
+      "order": "desc",
+      "per_page": 1,
+      "page": 1,
+      "filters": "sample",
+      "group_join": "sample"
+    },
+    "cli_argv": [
+      "user",
+      "list",
+      "--browse",
+      "inside",
+      "--sort",
+      "id",
+      "--order",
+      "desc",
+      "--per-page",
+      "1",
+      "--page",
+      "1",
+      "--filters",
+      "sample",
+      "--group-join",
+      "sample",
+      "--json"
+    ]
+  },
+  "user.view": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "user",
+      "view",
+      "1",
+      "--json"
+    ]
+  },
+  "user.delete": {
+    "adapter_kwargs": {
+      "item_id": 1
+    },
+    "cli_argv": [
+      "user",
+      "delete",
+      "1",
+      "--yes",
+      "--json"
+    ]
+  }
+}

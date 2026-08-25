@@ -1,0 +1,306 @@
+{
+  "bug": {
+    "1": {
+      "id": 1,
+      "name": "seed-bug",
+      "title": "seed-bug",
+      "status": "active",
+      "product": 1,
+      "productID": 1,
+      "project": 1,
+      "projectID": 1,
+      "execution": 1,
+      "executionID": 1,
+      "program": 1,
+      "programID": 1
+    }
+  },
+  "build": {
+    "1": {
+      "id": 1,
+      "name": "seed-build",
+      "title": "seed-build",
+      "status": "active",
+      "product": 1,
+      "productID": 1,
+      "project": 1,
+      "projectID": 1,
+      "execution": 1,
+      "executionID": 1,
+      "program": 1,
+      "programID": 1
+    }
+  },
+  "epic": {
+    "1": {
+      "id": 1,
+      "name": "seed-epic",
+      "title": "seed-epic",
+      "status": "active",
+      "product": 1,
+      "productID": 1,
+      "project": 1,
+      "projectID": 1,
+      "execution": 1,
+      "executionID": 1,
+      "program": 1,
+      "programID": 1
+    }
+  },
+  "execution": {
+    "1": {
+      "id": 1,
+      "name": "seed-execution",
+      "title": "seed-execution",
+      "status": "active",
+      "product": 1,
+      "productID": 1,
+      "project": 1,
+      "projectID": 1,
+      "execution": 1,
+      "executionID": 1,
+      "program": 1,
+      "programID": 1
+    }
+  },
+  "feedback": {
+    "1": {
+      "id": 1,
+      "name": "seed-feedback",
+      "title": "seed-feedback",
+      "status": "active",
+      "product": 1,
+      "productID": 1,
+      "project": 1,
+      "projectID": 1,
+      "execution": 1,
+      "executionID": 1,
+      "program": 1,
+      "programID": 1
+    }
+  },
+  "file": {
+    "1": {
+      "id": 1,
+      "name": "seed-file",
+      "title": "seed-file",
+      "status": "active",
+      "product": 1,
+      "productID": 1,
+      "project": 1,
+      "projectID": 1,
+      "execution": 1,
+      "executionID": 1,
+      "program": 1,
+      "programID": 1
+    }
+  },
+  "product": {
+    "1": {
+      "id": 1,
+      "name": "seed-product",
+      "title": "seed-product",
+      "status": "active",
+      "product": 1,
+      "productID": 1,
+      "project": 1,
+      "projectID": 1,
+      "execution": 1,
+      "executionID": 1,
+      "program": 1,
+      "programID": 1
+    }
+  },
+  "product-plan": {
+    "1": {
+      "id": 1,
+      "name": "seed-product-plan",
+      "title": "seed-product-plan",
+      "status": "active",
+      "product": 1,
+      "productID": 1,
+      "project": 1,
+      "projectID": 1,
+      "execution": 1,
+      "executionID": 1,
+      "program": 1,
+      "programID": 1
+    }
+  },
+  "program": {
+    "1": {
+      "id": 1,
+      "name": "seed-program",
+      "title": "seed-program",
+      "status": "active",
+      "product": 1,
+      "productID": 1,
+      "project": 1,
+      "projectID": 1,
+      "execution": 1,
+      "executionID": 1,
+      "program": 1,
+      "programID": 1
+    }
+  },
+  "project": {
+    "1": {
+      "id": 1,
+      "name": "seed-project",
+      "title": "seed-project",
+      "status": "active",
+      "product": 1,
+      "productID": 1,
+      "project": 1,
+      "projectID": 1,
+      "execution": 1,
+      "executionID": 1,
+      "program": 1,
+      "programID": 1
+    }
+  },
+  "release": {
+    "1": {
+      "id": 1,
+      "name": "seed-release",
+      "title": "seed-release",
+      "status": "active",
+      "product": 1,
+      "productID": 1,
+      "project": 1,
+      "projectID": 1,
+      "execution": 1,
+      "executionID": 1,
+      "program": 1,
+      "programID": 1
+    }
+  },
+  "requirement": {
+    "1": {
+      "id": 1,
+      "name": "seed-requirement",
+      "title": "seed-requirement",
+      "status": "active",
+      "product": 1,
+      "productID": 1,
+      "project": 1,
+      "projectID": 1,
+      "execution": 1,
+      "executionID": 1,
+      "program": 1,
+      "programID": 1
+    }
+  },
+  "story": {
+    "1": {
+      "id": 1,
+      "name": "seed-story",
+      "title": "seed-story",
+      "status": "active",
+      "product": 1,
+      "productID": 1,
+      "project": 1,
+      "projectID": 1,
+      "execution": 1,
+      "executionID": 1,
+      "program": 1,
+      "programID": 1
+    }
+  },
+  "system": {
+    "1": {
+      "id": 1,
+      "name": "seed-system",
+      "title": "seed-system",
+      "status": "active",
+      "product": 1,
+      "productID": 1,
+      "project": 1,
+      "projectID": 1,
+      "execution": 1,
+      "executionID": 1,
+      "program": 1,
+      "programID": 1
+    }
+  },
+  "task": {
+    "1": {
+      "id": 1,
+      "name": "seed-task",
+      "title": "seed-task",
+      "status": "active",
+      "product": 1,
+      "productID": 1,
+      "project": 1,
+      "projectID": 1,
+      "execution": 1,
+      "executionID": 1,
+      "program": 1,
+      "programID": 1
+    }
+  },
+  "test-case": {
+    "1": {
+      "id": 1,
+      "name": "seed-test-case",
+      "title": "seed-test-case",
+      "status": "active",
+      "product": 1,
+      "productID": 1,
+      "project": 1,
+      "projectID": 1,
+      "execution": 1,
+      "executionID": 1,
+      "program": 1,
+      "programID": 1
+    }
+  },
+  "test-task": {
+    "1": {
+      "id": 1,
+      "name": "seed-test-task",
+      "title": "seed-test-task",
+      "status": "active",
+      "product": 1,
+      "productID": 1,
+      "project": 1,
+      "projectID": 1,
+      "execution": 1,
+      "executionID": 1,
+      "program": 1,
+      "programID": 1
+    }
+  },
+  "ticket": {
+    "1": {
+      "id": 1,
+      "name": "seed-ticket",
+      "title": "seed-ticket",
+      "status": "active",
+      "product": 1,
+      "productID": 1,
+      "project": 1,
+      "projectID": 1,
+      "execution": 1,
+      "executionID": 1,
+      "program": 1,
+      "programID": 1
+    }
+  },
+  "user": {
+    "1": {
+      "id": 1,
+      "name": "seed-user",
+      "title": "seed-user",
+      "status": "active",
+      "product": 1,
+      "productID": 1,
+      "project": 1,
+      "projectID": 1,
+      "execution": 1,
+      "executionID": 1,
+      "program": 1,
+      "programID": 1
+    }
+  }
+}

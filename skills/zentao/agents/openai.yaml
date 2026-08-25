@@ -1,0 +1,5 @@
+
+interface:
+  display_name: "禅道"
+  short_description: "通过 ZenTao API v2 全量资源能力安全读取和执行明确变更"
+  default_prompt: "读取对应资源 reference，使用 skills/zentao/scripts/zentao.py 的 --json 模式完成请求。"

@@ -1,28 +1,27 @@
-# 禅道 21.7.8 验收记录
+# ZenTao 21.7.8 兼容性状态
 
-日期：2026-07-27  
-目标版本：禅道开源版 21.7.8 / API v2
+官方 API v2 合同与目标实例兼容性是两个独立维度。本文件记录 2026-08-25 在全新 ZenTao 21.7.8 实例上的真实验收结果；凭证仍只从本地 `.env` 读取，不写入仓库。
 
-## 自动化与模拟合同
+## 已验证
 
-| 类别 | 状态 | 说明 |
-|---|---|---|
-| 配置与系统凭据库 | PASS | 明文秘密拒绝、文件权限、作用域隔离和脱敏已测试。 |
-| 401 自动重新登录 | PASS | 单次刷新、并发合并和单次重放已测试。 |
-| 个人/团队/外部人员/组合查询 | PASS | 分页、过滤、汇总、部分失败和人员解析已测试。 |
-| 备注/编辑/激活/指派 | PASS | 当前消息确认、端点、负载、前后快照和删除禁令已测试。 |
-| MCP stdio | PASS | initialize 与 10 个 tools/list 合同已通过。 |
-| 安装器 | PASS | POSIX 与 PowerShell 安装器均在 GitHub 跨平台 CI 中连续运行两次。 |
+- 本地 Fake 全量测试：44 tests passed；Catalog、Internal、CLI、Fake、Contract、CLI E2E 均为 120/120，真实 API 调用计数为 0。
+- 真实只读端点：44/44 通过，覆盖列表、详情、分页、排序、筛选和 token/doctor 流程。
+- 真实写入和状态流：项目集、产品、项目、执行、构建、应用、需求、用户需求、业务需求、任务、测试用例、测试单、Bug、用户的创建/编辑，以及需求/业务需求关闭激活、任务开始完成关闭激活、Bug 解决关闭激活均已成功。
+- 本轮创建的可确认对象已按依赖顺序清理；系统没有 `system.delete` 端点，产品删除后系统列表为空。
 
-## 真实实例
+## 已同步的 21.7.8 差异
 
-状态：**PENDING（需要仓库使用者在自己的禅道实例本地完成）**。
+`endpoints.json` 已将对应端点标为 `observed`，并同步 Fake 合同与 CLI 样例：
 
-本次开发环境没有用户的禅道 URL、账号和密码，因此没有访问真实业务实例，也没有生成包含业务数据的记录。请在本机执行：
+- `test-case.create`、`test-task.create`：服务端要求同时接收 `productID` 和兼容字段 `product`。
+- `user.create`：服务端要求 `visions`，CLI 默认发送 `rnd`。
+- `requirement.change`：服务端实际要求 `reviewer`；`user.edit`：服务端实际要求 `account`。
+- `requirement.edit`、`epic.edit`：真实实例接受分类字符串，CLI 同时兼容字符串和数字 ID。
 
-```bash
-zentao-ai setup
-zentao-ai doctor
-```
+## 当前实例限制
 
-随后在新 Codex 任务中按 [发布检查清单](../release-checklist.md) 验证查询与四种写操作。只记录类别与 PASS/FAIL；不要把真实 ID、姓名、站点地址、响应或凭据提交到 Git。
+- `release.create` 按官方字段发送仍返回“应用版本号不能为空”，且发布列表为空；没有生成可确认的发布 ID。
+- 产品计划、反馈、工单创建接口返回 `status: success` 但没有 ID；随后列表/详情没有对应对象，因此未继续编辑或删除未知 ID。
+- 文件上传返回 `status: success` 但没有文件 ID，Bug 详情仍为 `files: []`；未猜测附件 ID 执行编辑/删除。官方文档将该上传接口标注为 v22.0 及以上能力。
+
+发布前自动化门槛见 [release-checklist.md](../release-checklist.md)：完整测试必须在 Fake 环境达到 120/120，且真实 API 调用计数为 0。真实实例差异以本文件和 `endpoints.json` 的 `observed` 记录为准。

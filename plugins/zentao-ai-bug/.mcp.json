@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "zentao": {
-      "command": "zentao-ai",
-      "args": ["mcp", "serve"],
-      "cwd": "."
-    }
-  }
-}

@@ -1,12 +1,9 @@
+
 # Changelog
 
-All notable changes are documented here.
+## Unreleased
 
-## 0.1.0 - 2026-07-27
-
-- Add local Codex plugin and Python MCP server for ZenTao 21.7.8.
-- Add personal, team, external-user and conditional Bug queries with summaries.
-- Add guarded comment, edit, activate and assign operations.
-- Add OS credential storage and automatic Token refresh after 401.
-- Add cross-platform installers, interactive setup, doctor and three-minute documentation.
-- Add three-platform Python CI, package checks, plugin contracts and a sanitized acceptance checklist.
+- 主实现迁移为单一 `skills/zentao/` Skill。
+- 移除 MCP Server、独立 Python 包/系统 CLI 与第三方运行时依赖。
+- 建立 ZenTao API v2 20 资源 / 120 endpoint 的显式 Internal/CLI/Fake/Test 覆盖。
+- 增加 R0-R3 风险分级、DELETE `--yes`、GET 有限重试和 `UNKNOWN_WRITE_RESULT` 语义。

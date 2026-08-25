@@ -1,0 +1,83 @@
+
+from __future__ import annotations
+
+import copy
+import json
+import threading
+from pathlib import Path
+from typing import Any
+
+
+class FakeState:
+    def __init__(self) -> None:
+        self._lock = threading.RLock()
+        self._fixture = json.loads((Path(__file__).resolve().parents[1] / "fixtures" / "base_state.json").read_text(encoding="utf-8"))
+        self.faults: dict[str, list[str]] = {}
+        self.reset()
+
+    def reset(self) -> None:
+        with self._lock:
+            self.resources = copy.deepcopy(self._fixture)
+            self.next_id = 100
+            self.requests: list[dict[str, Any]] = []
+            self.faults = {}
+
+    def plan_faults(self, endpoint_id: str, *faults: str) -> None:
+        self.faults[endpoint_id] = list(faults)
+
+    def next_fault(self, endpoint_id: str) -> str | None:
+        values = self.faults.get(endpoint_id, [])
+        return values.pop(0) if values else None
+
+    def record(self, value: dict[str, Any]) -> None:
+        with self._lock:
+            self.requests.append(copy.deepcopy(value))
+
+    def handle(self, route: object, path_params: dict[str, int], query: dict[str, Any], body: dict[str, Any]) -> tuple[int, object | None]:
+        endpoint_id = getattr(route, "endpoint_id")
+        resource = getattr(route, "resource")
+        operation = getattr(route, "operation")
+        if endpoint_id == "token.login":
+            if not body.get("account") or not body.get("password"):
+                return 401, {"error": "invalid credentials"}
+            return 200, {"status": "success", "token": "fake-token"}
+        bucket = self.resources.setdefault(resource, {})
+        item_id = next((v for k, v in path_params.items() if k.lower().endswith("id") and k.lower() not in {"productid", "projectid", "executionid", "programid"}), None)
+        if operation == "create" or operation == "upload":
+            ident = self.next_id; self.next_id += 1
+            item = {"id": ident, **body, "status": body.get("status", "active")}
+            bucket[str(ident)] = item
+            return 200, copy.deepcopy(item)
+        if operation == "edit" or operation == "change":
+            ident = item_id or next(iter(path_params.values()), 1)
+            item = bucket.setdefault(str(ident), {"id": ident, "status": "active"})
+            item.update(body)
+            if operation == "change": item["version"] = int(item.get("version", 1)) + 1
+            return 200, copy.deepcopy(item)
+        if operation.startswith("list"):
+            rows = list(bucket.values())
+            # Minimal scope filter based on path params.
+            for key, value in path_params.items():
+                field = key.removesuffix("ID")
+                filtered = [row for row in rows if row.get(key) == value or row.get(field) == value]
+                if filtered:
+                    rows = filtered
+            page = int(query.get("pageID", 1)); per_page = int(query.get("recPerPage", 100))
+            start = (page - 1) * per_page
+            key = resource.replace("-", "") + "s"
+            return 200, {key: copy.deepcopy(rows[start:start+per_page]), "pager": {"pageID": page, "recPerPage": per_page, "total": len(rows)}}
+        if operation == "view":
+            ident = item_id or next(iter(path_params.values()), 1)
+            item = bucket.get(str(ident))
+            return (200, copy.deepcopy(item)) if item else (404, {"error": "not found"})
+        if operation in {"resolve", "close", "activate", "start", "finish"}:
+            ident = item_id or next(iter(path_params.values()), 1)
+            item = bucket.setdefault(str(ident), {"id": ident})
+            status = {"resolve": "resolved", "close": "closed", "activate": "active", "start": "doing", "finish": "done"}[operation]
+            item.update(body); item["status"] = status
+            return 200, copy.deepcopy(item)
+        if operation == "delete":
+            ident = item_id or next(iter(path_params.values()), 1)
+            bucket.pop(str(ident), None)
+            return 204, None
+        return 500, {"error": "unhandled operation", "endpoint": endpoint_id}

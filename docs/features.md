@@ -1,39 +1,18 @@
-# 功能与自然语言示例
+# 功能与能力面
 
-## 功能矩阵
+当前产品单元是单一 `skills/zentao/` Skill。官方 API v2 快照覆盖 20 个资源、120 个 endpoint；Token 作为内部认证能力，其余资源通过统一 `<resource> <action> [scope] [parameters]` CLI 暴露。
 
-| 场景 | 支持 | 示例 |
-|---|---:|---|
-| 个人未关闭 Bug | 是 | “查询我未关闭的 Bug。” |
-| 配置团队 Bug | 是 | “查询团队的 Bug 情况。” |
-| 团队外部人员 | 是 | “查询外部人员 external-a 的 Bug。” |
-| 组合条件查询 | 是 | “查产品 3、严重程度 1、标题含登录的 Bug。” |
-| 单个 Bug 详情 | 是 | “查看 Bug 123。” |
-| 添加备注 | 是 | “给 Bug 123 备注：请补充日志。” |
-| 编辑白名单字段 | 是 | “把 Bug 123 优先级改为 1。” |
-| 激活 | 是 | “激活 Bug 123，影响版本 trunk。” |
-| 指派 | 是 | “把 Bug 123 指派给李四。” |
-| 创建、解决、关闭 | 否 | 当前版本不暴露这些写工具。 |
-| 删除 | 永久禁止 | 插件没有删除接口，也不会尝试构造删除请求。 |
+## 资源
 
-## 可组合查询条件
+`bug`、`build`、`epic`、`execution`、`feedback`、`file`、`product`、`product-plan`、`program`、`project`、`release`、`requirement`、`story`、`system`、`task`、`test-case`、`test-task`、`ticket`、`user`。
 
-支持状态、指派人、创建人、产品 ID、项目 ID、执行 ID、优先级、严重程度、Bug 类型、关键词、创建时间、编辑时间、排序与最大返回数量。日期必须带时区。
+完整机器索引见 `skills/zentao/references/api-v2/endpoints.json`；领域导航见同目录的资源 reference；参数合同以 CLI `--help` 为准。
 
-默认 `unresolved` 排除 `resolved` 和 `closed`。无产品、项目或执行范围时，插件先读取当前账号可见产品，再逐产品分页查询并去重。
+## 风险等级
 
-## 汇总结果
+- R0：读取（list/view），可直接执行。
+- R1：普通写入（create/edit/upload/change），要求当前请求明确表达对应写操作。
+- R2：生命周期动作（resolve/close/activate/start/finish），要求当前请求明确表达该状态变更。
+- R3：delete，要求当前请求明确删除具体资源，并且 CLI 必须显式传 `--yes`。
 
-每次列表查询返回：
-
-- 总数、是否截断、是否部分完成；
-- 按状态、指派人、优先级、严重程度的分布；
-- Bug ID、标题、状态、严重程度、优先级和指派人的明细。
-
-团队查询对单个成员失败进行隔离，成功成员的结果仍然返回。姓名重名时返回候选账号，等待用户明确选择。
-
-## 写操作字段
-
-编辑只接受标题、严重程度、优先级、Bug 类型、影响版本、复现步骤、项目、执行和需求 ID。备注会先读取最新 Bug，再携带原标题与影响版本提交，避免用旧快照覆盖字段。
-
-激活仅允许已解决或已关闭 Bug；指派前刷新用户目录，已关闭 Bug 禁止直接指派。所有写工具都要求当前消息明确授权，并在成功后返回前后快照。
+每条命令只执行一个明确的 ZenTao API v2 endpoint。写操作不自动重试，也不会写后自动 GET；结果不确定时返回 `UNKNOWN_WRITE_RESULT`。

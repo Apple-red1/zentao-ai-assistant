@@ -1,59 +1,43 @@
-# 禅道 AI Bug 助手（Codex 插件）
 
-在 Codex 里用一句话查询和安全更新禅道 Bug。支持查询自己的未关闭 Bug、配置团队的 Bug、团队外部人员的 Bug、任意条件组合与单个 Bug 详情；支持添加备注、编辑白名单字段、激活和指派。
+# zentao Skill
 
-首要兼容目标是禅道开源版 **21.7.8** 和 API v2。账号、密码与 Token 都只在本机使用；仓库和 YAML 不保存秘密。
+本仓库提供单一 `skills/zentao/` Skill，通过 Python 标准库直接调用 ZenTao 官方 API v2。运行时不依赖 MCP、独立 `zentao-ai` 系统 CLI 或第三方 Python 包。
 
-## 三分钟开始
+## 配置
 
-准备好以下内容：禅道地址、个人账号和密码、Python 3.11+、已安装的 Codex CLI，以及这个 GitHub 仓库的读取权限。
+复制 `.env.example` 为 `.env`，填写：
 
-### macOS / Linux
+```dotenv
+ZENTAO_BASE_URL=https://zentao.example.com
+ZENTAO_ACCOUNT=your-account
+ZENTAO_PASSWORD=your-password
+```
+
+`.env` 不提交。登录使用 `POST /api.php/v2/users/login`，Token 只存在当前 Python 进程内存中。
+
+## 使用
 
 ```bash
-git clone https://github.com/wwtweiwenting/zentao-ai-assistant.git
-cd zentao-ai-assistant
-./scripts/install.sh
+python skills/zentao/scripts/zentao.py doctor --json
+python skills/zentao/scripts/zentao.py bug list --product 1 --json
+python skills/zentao/scripts/zentao.py bug view 123 --json
+python skills/zentao/scripts/zentao.py task start 88 --real-started "2026-08-25 09:00:00" --json
 ```
 
-### Windows PowerShell
-
-Windows 安装入口是 `scripts/install.ps1`：
-
-```powershell
-git clone https://github.com/wwtweiwenting/zentao-ai-assistant.git
-cd zentao-ai-assistant
-.\scripts\install.ps1
-```
-
-安装器会隔离安装 `zentao-ai`、注册当前仓库 Marketplace、安装 `zentao-ai-bug@zentao-ai-assistant`，然后启动配置与检查。也可以分开执行：
+删除接口属于 R3：只有明确删除意图时使用，并额外要求 `--yes`：
 
 ```bash
-./scripts/install.sh --non-interactive
-zentao-ai setup
-zentao-ai doctor
+python skills/zentao/scripts/zentao.py bug delete 123 --yes --json
 ```
 
-默认本地配置文件是 `~/.codex/zentao-ai-bug/config.yaml`；可用 `ZENTAO_CONFIG` 指定其他位置。配置时只输入禅道地址、个人账号、隐藏密码和可选团队成员；密码进入系统凭据库，不进入配置文件。
+参数以 `<resource> <action> --help` 为准。资源导航见 `skills/zentao/references/api-v2/`；机器覆盖索引见 `endpoints.json`。
 
-安装后重启 Codex 或**新建任务**，即可这样说：
+## 测试
 
-- “查询我未关闭的 Bug，汇总状态和严重程度。”
-- “查询团队成员未关闭的 Bug，按指派人汇总。”
-- “查询外部人员王小明的 Bug 清单。”
-- “查询产品 3 中严重程度为 1、标题含登录的未关闭 Bug。”
-- “给 Bug 123 添加备注：请补充日志。”
+完整自动化测试只连接进程内本地 Fake ZenTao，不访问真实 ZenTao：
 
-## 写入安全
+```bash
+python skills/zentao/tests/run_all.py
+```
 
-备注、编辑、激活和指派只在当前消息明确包含 Bug ID、动作和必要参数时执行。写请求超时不会自动重试；删除永久不支持。当前版本也不提供创建、解决或关闭工具。
-
-## 文档
-
-- [安装与升级](docs/installation.md)
-- [本地配置](docs/configuration.md)
-- [功能与示例](docs/features.md)
-- [安全模型](docs/security.md)
-- [排错指南](docs/troubleshooting.md)
-
-许可证：Apache-2.0。安全问题请参阅 [SECURITY.md](SECURITY.md)。
+当前能力基线：20 个资源、120 个官方 API v2 endpoint。真实 ZenTao 21.7.8 的兼容性差异只根据实际运行证据记录，不由 Fake 测试冒充。

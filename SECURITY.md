@@ -1,11 +1,6 @@
-# Security Policy
 
-## Supported version
+# 安全
 
-Security fixes are applied to the latest release on the default branch. The initial compatibility target is ZenTao 21.7.8.
+真实 `.env`、密码、Token、Cookie 与认证 Header 不得提交或写入日志。Token 只保存在当前 Python 进程内存中。
 
-## Reporting
-
-Use a private GitHub Security Advisory for vulnerabilities. Do not open a public Issue containing credentials, tokens, cookies, internal ZenTao URLs, business Bug content, logs with private data, or exploit details.
-
-Include the affected version, reproduction steps with sanitized data, impact, and any proposed mitigation. Maintainers will acknowledge the report and coordinate disclosure through the advisory.
+R3 删除命令需要用户明确删除意图和 CLI `--yes`。任何 POST/PUT/DELETE 网络结果不确定时不得自动重试；返回 `UNKNOWN_WRITE_RESULT` 后，后续写入前应显式只读确认状态。
