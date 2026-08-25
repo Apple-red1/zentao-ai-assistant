@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import os
+import stat
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
@@ -44,6 +46,42 @@ def decode_env_value(value: str, *, line_no: int) -> str:
         decoded.append(value[index + 1])
         index += 2
     return "".join(decoded)
+
+
+def write_private_text_atomic(path: Path, content: str) -> None:
+    """Write a private config without exposing a partially written secret file."""
+    fd: int | None = None
+    temp_name: str | None = None
+    try:
+        fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=str(path.parent))
+        if os.name == "posix" and stat.S_IMODE(os.fstat(fd).st_mode) != 0o600:
+            raise ConfigError(".env 临时文件未以 0600 权限创建")
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            fd = None
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        if os.name == "posix" and stat.S_IMODE(os.stat(temp_name).st_mode) != 0o600:
+            raise ConfigError(".env 临时文件权限不安全")
+        os.replace(temp_name, path)
+        temp_name = None
+        if os.name == "posix" and stat.S_IMODE(os.stat(path).st_mode) != 0o600:
+            raise ConfigError(".env 文件权限不安全")
+    except ConfigError:
+        raise
+    except (OSError, UnicodeError):
+        raise ConfigError("无法安全写入 .env")
+    finally:
+        if fd is not None:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+        if temp_name is not None:
+            try:
+                Path(temp_name).unlink()
+            except OSError:
+                pass
 
 
 def project_root() -> Path:

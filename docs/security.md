@@ -6,6 +6,7 @@
 - Token 通过 API v2 登录取得，仅存在当前 Python 进程内存中。
 - 输出层递归脱敏 password/token/Authorization/Cookie 类字段，包括 `ZENTAO_PASSWORD`、`resetToken` 等变体。
 - 不持久化 Token，不把 Token 写回 `.env`。
+- `setup` 通过同目录临时文件原子写入 `.env`：POSIX 创建即验证 `0600`，写入 flush/fsync 后才 replace；安全失败不吞错、不破坏旧配置，也不把秘密放进错误详情。
 
 ## 写入与结果不确定
 

@@ -18,6 +18,11 @@ ZENTAO_PASSWORD=your-password
 密码不会被统一 `.strip()`，因此引号、反斜杠、Unicode、`#`、`=` 以及首尾空格都能
 无损往返。NUL 和换行无法表示为单行 `.env` 值，会在写入前明确拒绝。
 
+写入采用同目录临时文件、创建时 `0600`、写入后 flush/fsync、再 `os.replace` 的原子
+流程；任一步失败都会返回 `CONFIG_ERROR`、清理临时文件并保留旧配置。POSIX 会验证
+临时文件和目标文件权限，Windows 只保证标准库写入链路和失败可见，不把 POSIX mode
+检查冒充 Windows ACL 证明。
+
 `.env` 与 `.env.*` 被 Git 忽略，`.env.example` 明确保留。请勿提交真实站点地址、账号、密码、Token、Cookie 或 Authorization Header。
 
 ## 登录与 Token

@@ -4,6 +4,7 @@ from __future__ import annotations
 import contextlib
 import io
 import os
+import stat
 import tempfile
 import unittest
 from pathlib import Path
@@ -13,7 +14,7 @@ from unittest.mock import patch
 from ..support import SCRIPTS
 from zentao_skill.cli.main import _run_setup
 from zentao_skill.cli.output import emit_error, emit_success
-from zentao_skill.internal.config import encode_env_value, load_config, parse_env, project_root
+from zentao_skill.internal.config import encode_env_value, load_config, parse_env, project_root, write_private_text_atomic
 from zentao_skill.internal.zentao.common import make_order_by, map_enum, validate_pagination
 from zentao_skill.internal.errors import ApiError, ConfigError, UsageError
 
@@ -54,6 +55,40 @@ class UnitTests(unittest.TestCase):
             path.write_text('PASSWORD="bad\\q"\n', encoding="utf-8")
             with self.assertRaises(ConfigError):
                 parse_env(path)
+
+    def test_setup_creates_private_file_even_with_permissive_umask(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            previous = os.umask(0)
+            try:
+                with patch("zentao_skill.cli.main.project_root", return_value=root), patch("zentao_skill.cli.main.getpass.getpass", return_value="safe-secret"):
+                    _run_setup(None, Namespace(base_url="https://zentao.example.com", account="admin"))
+            finally:
+                os.umask(previous)
+            if os.name == "posix":
+                self.assertEqual(0o600, stat.S_IMODE((root / ".env").stat().st_mode))
+            self.assertFalse(list(root.glob(".env.*")))
+
+    def test_atomic_write_failure_preserves_old_file_and_cleans_temp(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            target = Path(td) / ".env"
+            target.write_text("old-config\n", encoding="utf-8")
+            with patch("zentao_skill.internal.config.os.replace", side_effect=OSError("replace failed")):
+                with self.assertRaises(ConfigError) as error:
+                    write_private_text_atomic(target, "new-secret\n")
+            self.assertNotIn("new-secret", str(error.exception))
+            self.assertEqual("old-config\n", target.read_text(encoding="utf-8"))
+            self.assertFalse(list(Path(td).glob(".env.*")))
+
+    def test_fsync_failure_is_reported_without_destroying_old_file(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            target = Path(td) / ".env"
+            target.write_text("old-config\n", encoding="utf-8")
+            with patch("zentao_skill.internal.config.os.fsync", side_effect=OSError("fsync failed")):
+                with self.assertRaises(ConfigError):
+                    write_private_text_atomic(target, "new-secret\n")
+            self.assertEqual("old-config\n", target.read_text(encoding="utf-8"))
+            self.assertFalse(list(Path(td).glob(".env.*")))
 
     def test_enum_and_sort_mapping(self) -> None:
         self.assertEqual("assignedtome", map_enum("browseType","assigned-to-me"))
