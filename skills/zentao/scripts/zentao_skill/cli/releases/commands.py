@@ -17,6 +17,7 @@ def register(resource_subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     p_create.add_argument('--build', type=positive_int, action='append', required=True, dest='build', help='build 参数')
     p_create.add_argument('--status', type=str, choices=['fail', 'normal', 'terminate', 'wait'], dest='status', help='status 参数')
     p_create.add_argument('--date', type=str, required=True, dest='date', help='date 参数')
+    p_create.add_argument('--released-date', type=str, dest='released_date', help='实际发布日期；status=normal 时必填')
     p_create_g_desc = p_create.add_mutually_exclusive_group(required=False)
     p_create_g_desc.add_argument('--desc', dest='desc', type=str, help='desc 参数')
     p_create_g_desc.add_argument('--desc-file', dest='desc_file', help="从 UTF-8 文件读取文本")
@@ -24,11 +25,13 @@ def register(resource_subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     p_create.set_defaults(_handler=_run_create)
     p_edit = resource_subparsers.add_parser('edit', help='修改发布')
     p_edit.add_argument("id", type=positive_int, help="资源 ID")
+    p_edit.add_argument('--product', type=positive_int, required=True, dest='product', help='product 参数；用于保留发布归属')
     p_edit.add_argument('--system', type=positive_int, required=True, dest='system', help='system 参数')
     p_edit.add_argument('--name', type=str, required=True, dest='name', help='name 参数')
     p_edit.add_argument('--build', type=positive_int, action='append', required=True, dest='build', help='build 参数')
     p_edit.add_argument('--status', type=str, choices=['fail', 'normal', 'terminate', 'wait'], dest='status', help='status 参数')
     p_edit.add_argument('--date', type=str, required=True, dest='date', help='date 参数')
+    p_edit.add_argument('--released-date', type=str, dest='released_date', help='实际发布日期；status=normal 时必填')
     p_edit_g_desc = p_edit.add_mutually_exclusive_group(required=False)
     p_edit_g_desc.add_argument('--desc', dest='desc', type=str, help='desc 参数')
     p_edit_g_desc.add_argument('--desc-file', dest='desc_file', help="从 UTF-8 文件读取文本")
@@ -57,14 +60,20 @@ def _run_create(services: object, args: argparse.Namespace) -> object | None:
     value_status = getattr(args, 'status', None)
     if value_status is not None and value_status not in {'terminate', 'wait', 'fail', 'normal'}:
         raise UsageError("--status 不是当前 endpoint 支持的枚举值")
-    return service.create(product=getattr(args, 'product', None), system=getattr(args, 'system', None), name=getattr(args, 'name', None), build=getattr(args, 'build', None), status=getattr(args, 'status', None), date=getattr(args, 'date', None), desc=resolve_text(args, 'desc'))
+    released_date = getattr(args, 'released_date', None)
+    if value_status == 'normal' and not released_date:
+        raise UsageError('--status normal 时必须提供 --released-date')
+    return service.create(product=getattr(args, 'product', None), system=getattr(args, 'system', None), name=getattr(args, 'name', None), build=getattr(args, 'build', None), status=getattr(args, 'status', None), date=getattr(args, 'date', None), released_date=released_date, desc=resolve_text(args, 'desc'))
 
 def _run_edit(services: object, args: argparse.Namespace) -> object | None:
     service: ReleasesService = getattr(services, 'release')
     value_status = getattr(args, 'status', None)
     if value_status is not None and value_status not in {'terminate', 'wait', 'fail', 'normal'}:
         raise UsageError("--status 不是当前 endpoint 支持的枚举值")
-    return service.edit(item_id=args.id, system=getattr(args, 'system', None), name=getattr(args, 'name', None), build=getattr(args, 'build', None), status=getattr(args, 'status', None), date=getattr(args, 'date', None), desc=resolve_text(args, 'desc'))
+    released_date = getattr(args, 'released_date', None)
+    if value_status == 'normal' and not released_date:
+        raise UsageError('--status normal 时必须提供 --released-date')
+    return service.edit(item_id=args.id, product=getattr(args, 'product', None), system=getattr(args, 'system', None), name=getattr(args, 'name', None), build=getattr(args, 'build', None), status=getattr(args, 'status', None), date=getattr(args, 'date', None), released_date=released_date, desc=resolve_text(args, 'desc'))
 
 def _run_list(services: object, args: argparse.Namespace) -> object | None:
     service: ReleasesService = getattr(services, 'release')

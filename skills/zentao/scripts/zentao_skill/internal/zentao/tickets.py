@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from ..errors import UsageError
-from .common import compact_dict, endpoint, make_order_by, map_enum, validate_pagination
+from .common import compact_dict, endpoint, make_order_by, map_enum, require_response_body, require_success_field, validate_pagination
 from .session import ZentaoSession
 
 
@@ -26,7 +26,7 @@ class TicketsAPI:
             'deadline': map_enum('deadline', deadline),
             'openedBuild': map_enum('openedBuild', affected_build),
         })
-        return self.session.post('/tickets', body=body)
+        return require_success_field(self.session.post('/tickets', body=body), endpoint_id='ticket.create', field='id', feature='工单')
 
     @endpoint('ticket.edit')
     def edit(self, *, item_id: int, affected_build: list[object] | None = None, assignee: object | None = None, deadline: object | None = None, desc: object | None = None, module: object | None = None, product: object | None = None, title: object | None = None, type: object | None = None) -> object | None:
@@ -40,7 +40,7 @@ class TicketsAPI:
             'deadline': map_enum('deadline', deadline),
             'openedBuild': map_enum('openedBuild', affected_build),
         })
-        return self.session.put(f'/tickets/{item_id}', body=body)
+        return require_response_body(self.session.put(f'/tickets/{item_id}', body=body), endpoint_id='ticket.edit', feature='工单编辑')
 
     @endpoint('ticket.list_product')
     def list_product(self, *, product: int, browse: object | None = None, filters: object | None = None, group_join: object | None = None, order: str | None = None, page: object | None = None, per_page: object | None = None, sort: str | None = None) -> object | None:
@@ -56,11 +56,11 @@ class TicketsAPI:
             raise UsageError('--order 只能与 --sort 一起使用')
         if sort is not None:
             query['orderBy'] = make_order_by(sort, order)
-        return self.session.get(f'/products/{product}/tickets', query=query)
+        return require_success_field(self.session.get(f'/products/{product}/tickets', query=query), endpoint_id='ticket.list_product', field='tickets', feature='工单')
 
     @endpoint('ticket.view')
     def view(self, *, item_id: int) -> object | None:
-        return self.session.get(f'/tickets/{item_id}')
+        return require_success_field(self.session.get(f'/tickets/{item_id}'), endpoint_id='ticket.view', field='ticket', feature='工单')
 
     @endpoint('ticket.close')
     def close(self, *, closed_reason: object | None, comment: object | None, item_id: int) -> object | None:
@@ -68,7 +68,7 @@ class TicketsAPI:
             'closedReason': map_enum('closedReason', closed_reason),
             'comment': map_enum('comment', comment),
         })
-        return self.session.put(f'/tickets/{item_id}/close', body=body)
+        return require_response_body(self.session.put(f'/tickets/{item_id}/close', body=body), endpoint_id='ticket.close', feature='工单关闭')
 
     @endpoint('ticket.activate')
     def activate(self, *, item_id: int, assignee: object | None = None, comment: object | None = None) -> object | None:
@@ -76,9 +76,9 @@ class TicketsAPI:
             'assignedTo': map_enum('assignedTo', assignee),
             'comment': map_enum('comment', comment),
         })
-        return self.session.put(f'/tickets/{item_id}/activate', body=body)
+        return require_response_body(self.session.put(f'/tickets/{item_id}/activate', body=body), endpoint_id='ticket.activate', feature='工单激活')
 
     @endpoint('ticket.delete')
     def delete(self, *, item_id: int) -> object | None:
         result = self.session.delete(f'/tickets/{item_id}')
-        return result if result is not None else {"status": "success", "id": item_id}
+        return result if result is not None else {'status': 'success', 'id': item_id}

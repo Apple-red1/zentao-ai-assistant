@@ -19,6 +19,16 @@ def positive_int(value: str) -> int:
     return number
 
 
+def non_negative_int(value: str) -> int:
+    try:
+        number = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("必须是整数") from exc
+    if number < 0:
+        raise argparse.ArgumentTypeError("必须是非负整数")
+    return number
+
+
 def page_int(value: str) -> int:
     number = positive_int(value)
     return number

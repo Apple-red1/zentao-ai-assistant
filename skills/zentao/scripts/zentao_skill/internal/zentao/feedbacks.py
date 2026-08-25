@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from ..errors import UsageError
-from .common import compact_dict, endpoint, make_order_by, map_enum, validate_pagination
+from .common import compact_dict, endpoint, make_order_by, map_enum, require_response_body, require_success_field, validate_pagination
 from .session import ZentaoSession
 
 
@@ -25,7 +25,7 @@ class FeedbacksAPI:
             'feedbackBy': map_enum('feedbackBy', feedback_by),
             'source': map_enum('source', source),
         })
-        return self.session.post('/feedbacks', body=body)
+        return require_success_field(self.session.post('/feedbacks', body=body), endpoint_id='feedback.create', field='id', feature='反馈')
 
     @endpoint('feedback.edit')
     def edit(self, *, item_id: int, product: object | None, title: object | None, desc: object | None = None, feedback_by: object | None = None, module: object | None = None, source: object | None = None, type: object | None = None) -> object | None:
@@ -38,7 +38,7 @@ class FeedbacksAPI:
             'feedbackBy': map_enum('feedbackBy', feedback_by),
             'source': map_enum('source', source),
         })
-        return self.session.put(f'/feedbacks/{item_id}', body=body)
+        return require_response_body(self.session.put(f'/feedbacks/{item_id}', body=body), endpoint_id='feedback.edit', feature='反馈编辑')
 
     @endpoint('feedback.list_product')
     def list_product(self, *, product: int, browse: object | None = None, filters: object | None = None, group_join: object | None = None, order: str | None = None, page: object | None = None, per_page: object | None = None, sort: str | None = None) -> object | None:
@@ -54,11 +54,11 @@ class FeedbacksAPI:
             raise UsageError('--order 只能与 --sort 一起使用')
         if sort is not None:
             query['orderBy'] = make_order_by(sort, order)
-        return self.session.get(f'/products/{product}/feedbacks', query=query)
+        return require_success_field(self.session.get(f'/products/{product}/feedbacks', query=query), endpoint_id='feedback.list_product', field='feedbacks', feature='反馈')
 
     @endpoint('feedback.view')
     def view(self, *, item_id: int) -> object | None:
-        return self.session.get(f'/feedbacks/{item_id}')
+        return require_success_field(self.session.get(f'/feedbacks/{item_id}'), endpoint_id='feedback.view', field='feedback', feature='反馈')
 
     @endpoint('feedback.close')
     def close(self, *, closed_reason: object | None, item_id: int, comment: object | None = None, confirm_close: object | None = None) -> object | None:
@@ -67,7 +67,7 @@ class FeedbacksAPI:
             'comment': map_enum('comment', comment),
             'confirmClose': map_enum('confirmClose', confirm_close),
         })
-        return self.session.put(f'/feedbacks/{item_id}/close', body=body)
+        return require_response_body(self.session.put(f'/feedbacks/{item_id}/close', body=body), endpoint_id='feedback.close', feature='反馈关闭')
 
     @endpoint('feedback.activate')
     def activate(self, *, item_id: int, assignee: object | None = None, comment: object | None = None) -> object | None:
@@ -75,9 +75,9 @@ class FeedbacksAPI:
             'assignedTo': map_enum('assignedTo', assignee),
             'comment': map_enum('comment', comment),
         })
-        return self.session.put(f'/feedbacks/{item_id}/activate', body=body)
+        return require_response_body(self.session.put(f'/feedbacks/{item_id}/activate', body=body), endpoint_id='feedback.activate', feature='反馈激活')
 
     @endpoint('feedback.delete')
     def delete(self, *, item_id: int) -> object | None:
         result = self.session.delete(f'/feedbacks/{item_id}')
-        return result if result is not None else {"status": "success", "id": item_id}
+        return result if result is not None else {'status': 'success', 'id': item_id}

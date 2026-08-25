@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from ..errors import UsageError
-from .common import compact_dict, endpoint, make_order_by, map_enum, validate_pagination
+from .common import compact_dict, endpoint, make_order_by, map_enum, require_response_body, validate_pagination
 from .session import ZentaoSession
 
 
@@ -21,16 +21,16 @@ class FilesAPI:
             'objectType': object_type,
             'objectID': object_id,
         })
-        return self.session.post('/files', multipart=multipart)
+        return require_response_body(self.session.post('/files', multipart=multipart), endpoint_id='file.upload', feature='文件上传')
 
     @endpoint('file.edit')
     def edit(self, *, file_name: object | None, item_id: int) -> object | None:
         body = compact_dict({
             'fileName': map_enum('fileName', file_name),
         })
-        return self.session.put(f'/files/{item_id}', body=body)
+        return require_response_body(self.session.put(f'/files/{item_id}', body=body), endpoint_id='file.edit', feature='附件编辑')
 
     @endpoint('file.delete')
     def delete(self, *, item_id: int) -> object | None:
         result = self.session.delete(f'/files/{item_id}')
-        return result if result is not None else {"status": "success", "id": item_id}
+        return result if result is not None else {'status': 'success', 'id': item_id}

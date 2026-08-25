@@ -15,7 +15,7 @@ class ReleasesAPI:
         self.session = session
 
     @endpoint('release.create')
-    def create(self, *, build: list[object] | None, date: object | None, name: object | None, product: object | None, system: object | None, desc: object | None = None, status: object | None = None) -> object | None:
+    def create(self, *, build: list[object] | None, date: object | None, name: object | None, product: object | None, system: object | None, desc: object | None = None, released_date: object | None = None, status: object | None = None) -> object | None:
         body = compact_dict({
             'productID': map_enum('productID', product),
             'system': map_enum('system', system),
@@ -23,18 +23,22 @@ class ReleasesAPI:
             'build': map_enum('build', build),
             'status': map_enum('status', status),
             'date': map_enum('date', date),
+            'releasedDate': map_enum('releasedDate', released_date),
             'desc': map_enum('desc', desc),
         })
         return self.session.post('/releases', body=body)
 
     @endpoint('release.edit')
-    def edit(self, *, build: list[object] | None, date: object | None, item_id: int, name: object | None, system: object | None, desc: object | None = None, status: object | None = None) -> object | None:
+    def edit(self, *, build: list[object] | None, date: object | None, item_id: int, name: object | None, product: object | None, system: object | None, desc: object | None = None, released_date: object | None = None, status: object | None = None) -> object | None:
         body = compact_dict({
+            'productID': map_enum('productID', product),
+            'product': map_enum('product', product),
             'system': map_enum('system', system),
             'name': map_enum('name', name),
             'build': map_enum('build', build),
             'status': map_enum('status', status),
             'date': map_enum('date', date),
+            'releasedDate': map_enum('releasedDate', released_date),
             'desc': map_enum('desc', desc),
         })
         return self.session.put(f'/releases/{item_id}', body=body)

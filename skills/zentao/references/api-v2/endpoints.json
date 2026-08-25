@@ -1510,12 +1510,42 @@
         "query": [],
         "body": [
           {
+            "api_name": "productID",
+            "argument": "product",
+            "cli": "--product",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "product",
+            "argument": "product",
+            "cli": "--product",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
             "api_name": "title",
             "argument": "title",
             "cli": "--title",
             "type": "string",
             "required": true,
             "repeatable": false
+          },
+          {
+            "api_name": "status",
+            "argument": "status",
+            "cli": "--status",
+            "type": "string",
+            "required": true,
+            "repeatable": false,
+            "enum_map": {
+              "wait": "wait",
+              "doing": "doing",
+              "done": "done",
+              "closed": "closed"
+            }
           },
           {
             "api_name": "pri",
@@ -2499,7 +2529,7 @@
       "fake_route": "tests/fake_zentao/resources/feedbacks.py#feedback.create",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "unsupported",
       "parameters": {
         "path": [],
         "query": [],
@@ -2574,7 +2604,7 @@
         ],
         "form": []
       },
-      "notes": "创建反馈"
+      "notes": "创建反馈；目标 21.7.8 实例未启用反馈模块，真实请求仅返回 status=success 且无 id。"
     },
     {
       "endpoint_id": "feedback.edit",
@@ -2593,7 +2623,7 @@
       "fake_route": "tests/fake_zentao/resources/feedbacks.py#feedback.edit",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "unsupported",
       "parameters": {
         "path": [
           {
@@ -2677,7 +2707,7 @@
         ],
         "form": []
       },
-      "notes": "修改反馈"
+      "notes": "修改反馈；目标 21.7.8 实例未启用反馈模块，真实请求仅返回 status=success。"
     },
     {
       "endpoint_id": "feedback.list_product",
@@ -2696,7 +2726,7 @@
       "fake_route": "tests/fake_zentao/resources/feedbacks.py#feedback.list_product",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "unsupported",
       "parameters": {
         "path": [
           {
@@ -2770,7 +2800,7 @@
         "body": [],
         "form": []
       },
-      "notes": "获取产品反馈列表"
+      "notes": "获取产品反馈列表；目标 21.7.8 实例未启用反馈模块，真实请求仅返回 status=success 且无 feedbacks。"
     },
     {
       "endpoint_id": "feedback.view",
@@ -2789,7 +2819,7 @@
       "fake_route": "tests/fake_zentao/resources/feedbacks.py#feedback.view",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "unsupported",
       "parameters": {
         "path": [
           {
@@ -2805,7 +2835,7 @@
         "body": [],
         "form": []
       },
-      "notes": "获取反馈详情"
+      "notes": "获取反馈详情；目标 21.7.8 实例未启用反馈模块，真实请求仅返回 status=success 且无 feedback。"
     },
     {
       "endpoint_id": "feedback.close",
@@ -2824,7 +2854,7 @@
       "fake_route": "tests/fake_zentao/resources/feedbacks.py#feedback.close",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "unsupported",
       "parameters": {
         "path": [
           {
@@ -2871,7 +2901,7 @@
         ],
         "form": []
       },
-      "notes": "关闭反馈"
+      "notes": "关闭反馈；目标 21.7.8 实例未启用反馈模块，真实请求仅返回 status=success。"
     },
     {
       "endpoint_id": "feedback.activate",
@@ -2890,7 +2920,7 @@
       "fake_route": "tests/fake_zentao/resources/feedbacks.py#feedback.activate",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "unsupported",
       "parameters": {
         "path": [
           {
@@ -2924,7 +2954,7 @@
         ],
         "form": []
       },
-      "notes": "激活反馈"
+      "notes": "激活反馈；目标 21.7.8 实例未启用反馈模块，真实请求仅返回 status=success。"
     },
     {
       "endpoint_id": "feedback.delete",
@@ -2943,7 +2973,7 @@
       "fake_route": "tests/fake_zentao/resources/feedbacks.py#feedback.delete",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "unsupported",
       "parameters": {
         "path": [
           {
@@ -2959,7 +2989,7 @@
         "body": [],
         "form": []
       },
-      "notes": "删除反馈"
+      "notes": "删除反馈；目标 21.7.8 实例未启用反馈模块；未对无确认对象 ID 执行删除，代码保留 DELETE 204 空响应语义。"
     },
     {
       "endpoint_id": "file.upload",
@@ -2978,7 +3008,7 @@
       "fake_route": "tests/fake_zentao/resources/files.py#file.upload",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "unsupported",
       "parameters": {
         "path": [],
         "query": [],
@@ -3016,7 +3046,7 @@
           }
         ]
       },
-      "notes": "上传附件"
+      "notes": "上传附件；目标 21.7.8 实例真实请求返回空响应，任务详情 files 仍为空；官方文档标注该接口从 v22.0 起提供。"
     },
     {
       "endpoint_id": "file.edit",
@@ -3035,7 +3065,7 @@
       "fake_route": "tests/fake_zentao/resources/files.py#file.edit",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "unsupported",
       "parameters": {
         "path": [
           {
@@ -3060,7 +3090,7 @@
         ],
         "form": []
       },
-      "notes": "修改附件名称"
+      "notes": "修改附件名称；目标 21.7.8 实例真实请求返回空响应，未产生可确认的文件对象。"
     },
     {
       "endpoint_id": "file.delete",
@@ -3562,13 +3592,21 @@
       "fake_route": "tests/fake_zentao/resources/product_plans.py#product-plan.create",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "observed",
       "parameters": {
         "path": [],
         "query": [],
         "body": [
           {
             "api_name": "productID",
+            "argument": "product",
+            "cli": "--product",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "product",
             "argument": "product",
             "cli": "--product",
             "type": "integer",
@@ -3616,6 +3654,14 @@
             "repeatable": false
           },
           {
+            "api_name": "branch",
+            "argument": "branch",
+            "cli": "--branch",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
             "api_name": "desc",
             "argument": "desc",
             "cli": "--desc",
@@ -3627,7 +3673,7 @@
         ],
         "form": []
       },
-      "notes": "创建产品计划"
+      "notes": "创建产品计划；21.7.8 实际保存还要求兼容字段 product，branch 同时保留兼容映射。"
     },
     {
       "endpoint_id": "product-plan.edit",
@@ -3646,7 +3692,7 @@
       "fake_route": "tests/fake_zentao/resources/product_plans.py#product-plan.edit",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "observed",
       "parameters": {
         "path": [
           {
@@ -3661,12 +3707,42 @@
         "query": [],
         "body": [
           {
+            "api_name": "productID",
+            "argument": "product",
+            "cli": "--product",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "product",
+            "argument": "product",
+            "cli": "--product",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
             "api_name": "title",
             "argument": "title",
             "cli": "--title",
             "type": "string",
             "required": true,
             "repeatable": false
+          },
+          {
+            "api_name": "status",
+            "argument": "status",
+            "cli": "--status",
+            "type": "string",
+            "required": true,
+            "repeatable": false,
+            "enum_map": {
+              "wait": "wait",
+              "doing": "doing",
+              "done": "done",
+              "closed": "closed"
+            }
           },
           {
             "api_name": "parent",
@@ -3701,6 +3777,14 @@
             "repeatable": false
           },
           {
+            "api_name": "branch",
+            "argument": "branch",
+            "cli": "--branch",
+            "type": "integer",
+            "required": false,
+            "repeatable": false
+          },
+          {
             "api_name": "desc",
             "argument": "desc",
             "cli": "--desc",
@@ -3712,7 +3796,7 @@
         ],
         "form": []
       },
-      "notes": "修改产品计划"
+      "notes": "修改产品计划；21.7.8 实际编辑需同时保留兼容字段 product/productID 与 status，否则会清空计划归属或状态。"
     },
     {
       "endpoint_id": "product-plan.list_product",
@@ -3731,7 +3815,7 @@
       "fake_route": "tests/fake_zentao/resources/product_plans.py#product-plan.list_product",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "observed",
       "parameters": {
         "path": [
           {
@@ -3802,7 +3886,7 @@
         "body": [],
         "form": []
       },
-      "notes": "获取产品计划列表"
+      "notes": "获取产品计划列表；已用真实创建/编辑后的计划验证产品归属和状态可见。"
     },
     {
       "endpoint_id": "product-plan.view",
@@ -3821,7 +3905,7 @@
       "fake_route": "tests/fake_zentao/resources/product_plans.py#product-plan.view",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "observed",
       "parameters": {
         "path": [
           {
@@ -3837,7 +3921,7 @@
         "body": [],
         "form": []
       },
-      "notes": "获取产品计划详情"
+      "notes": "获取产品计划详情；已验证返回 productplan 对象而非表单元数据。"
     },
     {
       "endpoint_id": "product-plan.delete",
@@ -3856,7 +3940,7 @@
       "fake_route": "tests/fake_zentao/resources/product_plans.py#product-plan.delete",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "observed",
       "parameters": {
         "path": [
           {
@@ -3872,7 +3956,7 @@
         "body": [],
         "form": []
       },
-      "notes": "删除产品计划"
+      "notes": "删除产品计划；已用真实测试计划并通过列表回读确认删除。"
     },
     {
       "endpoint_id": "program.create",
@@ -4585,7 +4669,7 @@
       "fake_route": "tests/fake_zentao/resources/releases.py#release.create",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "observed",
       "parameters": {
         "path": [],
         "query": [],
@@ -4645,6 +4729,14 @@
             "repeatable": false
           },
           {
+            "api_name": "releasedDate",
+            "argument": "released_date",
+            "cli": "--released-date",
+            "type": "string/date",
+            "required": false,
+            "repeatable": false
+          },
+          {
             "api_name": "desc",
             "argument": "desc",
             "cli": "--desc",
@@ -4656,7 +4748,7 @@
         ],
         "form": []
       },
-      "notes": "创建发布"
+      "notes": "创建发布；21.7.8 当 status=normal 时实际还要求 releasedDate。"
     },
     {
       "endpoint_id": "release.edit",
@@ -4675,7 +4767,7 @@
       "fake_route": "tests/fake_zentao/resources/releases.py#release.edit",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "observed",
       "parameters": {
         "path": [
           {
@@ -4689,6 +4781,22 @@
         ],
         "query": [],
         "body": [
+          {
+            "api_name": "productID",
+            "argument": "product",
+            "cli": "--product",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
+          {
+            "api_name": "product",
+            "argument": "product",
+            "cli": "--product",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          },
           {
             "api_name": "system",
             "argument": "system",
@@ -4736,6 +4844,14 @@
             "repeatable": false
           },
           {
+            "api_name": "releasedDate",
+            "argument": "released_date",
+            "cli": "--released-date",
+            "type": "string/date",
+            "required": false,
+            "repeatable": false
+          },
+          {
             "api_name": "desc",
             "argument": "desc",
             "cli": "--desc",
@@ -4747,7 +4863,7 @@
         ],
         "form": []
       },
-      "notes": "修改发布"
+      "notes": "修改发布；21.7.8 实际编辑需同时保留兼容字段 product/productID，否则发布会从产品列表中消失。"
     },
     {
       "endpoint_id": "release.list_product",
@@ -4766,7 +4882,7 @@
       "fake_route": "tests/fake_zentao/resources/releases.py#release.list_product",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "observed",
       "parameters": {
         "path": [
           {
@@ -4838,7 +4954,7 @@
         "body": [],
         "form": []
       },
-      "notes": "获取产品发布列表"
+      "notes": "获取产品发布列表；已验证发布编辑后仍按产品可见，status=normal 时包含 releasedDate。"
     },
     {
       "endpoint_id": "release.delete",
@@ -4857,7 +4973,7 @@
       "fake_route": "tests/fake_zentao/resources/releases.py#release.delete",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "observed",
       "parameters": {
         "path": [
           {
@@ -4873,7 +4989,7 @@
         "body": [],
         "form": []
       },
-      "notes": "删除发布"
+      "notes": "删除发布；已用真实测试发布并通过产品发布列表回读确认删除。"
     },
     {
       "endpoint_id": "requirement.create",
@@ -6287,7 +6403,7 @@
       "fake_route": "tests/fake_zentao/resources/systems.py#system.create",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "observed",
       "parameters": {
         "path": [],
         "query": [],
@@ -6336,7 +6452,7 @@
         ],
         "form": []
       },
-      "notes": "创建应用"
+      "notes": "创建应用；真实 21.7.8 在 integrated=0 时要求显式发送 children=[]，已用真实实例验证创建成功。"
     },
     {
       "endpoint_id": "system.edit",
@@ -8255,7 +8371,7 @@
       "fake_route": "tests/fake_zentao/resources/tickets.py#ticket.create",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "unsupported",
       "parameters": {
         "path": [],
         "query": [],
@@ -8335,7 +8451,7 @@
         ],
         "form": []
       },
-      "notes": "创建工单"
+      "notes": "创建工单；目标 21.7.8 实例未启用工单模块，真实请求仅返回 status=success 且无 id。"
     },
     {
       "endpoint_id": "ticket.edit",
@@ -8354,7 +8470,7 @@
       "fake_route": "tests/fake_zentao/resources/tickets.py#ticket.edit",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "unsupported",
       "parameters": {
         "path": [
           {
@@ -8443,7 +8559,7 @@
         ],
         "form": []
       },
-      "notes": "修改工单"
+      "notes": "修改工单；目标 21.7.8 实例未启用工单模块，真实请求仅返回 status=success。"
     },
     {
       "endpoint_id": "ticket.list_product",
@@ -8462,7 +8578,7 @@
       "fake_route": "tests/fake_zentao/resources/tickets.py#ticket.list_product",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "unsupported",
       "parameters": {
         "path": [
           {
@@ -8537,7 +8653,7 @@
         "body": [],
         "form": []
       },
-      "notes": "获取产品工单列表"
+      "notes": "获取产品工单列表；目标 21.7.8 实例未启用工单模块，真实请求仅返回 status=success 且无 tickets。"
     },
     {
       "endpoint_id": "ticket.view",
@@ -8556,7 +8672,7 @@
       "fake_route": "tests/fake_zentao/resources/tickets.py#ticket.view",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "unsupported",
       "parameters": {
         "path": [
           {
@@ -8572,7 +8688,7 @@
         "body": [],
         "form": []
       },
-      "notes": "获取工单详情"
+      "notes": "获取工单详情；目标 21.7.8 实例未启用工单模块，真实请求仅返回 status=success 且无 ticket。"
     },
     {
       "endpoint_id": "ticket.close",
@@ -8591,7 +8707,7 @@
       "fake_route": "tests/fake_zentao/resources/tickets.py#ticket.close",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "unsupported",
       "parameters": {
         "path": [
           {
@@ -8630,7 +8746,7 @@
         ],
         "form": []
       },
-      "notes": "关闭工单"
+      "notes": "关闭工单；目标 21.7.8 实例未启用工单模块，真实请求仅返回 status=success。"
     },
     {
       "endpoint_id": "ticket.activate",
@@ -8649,7 +8765,7 @@
       "fake_route": "tests/fake_zentao/resources/tickets.py#ticket.activate",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "unsupported",
       "parameters": {
         "path": [
           {
@@ -8683,7 +8799,7 @@
         ],
         "form": []
       },
-      "notes": "激活工单"
+      "notes": "激活工单；目标 21.7.8 实例未启用工单模块，真实请求仅返回 status=success。"
     },
     {
       "endpoint_id": "ticket.delete",
@@ -8702,7 +8818,7 @@
       "fake_route": "tests/fake_zentao/resources/tickets.py#ticket.delete",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "unsupported",
       "parameters": {
         "path": [
           {
@@ -8718,7 +8834,7 @@
         "body": [],
         "form": []
       },
-      "notes": "删除工单"
+      "notes": "删除工单；目标 21.7.8 实例未启用工单模块；未对无确认对象 ID 执行删除，代码保留 DELETE 204 空响应语义。"
     },
     {
       "endpoint_id": "token.login",

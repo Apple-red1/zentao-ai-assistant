@@ -1256,6 +1256,8 @@
   "product-plan.edit": {
     "adapter_kwargs": {
       "item_id": 1,
+      "product": 1,
+      "status": "wait",
       "title": "sample-value",
       "parent": 1,
       "begin": "2026-08-01",
@@ -1267,6 +1269,10 @@
       "product-plan",
       "edit",
       "1",
+      "--product",
+      "1",
+      "--status",
+      "wait",
       "--title",
       "sample-value",
       "--parent",
@@ -1592,6 +1598,7 @@
       ],
       "status": "normal",
       "date": "2026-08-31",
+      "released_date": "2026-08-31",
       "desc": "sample text"
     },
     "cli_argv": [
@@ -1609,6 +1616,8 @@
       "normal",
       "--date",
       "2026-08-31",
+      "--released-date",
+      "2026-08-31",
       "--desc",
       "sample text",
       "--json"
@@ -1617,6 +1626,7 @@
   "release.edit": {
     "adapter_kwargs": {
       "item_id": 1,
+      "product": 1,
       "system": 1,
       "name": "sample-value",
       "build": [
@@ -1624,11 +1634,14 @@
       ],
       "status": "normal",
       "date": "2026-08-31",
+      "released_date": "2026-08-31",
       "desc": "sample text"
     },
     "cli_argv": [
       "release",
       "edit",
+      "1",
+      "--product",
       "1",
       "--system",
       "1",
@@ -1639,6 +1652,8 @@
       "--status",
       "normal",
       "--date",
+      "2026-08-31",
+      "--released-date",
       "2026-08-31",
       "--desc",
       "sample text",
@@ -2162,10 +2177,8 @@
   "system.create": {
     "adapter_kwargs": {
       "product": 1,
-      "integrated": 1,
-      "child": [
-        "1"
-      ],
+      "integrated": 0,
+      "child": [],
       "name": "sample-value",
       "desc": "sample text"
     },
@@ -2175,9 +2188,7 @@
       "--product",
       "1",
       "--integrated",
-      "1",
-      "--child",
-      "1",
+      "0",
       "--name",
       "sample-value",
       "--desc",
@@ -2189,9 +2200,7 @@
     "adapter_kwargs": {
       "item_id": 1,
       "name": "sample-value",
-      "child": [
-        "1"
-      ],
+      "child": [],
       "desc": "sample text"
     },
     "cli_argv": [
@@ -2200,8 +2209,6 @@
       "1",
       "--name",
       "sample-value",
-      "--child",
-      "1",
       "--desc",
       "sample text",
       "--json"

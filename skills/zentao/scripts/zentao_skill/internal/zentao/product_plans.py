@@ -18,23 +18,29 @@ class ProductPlansAPI:
     def create(self, *, product: object | None, title: object | None, begin: object | None = None, branch: object | None = None, desc: object | None = None, end: object | None = None, parent: object | None = None) -> object | None:
         body = compact_dict({
             'productID': map_enum('productID', product),
+            'product': map_enum('product', product),
             'title': map_enum('title', title),
             'parent': map_enum('parent', parent),
             'begin': map_enum('begin', begin),
             'end': map_enum('end', end),
             'branchID': map_enum('branchID', branch),
+            'branch': map_enum('branch', branch),
             'desc': map_enum('desc', desc),
         })
         return self.session.post('/productplans', body=body)
 
     @endpoint('product-plan.edit')
-    def edit(self, *, item_id: int, title: object | None, begin: object | None = None, branch: object | None = None, desc: object | None = None, end: object | None = None, parent: object | None = None) -> object | None:
+    def edit(self, *, item_id: int, product: object | None, status: object | None, title: object | None, begin: object | None = None, branch: object | None = None, desc: object | None = None, end: object | None = None, parent: object | None = None) -> object | None:
         body = compact_dict({
+            'productID': map_enum('productID', product),
+            'product': map_enum('product', product),
             'title': map_enum('title', title),
+            'status': map_enum('status', status),
             'parent': map_enum('parent', parent),
             'begin': map_enum('begin', begin),
             'end': map_enum('end', end),
             'branchID': map_enum('branchID', branch),
+            'branch': map_enum('branch', branch),
             'desc': map_enum('desc', desc),
         })
         return self.session.put(f'/productplans/{item_id}', body=body)

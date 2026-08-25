@@ -43,6 +43,8 @@ class FakeState:
             return 200, {"status": "success", "token": "fake-token"}
         bucket = self.resources.setdefault(resource, {})
         item_id = next((v for k, v in path_params.items() if k.lower().endswith("id") and k.lower() not in {"productid", "projectid", "executionid", "programid"}), None)
+        if endpoint_id in {"release.create", "release.edit"} and body.get("status") == "normal" and not body.get("releasedDate"):
+            return 200, {"status": "fail", "message": {"releasedDate": ["『实际发布日期』不能为空。"]}}
         if operation == "create" or operation == "upload":
             ident = self.next_id; self.next_id += 1
             item = {"id": ident, **body, "status": body.get("status", "active")}

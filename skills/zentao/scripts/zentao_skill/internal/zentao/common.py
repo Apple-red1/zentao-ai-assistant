@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from ..errors import UsageError
+from ..errors import ApiError, UsageError
 
 
 ENUM_TO_API = {
@@ -45,6 +45,25 @@ def endpoint(endpoint_id: str) -> Callable[[Callable[..., Any]], Callable[..., A
 
 def compact_dict(values: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in values.items() if value is not None}
+
+
+def require_success_field(result: object | None, *, endpoint_id: str, field: str, feature: str) -> object | None:
+    """Reject a misleading success response that cannot support the next workflow step."""
+    if result is None or (isinstance(result, dict) and result.get("status") == "success" and field not in result):
+        raise ApiError(
+            f"{endpoint_id} 返回 success 但缺少 {field}；请确认当前禅道已启用{feature}模块",
+            {"endpoint": endpoint_id, "missing": field, "response": result},
+        )
+    return result
+
+
+def require_response_body(result: object | None, *, endpoint_id: str, feature: str) -> object:
+    if result is None:
+        raise ApiError(
+            f"{endpoint_id} 返回空响应；请确认当前禅道已启用{feature}能力",
+            {"endpoint": endpoint_id, "response": None},
+        )
+    return result
 
 
 def map_enum(field: str, value: Any) -> Any:

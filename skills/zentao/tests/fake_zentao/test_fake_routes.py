@@ -39,6 +39,19 @@ class FakeRouteTests(unittest.TestCase):
                 http.request("PUT", fake.base_url + "/api.php/v2/bugs/1/resolve", headers={"Token":token}, json_body={"resolution":"invalid"})
             self.assertEqual(400, invalid.exception.status)
 
+    def test_fake_matches_real_release_published_date_rule(self) -> None:
+        with FakeZenTao() as fake:
+            http = HttpClient(timeout=1)
+            token = http.request("POST", fake.base_url + "/api.php/v2/users/login", json_body={"account": "admin", "password": "secret"})["token"]
+            result = http.request(
+                "POST",
+                fake.base_url + "/api.php/v2/releases",
+                headers={"Token": token},
+                json_body={"productID": 1, "system": 1, "name": "published", "build": [1], "status": "normal", "date": "2026-08-31"},
+            )
+            self.assertEqual("fail", result["status"])
+            self.assertIn("releasedDate", result["message"])
+
     def test_fake_exposes_all_required_fault_types_without_fake_api_endpoints(self) -> None:
         state=FakeState()
         faults=("401","403","404","422","500","502","503","timeout","malformed_json","drop","commit_then_drop")
