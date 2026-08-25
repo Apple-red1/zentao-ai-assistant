@@ -54,7 +54,7 @@ class FakeRouteTests(unittest.TestCase):
 
     def test_fake_exposes_all_required_fault_types_without_fake_api_endpoints(self) -> None:
         state=FakeState()
-        faults=("401","403","404","422","500","502","503","status_fail","empty","success_missing_id","timeout","malformed_json","drop","commit_then_drop")
+        faults=("401","403","404","422","500","502","503","status_fail","empty","success_missing_id","success_missing_collection","timeout","malformed_json","drop","commit_then_drop")
         state.plan_faults("bug.view", *faults)
         self.assertEqual(list(faults), state.faults["bug.view"])
         self.assertFalse(any("/test/" in route.path for route in ALL_ROUTES))

@@ -49,6 +49,8 @@ class FakeZenTao:
                     self._send(200, None); return
                 if fault == "success_missing_id":
                     self._send(200, {"status": "success"}); return
+                if fault == "success_missing_collection":
+                    self._send(200, {"status": "success"}); return
                 if fault == "timeout":
                     time.sleep(0.5)
                 if fault == "drop":
