@@ -14,9 +14,24 @@ from urllib import error, request
 from ..errors import HttpFailure, MalformedResponse, TransportFailure
 
 
+class _RejectRedirectHandler(request.HTTPRedirectHandler):
+    """Keep API calls on their explicitly selected URL.
+
+    ``urllib`` otherwise follows Location automatically and may rewrite a
+    POST/PUT to GET while carrying authentication headers to another origin.
+    Raising ``HTTPError`` here lets the normal status mapping handle the 3xx
+    response without making a second request.
+    """
+
+    def redirect_request(self, req: request.Request, fp: Any, code: int, msg: str,
+                         headers: Any, newurl: str) -> request.Request:
+        raise error.HTTPError(req.full_url, code, msg, headers, fp)
+
+
 class HttpClient:
     def __init__(self, *, timeout: float = 10.0) -> None:
         self.timeout = timeout
+        self._opener = request.build_opener(_RejectRedirectHandler())
 
     def request(
         self,
@@ -39,7 +54,7 @@ class HttpClient:
             final_headers["Content-Type"] = content_type
         req = request.Request(url, data=data, method=method, headers=final_headers)
         try:
-            with request.urlopen(req, timeout=self.timeout) as response:
+            with self._opener.open(req, timeout=self.timeout) as response:
                 raw = response.read()
                 if not raw:
                     return None

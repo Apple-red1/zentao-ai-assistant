@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from threading import Thread
 
 from ..fake_zentao.server import FakeZenTao
 from zentao_skill.internal.config import Config
-from zentao_skill.internal.errors import ApiError, MalformedResponse, NetworkError, UnknownWriteResult
+from zentao_skill.internal.errors import ApiError, HttpFailure, MalformedResponse, NetworkError, UnknownWriteResult
 from zentao_skill.internal.http.client import HttpClient
 from zentao_skill.internal.zentao.bugs import BugsAPI
 from zentao_skill.internal.zentao.session import ZentaoSession
@@ -16,6 +18,68 @@ class ErrorSemanticsTests(unittest.TestCase):
 
     def calls(self, fake: FakeZenTao, endpoint_id: str) -> list[dict[str, object]]:
         return [request for request in fake.state.requests if request["endpoint_id"] == endpoint_id]
+
+    def test_redirects_are_rejected_without_following_or_forwarding_token(self) -> None:
+        statuses = (301, 302, 303, 307, 308)
+        methods = ("GET", "POST", "PUT", "DELETE")
+        for status in statuses:
+            for method in methods:
+                with self.subTest(status=status, method=method):
+                    origin_requests: list[tuple[str, str | None]] = []
+                    target_requests: list[str] = []
+
+                    class OriginHandler(BaseHTTPRequestHandler):
+                        def log_message(self, format: str, *args: object) -> None:
+                            return
+
+                        def _handle(self) -> None:
+                            origin_requests.append((self.command, self.headers.get("Token")))
+                            self.send_response(status)
+                            self.send_header("Location", target_url[0] + "/redirected")
+                            self.end_headers()
+
+                        do_GET = _handle
+                        do_POST = _handle
+                        do_PUT = _handle
+                        do_DELETE = _handle
+
+                    class TargetHandler(BaseHTTPRequestHandler):
+                        def log_message(self, format: str, *args: object) -> None:
+                            return
+
+                        def _handle(self) -> None:
+                            target_requests.append(self.command)
+                            self.send_response(200)
+                            self.end_headers()
+
+                        do_GET = _handle
+                        do_POST = _handle
+                        do_PUT = _handle
+                        do_DELETE = _handle
+
+                    origin = ThreadingHTTPServer(("127.0.0.1", 0), OriginHandler)
+                    target = ThreadingHTTPServer(("127.0.0.1", 0), TargetHandler)
+                    target_url = [f"http://127.0.0.1:{target.server_address[1]}"]
+                    origin_url = f"http://127.0.0.1:{origin.server_address[1]}"
+                    origin_thread = Thread(target=origin.serve_forever, daemon=True)
+                    target_thread = Thread(target=target.serve_forever, daemon=True)
+                    origin_thread.start()
+                    target_thread.start()
+                    try:
+                        client = HttpClient(timeout=1)
+                        kwargs = {"json_body": {"value": "test"}} if method in {"POST", "PUT"} else {}
+                        with self.assertRaises(HttpFailure) as raised:
+                            client.request(method, origin_url + "/api.php/v2/bugs/1", headers={"Token": "secret-token"}, **kwargs)
+                        self.assertEqual(status, raised.exception.status)
+                        self.assertEqual([(method, "secret-token")], origin_requests)
+                        self.assertEqual([], target_requests)
+                    finally:
+                        origin.shutdown()
+                        target.shutdown()
+                        origin.server_close()
+                        target.server_close()
+                        origin_thread.join(timeout=1)
+                        target_thread.join(timeout=1)
 
     def test_get_retries_transient_http_failures_then_succeeds(self) -> None:
         for status in ("502", "503", "504"):
