@@ -16,3 +16,5 @@
 | `story.delete` | `DELETE` `/api.php/v2/stories/{storyID}` | `story delete` | R3 | 删除研发需求 |
 
 风险：R0 读取；R1 普通写；R2 生命周期；R3 删除。R3 只有当前用户明确要求删除具体对象时才允许执行，并必须给 CLI 传 `--yes`。
+
+ZenTao 21.7.8 实测补充：`story create` 的官方 `reviewer` 参数虽标记为可选，目标实例实际要求至少一个评审人；CLI 调用时应显式传 `--reviewer`，并在写后回读需求对象。

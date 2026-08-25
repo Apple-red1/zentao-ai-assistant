@@ -15,6 +15,26 @@ from zentao_skill.internal.zentao.tickets import TicketsAPI
 
 
 class SkillScenarioTests(unittest.TestCase):
+    def test_bug_edit_rejects_unsupported_assignment_argument(self) -> None:
+        with FakeZenTao() as fake:
+            result = run_cli(fake.base_url, [
+                "bug", "edit", "1", "--assignee", "admin", "--json",
+            ])
+            self.assertEqual(2, result.returncode)
+            self.assertEqual("", result.stdout)
+            self.assertEqual([], fake.state.requests)
+
+    def test_bug_create_sends_21_7_8_product_compatibility_alias(self) -> None:
+        with FakeZenTao() as fake:
+            result = run_cli(fake.base_url, [
+                "bug", "create", "--product", "1", "--title", "product-alias",
+                "--affected-build", "trunk", "--json",
+            ])
+            self.assertEqual(0, result.returncode, result.stderr)
+            body = fake.state.requests[-1]["body"]
+            self.assertEqual(1, body["productID"])
+            self.assertEqual(1, body["product"])
+
     def test_enum_mapping_is_field_scoped_and_preserves_free_text_and_credentials(self) -> None:
         with FakeZenTao() as fake:
             result = run_cli(fake.base_url, [

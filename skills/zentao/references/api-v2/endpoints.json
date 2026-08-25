@@ -191,7 +191,18 @@
         ],
         "form": []
       },
-      "notes": "创建 Bug"
+      "notes": "创建 Bug；ZenTao 21.7.8 实际需要同时接收 productID 与兼容字段 product，运行时发送兼容别名。",
+      "compatibility_parameters": {
+        "body": [
+          {
+            "api_name": "product",
+            "argument": "product",
+            "type": "integer",
+            "required": true,
+            "repeatable": false
+          }
+        ]
+      }
     },
     {
       "endpoint_id": "bug.edit",
@@ -212,7 +223,7 @@
       "fake_route": "tests/fake_zentao/resources/bugs.py#bug.edit",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "observed",
+      "compatibility": "unsupported",
       "parameters": {
         "path": [
           {
@@ -311,19 +322,11 @@
             "repeatable": false,
             "domain": "non_negative_relation_id",
             "minimum": 0
-          },
-          {
-            "api_name": "assignedTo",
-            "argument": "assignee",
-            "cli": "--assignee",
-            "type": "string",
-            "required": false,
-            "repeatable": false
           }
         ],
         "form": []
       },
-      "notes": "修改 Bug"
+      "notes": "修改 Bug；目标 ZenTao 21.7.8 对该 PUT 返回空响应且回读不变，当前兼容性标记为 unsupported；Bug 转交使用 bug.resolve/bug.activate 支持的 assignedTo。"
     },
     {
       "endpoint_id": "bug.list_product",
@@ -559,7 +562,7 @@
       "fake_route": "tests/fake_zentao/resources/bugs.py#bug.list_execution",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "observed",
       "parameters": {
         "path": [
           {
@@ -843,7 +846,7 @@
       "fake_route": "tests/fake_zentao/resources/bugs.py#bug.activate",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "observed",
       "parameters": {
         "path": [
           {
@@ -885,7 +888,7 @@
         ],
         "form": []
       },
-      "notes": "激活 Bug"
+      "notes": "激活 Bug；ZenTao 21.7.8 实测即使官方参数标记为可选，服务端也要求 openedBuild，调用方需使用当前影响/解决版本显式回填；该端点只接受已解决或已关闭 Bug，不能用于保持 active 状态的负责人转派。"
     },
     {
       "endpoint_id": "bug.delete",
@@ -5819,7 +5822,7 @@
       "fake_route": "tests/fake_zentao/resources/stories.py#story.create",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "observed",
       "parameters": {
         "path": [],
         "query": [],
@@ -5972,7 +5975,7 @@
         ],
         "form": []
       },
-      "notes": "创建研发需求"
+      "notes": "创建研发需求；ZenTao 21.7.8 实测即使官方参数标记为可选，服务端仍要求 reviewer，调用方需显式提供评审人。"
     },
     {
       "endpoint_id": "story.edit",

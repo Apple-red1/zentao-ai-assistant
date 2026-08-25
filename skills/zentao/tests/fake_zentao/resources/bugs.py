@@ -1,7 +1,7 @@
 from ..route import Route
 
 ROUTES = [
-    Route('bug.create', 'POST', '/api.php/v2/bugs', 'bug', 'create', required_query=(), required_body=('productID', 'title', 'openedBuild'), enum_values=(('type', ('automation', 'codeerror', 'config', 'designdefect', 'install', 'others', 'performance', 'security', 'standard')),)),
+    Route('bug.create', 'POST', '/api.php/v2/bugs', 'bug', 'create', required_query=(), required_body=('productID', 'product', 'title', 'openedBuild'), enum_values=(('type', ('automation', 'codeerror', 'config', 'designdefect', 'install', 'others', 'performance', 'security', 'standard')),)),
     Route('bug.edit', 'PUT', '/api.php/v2/bugs/{bugID}', 'bug', 'edit', required_query=(), required_body=(), enum_values=(('type', ('automation', 'codeerror', 'config', 'designdefect', 'install', 'others', 'performance', 'security', 'standard')),)),
     Route('bug.list_product', 'GET', '/api.php/v2/products/{productID}/bugs', 'bug', 'list_product', required_query=(), required_body=(), enum_values=(('browseType', ('all', 'assignedbyme', 'assignedtome', 'openedbyme', 'unclosed')),)),
     Route('bug.list_project', 'GET', '/api.php/v2/projects/{projectID}/bugs', 'bug', 'list_project', required_query=(), required_body=(), enum_values=(('browseType', ('all', 'unresolved')),)),

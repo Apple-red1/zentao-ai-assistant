@@ -4,7 +4,7 @@
   "evidence_type": "runtime_observation",
   "observed_on": "2026-08-25",
   "endpoint_count": 120,
-  "status_counts": {"observed": 24, "unsupported": 16, "not_observed": 80},
+  "status_counts": {"observed": 26, "unsupported": 17, "not_observed": 77},
   "source": "docs/acceptance/zentao-21.7.8.md plus the read-only commands recorded in this acceptance run",
   "note": "This file records target-version observations only. It is not an official API contract and never drives runtime dispatch. Endpoints without a record are derived as not_observed.",
   "status_definitions": {
@@ -14,18 +14,32 @@
   },
   "observations": [
     {
-      "endpoint_ids": ["bug.create", "bug.edit", "epic.edit", "product-plan.create", "product-plan.edit", "product-plan.list_product", "product-plan.view", "product-plan.delete", "release.create", "release.edit", "release.list_product", "release.delete", "requirement.edit", "requirement.change", "system.create", "test-case.create", "test-task.create", "user.create", "user.edit"],
+      "endpoint_ids": ["bug.create", "epic.edit", "product-plan.create", "product-plan.edit", "product-plan.list_product", "product-plan.view", "product-plan.delete", "release.create", "release.edit", "release.list_product", "release.delete", "requirement.edit", "requirement.change", "system.create", "story.create", "test-case.create", "test-task.create", "user.create", "user.edit"],
       "status": "observed",
       "observed_at": "2026-08-25",
       "evidence_id": "acceptance-21.7.8-write-flow",
-      "notes": "The acceptance record documents the successful create/edit/list/lifecycle flow and the version-specific compatibility fields for these endpoints."
+      "notes": "The acceptance record documents the successful create/list/lifecycle flow and the version-specific compatibility fields for these endpoints. In particular, bug.create requires both productID and the compatibility alias product; the target does not reject cross-product project/execution/story combinations (#61 probe), so callers must prevalidate relations with explicit reads; system.create can return status=success without an id even though the object is created; story.create requires reviewer on the target even though the official parameter is optional."
     },
     {
-      "endpoint_ids": ["token.login", "product.list", "project.list", "bug.list_product", "bug.list_project"],
+      "endpoint_ids": ["bug.edit"],
+      "status": "unsupported",
+      "observed_at": "2026-08-25",
+      "evidence_id": "issue-26-bug-007-edit",
+      "notes": "On the real 21.7.8 instance, PUT /bugs/{bugID} returned an empty 2xx response and a subsequent readback showed no change for active Bugs (#12 title probe, #36/#53 steps, #37 severity, #38 priority, #51 story=0 unbind, #52 execution, #54 title/severity/priority/type) and a resolved Bug (#11). The official v2 edit contract has no assignedTo field; there is no usable standalone reassignment through this endpoint."
+    },
+    {
+      "endpoint_ids": ["token.login", "product.list", "project.list", "bug.list_product", "bug.list_project", "bug.list_execution"],
       "status": "observed",
       "observed_at": "2026-08-25",
       "evidence_id": "real-read-2026-08-25-01",
-      "notes": "Read-only verification in this run: doctor login; product list page 1; project list page 1; product Bug list with assigned-to-me; project Bug list with unresolved."
+      "notes": "Read-only verification in this run: doctor login; product list page 1; project list page 1; product Bug list with assigned-to-me; project Bug list with unresolved; execution Bug list scoped to execution 9. On the target, browseType=unresolved did not remove resolved/closed rows, so callers must inspect status after a sufficiently broad read."
+    },
+    {
+      "endpoint_ids": ["bug.activate"],
+      "status": "observed",
+      "observed_at": "2026-08-25",
+      "evidence_id": "issue-26-bug-002-activate",
+      "notes": "On the real 21.7.8 instance, activate without openedBuild returned a business validation error (『影响版本』不能为空). The same lifecycle action succeeds when the current affected/resolved build is explicitly supplied. The endpoint only accepts resolved or closed Bugs; activating an active Bug for an assignment-only handoff returned 状态不是已解决或已关闭的Bug不能激活, and no standalone active-Bug reassignment endpoint was available."
     },
     {
       "endpoint_ids": ["feedback.create", "feedback.edit", "feedback.list_product", "feedback.view", "feedback.close", "feedback.activate", "feedback.delete", "file.upload", "file.edit", "ticket.create", "ticket.edit", "ticket.list_product", "ticket.view", "ticket.close", "ticket.activate", "ticket.delete"],

@@ -231,12 +231,6 @@
             "repeatable": false,
             "domain": "non_negative_relation_id",
             "minimum": 0
-          },
-          {
-            "api_name": "assignedTo",
-            "type": "string",
-            "required": false,
-            "repeatable": false
           }
         ],
         "form": []

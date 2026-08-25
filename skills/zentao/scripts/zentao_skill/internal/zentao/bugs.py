@@ -18,6 +18,9 @@ class BugsAPI:
     def create(self, *, affected_build: list[object] | None, product: object | None, title: object | None, assignee: object | None = None, branch: object | None = None, browser: object | None = None, deadline: object | None = None, execution: object | None = None, keywords: object | None = None, module: object | None = None, os: object | None = None, priority: object | None = None, project: object | None = None, severity: object | None = None, steps: object | None = None, story: object | None = None, task: object | None = None, type: object | None = None) -> object | None:
         body = compact_dict({
             'productID': map_enum('productID', product),
+            # ZenTao 21.7.8 requires the legacy compatibility alias as well
+            # as the documented productID field for Bug creation.
+            'product': map_enum('product', product),
             'title': map_enum('title', title),
             'openedBuild': map_enum('openedBuild', affected_build),
             'branch': map_enum('branch', branch),
@@ -39,7 +42,7 @@ class BugsAPI:
         return self.session.post('/bugs', body=body)
 
     @endpoint('bug.edit')
-    def edit(self, *, item_id: int, affected_build: list[object] | None = None, assignee: object | None = None, execution: object | None = None, priority: object | None = None, project: object | None = None, severity: object | None = None, steps: object | None = None, story: object | None = None, title: object | None = None, type: object | None = None) -> object | None:
+    def edit(self, *, item_id: int, affected_build: list[object] | None = None, execution: object | None = None, priority: object | None = None, project: object | None = None, severity: object | None = None, steps: object | None = None, story: object | None = None, title: object | None = None, type: object | None = None) -> object | None:
         body = compact_dict({
             'title': map_enum('title', title),
             'severity': map_enum('severity', severity),
@@ -50,7 +53,6 @@ class BugsAPI:
             'project': map_enum('project', project),
             'execution': map_enum('execution', execution),
             'story': map_enum('story', story),
-            'assignedTo': map_enum('assignedTo', assignee),
         })
         return self.session.put(f'/bugs/{item_id}', body=body)
 

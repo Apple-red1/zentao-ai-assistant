@@ -47,6 +47,10 @@ def expected_body(item: dict[str, Any], kwargs: dict[str, Any]) -> dict[str, Any
         if value is not None:
             if param["api_name"] == "plans": value=normalize_plans(value, kwargs.get("product"))
             result[param["api_name"]]=mapped(param,value)
+    for param in item.get("compatibility_parameters", {}).get("body", []):
+        value=kwargs.get(param["argument"])
+        if value is not None:
+            result[param["api_name"]]=mapped(param,value)
     for param in item["parameters"]["form"]:
         value=kwargs.get(param["argument"])
         if value is None: continue

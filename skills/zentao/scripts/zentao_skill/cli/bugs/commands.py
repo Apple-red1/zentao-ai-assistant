@@ -46,7 +46,6 @@ def register(resource_subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     p_edit.add_argument('--project', type=positive_int, dest='project', help='project 参数')
     p_edit.add_argument('--execution', type=positive_int, dest='execution', help='execution 参数')
     p_edit.add_argument('--story', type=non_negative_int, dest='story', help='story 参数；允许 0 表示解除关联')
-    p_edit.add_argument('--assignee', type=str, dest='assignee', help='assignee 参数')
     add_json_flag(p_edit)
     p_edit.set_defaults(_handler=_run_edit)
     p_list = resource_subparsers.add_parser('list', help='获取产品 Bug 列表')
@@ -117,7 +116,7 @@ def _run_edit(services: object, args: argparse.Namespace) -> object | None:
     value_type = getattr(args, 'type', None)
     if value_type is not None and value_type not in {'install', 'performance', 'config', 'others', 'security', 'automation', 'standard', 'code-error', 'design-defect'}:
         raise UsageError("--type 不是当前 endpoint 支持的枚举值")
-    return service.edit(item_id=args.id, title=getattr(args, 'title', None), severity=getattr(args, 'severity', None), priority=getattr(args, 'priority', None), type=getattr(args, 'type', None), affected_build=getattr(args, 'affected_build', None), steps=resolve_text(args, 'steps'), project=getattr(args, 'project', None), execution=getattr(args, 'execution', None), story=getattr(args, 'story', None), assignee=getattr(args, 'assignee', None))
+    return service.edit(item_id=args.id, title=getattr(args, 'title', None), severity=getattr(args, 'severity', None), priority=getattr(args, 'priority', None), type=getattr(args, 'type', None), affected_build=getattr(args, 'affected_build', None), steps=resolve_text(args, 'steps'), project=getattr(args, 'project', None), execution=getattr(args, 'execution', None), story=getattr(args, 'story', None))
 
 def _run_list(services: object, args: argparse.Namespace) -> object | None:
     service: BugsService = getattr(services, 'bug')

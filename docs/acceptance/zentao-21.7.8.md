@@ -4,10 +4,10 @@
 
 ## 已验证
 
-- 本地自动化全量测试：86 tests passed；Catalog、Internal、CLI、Fake、Contract、CLI E2E 均为 120/120；独立 Official snapshot 120/120，Specific sources 11/120，真实 API 调用计数为 0。
+- 本地自动化全量测试：88 tests passed；Catalog、Internal、CLI、Fake、Contract、CLI E2E 均为 120/120；独立 Official snapshot 120/120，Specific sources 11/120，真实 API 调用计数为 0。
 - 真实只读 endpoint-level evidence：5 个 endpoint ID 通过（`token.login`、`product.list`、`project.list`、`bug.list_product`、`bug.list_project`），具体 case 记录在 compatibility evidence 文件中；不再使用无法追溯的“44/44”口径。
 - 真实对象资源获取：`resource fetch --object-type product --object-id 2` 返回空资源成功；临时 Bug 的富文本保留同源 `/theme/default/images/main/logo.png`，`resource fetch --object-type bug --object-id 3` 成功流式下载 2,067 字节 PNG，落盘文件与直接服务器响应 SHA-256 一致；临时对象已清理。
-- 真实写入和状态流：项目集、产品、项目、执行、构建、应用、需求、用户需求、业务需求、任务、测试用例、测试单、Bug、用户的创建/编辑，以及需求/业务需求关闭激活、任务开始完成关闭激活、Bug 解决关闭激活均已成功。
+- 真实写入和状态流：项目集、产品、项目、执行、构建、应用、需求、用户需求、业务需求、任务、测试用例、测试单、Bug、用户的创建，以及需求/业务需求关闭激活、任务开始完成关闭激活、Bug 解决关闭激活均已成功；Bug PUT 编辑在本实例上返回空响应且回读不变，已单独标为不支持。
 - 本轮创建的数据先用于后续真实编辑与列表回读；已清理可确认且不影响依赖的测试叶子对象，承载测试的产品/项目层级仍保留；系统没有 `system.delete` 端点。
 
 ## 已同步的 21.7.8 差异
@@ -16,9 +16,9 @@
 逐条校验。当前 120 个 endpoint 的机器统计为：
 
 ```text
-observed      = 24
-unsupported   = 16
-not_observed  = 80
+      observed      = 26
+      unsupported   = 17
+      not_observed  = 77
 ```
 
 只有有真实 evidence 的条目才标为 `observed`；没有 endpoint-level evidence 的条目
@@ -30,6 +30,12 @@ not_observed  = 80
 - `requirement.edit`、`epic.edit`：真实实例接受分类字符串，CLI 同时兼容字符串和数字 ID。
 - `product-plan.create`、`product-plan.edit`：真实实例创建/编辑时分别要求兼容字段 `product`、`productID`，编辑还必须保留当前 `status`；`branchID` 与 `branch` 同时发送。
 - `release.create`、`release.edit`：`status=normal` 时要求 `releasedDate`；编辑还必须同时保留 `productID` 与 `product`。
+- `bug.create`：服务端实际要求同时接收官方字段 `productID` 和兼容字段 `product`；CLI 的一个 `--product` 参数会同时发送两者，否则创建成功后回读的产品归属可能为 `0`。目标实例不会校验 `project`、`execution`、`story` 的跨产品一致性，调用方必须先只读确认关系，不能把服务端接受请求描述成关系合法。
+- `bug.list_execution`：目标实例在 `browseType=unresolved` 时仍返回 resolved/closed 行；调用方必须在足够宽的 execution 列表回读后按真实 `status` 过滤，并明确分页/截断情况。
+- `story.create`：官方参数将 `reviewer` 标为可选，但本实例实际要求评审人；首次请求缺少该字段时返回“『评审人』不能为空”，补充 `--reviewer admin` 后创建成功。
+- `bug.edit`：目标实例对官方 `PUT /bugs/{bugID}` 返回空响应且回读不变；官方编辑合同也不包含 `assignedTo`，因此当前不将其作为可用的 Bug 转交能力。
+- `system.create`：本实例返回 `status=success` 但不返回 `id`，对象仍会被创建；当前 CLI 因创建合同要求 `id` 而报告错误，必须通过只读列表确认实际结果。
+- `bug.activate`：官方参数将 `openedBuild` 标为可选，但本实例实际要求该字段；应从当前 Bug 的影响/解决版本回读并显式传入，不能无依据猜测或重放。该端点只接受已解决或已关闭 Bug，不能用于保持 active 状态的负责人转派；本实例未提供可用的独立 active-Bug 转派端点。
 
 ## 当前实例限制
 
