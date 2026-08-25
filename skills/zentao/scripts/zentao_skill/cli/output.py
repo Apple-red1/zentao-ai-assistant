@@ -24,8 +24,10 @@ def redact(value: Any) -> Any:
     return value
 
 
-def emit_success(result: object | None, *, json_output: bool) -> None:
-    clean = redact(result if result is not None else {"status": "success"})
+def emit_success(result: object, *, json_output: bool) -> None:
+    # API adapters must normalize legal empty responses themselves. The
+    # presentation layer must never manufacture a success result for None.
+    clean = redact(result)
     if json_output:
         sys.stdout.write(json.dumps(clean, ensure_ascii=False, separators=(",", ":")) + "\n")
     else:

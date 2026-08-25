@@ -46,13 +46,24 @@ class ZentaoSession:
         attempts = 3 if method == "GET" else 1
         for attempt in range(attempts):
             try:
-                return self.http.request(
+                result = self.http.request(
                     method,
                     url,
                     headers={"Token": self._token or ""},
                     json_body=body,
                     multipart=multipart,
                 )
+                if isinstance(result, dict) and result.get("status") == "fail":
+                    raise ApiError(
+                        "ZenTao API 业务处理失败",
+                        {"method": method, "path": path, "response": result},
+                    )
+                if result is None and method != "DELETE":
+                    raise ApiError(
+                        "ZenTao API 返回空响应",
+                        {"method": method, "path": path, "response": None},
+                    )
+                return result
             except HttpFailure as exc:
                 if method == "GET" and exc.status in {502, 503, 504} and attempt < attempts - 1:
                     time.sleep(self.retry_delays[attempt])

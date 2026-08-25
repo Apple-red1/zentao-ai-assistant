@@ -43,6 +43,12 @@ class FakeZenTao:
                 fault = state.next_fault(route.endpoint_id)
                 if fault in {"400","401","403","404","422","500","502","503","504"}:
                     self._send(int(fault), {"error": f"injected {fault}"}); return
+                if fault == "status_fail":
+                    self._send(200, {"status": "fail", "message": "injected business failure"}); return
+                if fault == "empty":
+                    self._send(200, None); return
+                if fault == "success_missing_id":
+                    self._send(200, {"status": "success"}); return
                 if fault == "timeout":
                     time.sleep(0.5)
                 if fault == "drop":

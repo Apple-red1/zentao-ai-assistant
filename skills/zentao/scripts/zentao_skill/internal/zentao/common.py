@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from functools import wraps
 from typing import Any
 
 from ..errors import ApiError, UsageError
@@ -38,8 +39,13 @@ SORT_TO_API = {"raw-id": "rawID", "name-col": "nameCol"}
 
 def endpoint(endpoint_id: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     def decorate(fn: Callable[..., Any]) -> Callable[..., Any]:
-        setattr(fn, "__zentao_endpoint_id__", endpoint_id)
-        return fn
+        @wraps(fn)
+        def wrapped(*args: Any, **kwargs: Any) -> Any:
+            result = fn(*args, **kwargs)
+            return validate_endpoint_response(endpoint_id, result)
+
+        setattr(wrapped, "__zentao_endpoint_id__", endpoint_id)
+        return wrapped
     return decorate
 
 
@@ -62,6 +68,69 @@ def require_response_body(result: object | None, *, endpoint_id: str, feature: s
         raise ApiError(
             f"{endpoint_id} 返回空响应；请确认当前禅道已启用{feature}能力",
             {"endpoint": endpoint_id, "response": None},
+        )
+    return result
+
+
+# These are the response fields used by ZenTao's success envelopes. A raw
+# object (the form returned by several 21.7.8 endpoints) remains valid; the
+# field is required when the server explicitly returns ``status=success``.
+_RESPONSE_FIELDS: dict[str, str] = {
+    "bug": "bugs",
+    "build": "builds",
+    "epic": "epics",
+    "execution": "executions",
+    "feedback": "feedbacks",
+    "product": "products",
+    "product-plan": "productplans",
+    "program": "programs",
+    "project": "projects",
+    "release": "releases",
+    "requirement": "requirements",
+    "story": "stories",
+    "system": "systems",
+    "task": "tasks",
+    "test-case": "testcases",
+    "test-task": "testtasks",
+    "ticket": "tickets",
+    "user": "users",
+}
+
+
+def _contract_field(endpoint_id: str) -> str | None:
+    resource, operation = endpoint_id.split(".", 1)
+    if operation == "create":
+        return "id"
+    if operation == "view":
+        return resource.replace("-", "")
+    if operation.startswith("list"):
+        return _RESPONSE_FIELDS.get(resource)
+    return None
+
+
+def validate_endpoint_response(endpoint_id: str, result: object | None) -> object | None:
+    """Validate the stable endpoint-specific part of a response contract.
+
+    Transport-level validation (including ``status=fail`` and unexpected
+    empty bodies) lives in :class:`ZentaoSession`; this function validates the
+    endpoint-specific success envelope after an adapter returns. Raw objects
+    are intentionally accepted because the API commonly omits the envelope.
+    """
+    operation = endpoint_id.split(".", 1)[1]
+    if result is None:
+        # DELETE adapters normalize a legal 204 to an explicit success object.
+        if operation == "delete":
+            return result
+        raise ApiError(
+            f"{endpoint_id} 返回空响应",
+            {"endpoint": endpoint_id, "response": None},
+        )
+
+    field = _contract_field(endpoint_id)
+    if field and isinstance(result, dict) and result.get("status") == "success" and field not in result:
+        raise ApiError(
+            f"{endpoint_id} 返回 success 但缺少 {field}",
+            {"endpoint": endpoint_id, "missing": field, "response": result},
         )
     return result
 
