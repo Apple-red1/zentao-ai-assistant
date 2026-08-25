@@ -5,6 +5,10 @@ description: Use when users ask to read or explicitly change ZenTao through the 
 
 # 禅道（zentao）
 
+仓库当前合同索引见 [`docs/current-contract.md`](../../docs/current-contract.md)。本文件
+负责 Skill 的用户调用、安全授权和输出语义；endpoint 机器合同及真实兼容性按该索引
+分别读取，不以历史 `RULES.md` 为依据。
+
 ## 调用入口
 
 唯一执行入口：

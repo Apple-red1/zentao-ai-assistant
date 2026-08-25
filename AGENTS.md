@@ -24,11 +24,12 @@ python skills/zentao/scripts/zentao.py <resource> <action> [scope] [parameters] 
 
 按任务范围至少阅读：
 
-1. `skills/zentao/RULES.md`：当前架构、配置、依赖方向、CLI 与 API 映射规则的权威项目规则。
+1. `docs/current-contract.md`：当前唯一权威入口及各类事实来源的职责索引。
 2. `skills/zentao/SKILL.md`：Skill 的用户侧调用契约、授权等级、输出和错误语义。
 3. `skills/zentao/references/api-v2/<resource>.md`：目标资源的 API v2 能力说明。
 4. `skills/zentao/references/api-v2/endpoints.json`：机器可读的 endpoint 覆盖与兼容性索引，仅用于审计和测试集合一致性。
-5. 目标实现及其对应测试。不要只看文档就修改代码，也不要只看单个模块推断完整调用链。
+5. `skills/zentao/RULES.md`：仅作为 ARCHIVED 历史迁移快照阅读，不得当作当前规则。
+6. 目标实现及其对应测试。不要只看文档就修改代码，也不要只看单个模块推断完整调用链。
 
 涉及发布、安全、配置或兼容性时，还应分别阅读：
 
@@ -182,7 +183,7 @@ Result: PASS
 
 - `README.md` 的产品定位、入口和能力概览；
 - `skills/zentao/SKILL.md` 的调用与风险合同；
-- `skills/zentao/RULES.md` 的冻结设计规则；
+- `docs/current-contract.md` 的当前合同入口及其指向的事实来源；
 - `skills/zentao/references/api-v2/` 的资源说明与 catalog；
 - `docs/architecture.md` 的真实分层；
 - `docs/testing.md` 与 `docs/release-checklist.md` 的实际测试门槛；

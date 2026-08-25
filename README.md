@@ -1,6 +1,9 @@
 
 # zentao Skill
 
+当前行为与开发事实的唯一入口是 [`docs/current-contract.md`](docs/current-contract.md)；
+它区分用户 Skill 合同、endpoint catalog、官方 evidence、真实兼容性和工程约束。
+
 本仓库提供单一 `skills/zentao/` Skill，通过 Python 标准库直接调用 ZenTao 官方 API v2。运行时不依赖 MCP、独立 `zentao-ai` 系统 CLI 或第三方 Python 包。
 
 ## 配置
