@@ -2,37 +2,71 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextvars import ContextVar
 from functools import wraps
 from typing import Any
 
 from ..errors import ApiError, UsageError
 
 
-ENUM_TO_API = {
-    "assigned-to-me": "assignedtome",
-    "opened-by-me": "openedbyme",
-    "assigned-by-me": "assignedbyme",
-    "resolved-by-me": "resolvedbyme",
-    "postponed-by-me": "postponedbyme",
-    "review-by-me": "reviewbyme",
-    "draft-story": "draftstory",
-    "all-story": "allstory",
-    "my-involved": "myinvolved",
-    "need-confirm": "needconfirm",
-    "to-closed": "toclosed",
-    "long-life-bugs": "longlifebugs",
-    "finished-by-me": "finishedbyme",
-    "assign-to-me": "assigntome",
-    "not-repro": "notrepro",
-    "by-design": "bydesign",
-    "will-not-fix": "willnotfix",
-    "to-story": "tostory",
-    "will-not-do": "willnotdo",
-    "code-error": "codeerror",
-    "design-defect": "designdefect",
-    "waterfall-plus": "waterfallplus",
-    "agile-plus": "agileplus",
+# Mappings are scoped to protocol fields.  In particular, free-text fields
+# such as title/description/comment and credential fields never consult this
+# table, even when their value happens to look like an enum alias.
+FIELD_ENUM_MAPS: dict[str, dict[str, str]] = {
+    "browseType": {
+        "assigned-to-me": "assignedtome",
+        "opened-by-me": "openedbyme",
+        "assigned-by-me": "assignedbyme",
+        "resolved-by-me": "resolvedbyme",
+        "postponed-by-me": "postponedbyme",
+        "review-by-me": "reviewbyme",
+        "draft-story": "draftstory",
+        "all-story": "allstory",
+        "my-involved": "myinvolved",
+        "need-confirm": "needconfirm",
+        "to-closed": "toclosed",
+        "long-life-bugs": "longlifebugs",
+        "finished-by-me": "finishedbyme",
+        "assign-to-me": "assigntome",
+    },
+    "resolution": {
+        "not-repro": "notrepro",
+        "by-design": "bydesign",
+        "will-not-fix": "willnotfix",
+        "to-story": "tostory",
+    },
+    "closedReason": {
+        "by-design": "bydesign",
+        "will-not-do": "willnotdo",
+    },
+    "type": {
+        "code-error": "codeerror",
+        "design-defect": "designdefect",
+    },
+    "model": {
+        "waterfall-plus": "waterfallplus",
+        "agile-plus": "agileplus",
+    },
 }
+
+_CURRENT_ENDPOINT: ContextVar[str | None] = ContextVar("zentao_endpoint", default=None)
+
+
+def _enum_field_is_scoped(endpoint_id: str | None, field: str) -> bool:
+    """Return whether this endpoint declares ``field`` as an enum field."""
+    if endpoint_id is None:
+        return True  # field-scoped helper calls remain useful in unit tests
+    if field == "browseType":
+        return ".list" in endpoint_id
+    if field == "resolution":
+        return endpoint_id == "bug.resolve"
+    if field == "closedReason":
+        return endpoint_id.endswith(".close")
+    if field == "model":
+        return endpoint_id in {"project.create", "project.edit"}
+    if field == "type":
+        return endpoint_id in {"bug.create", "bug.edit"}
+    return False
 
 SORT_TO_API = {"raw-id": "rawID", "name-col": "nameCol"}
 
@@ -41,8 +75,12 @@ def endpoint(endpoint_id: str) -> Callable[[Callable[..., Any]], Callable[..., A
     def decorate(fn: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(fn)
         def wrapped(*args: Any, **kwargs: Any) -> Any:
-            result = fn(*args, **kwargs)
-            return validate_endpoint_response(endpoint_id, result)
+            marker = _CURRENT_ENDPOINT.set(endpoint_id)
+            try:
+                result = fn(*args, **kwargs)
+                return validate_endpoint_response(endpoint_id, result)
+            finally:
+                _CURRENT_ENDPOINT.reset(marker)
 
         setattr(wrapped, "__zentao_endpoint_id__", endpoint_id)
         return wrapped
@@ -140,7 +178,16 @@ def map_enum(field: str, value: Any) -> Any:
         return [map_enum(field, item) for item in value]
     if not isinstance(value, str):
         return value
-    return ENUM_TO_API.get(value, value)
+    # The endpoint context is intentionally part of the lookup boundary. A
+    # direct helper call (outside an adapter) still supports field-level unit
+    # tests, but no value-only/global fallback exists anymore.
+    endpoint_id = _CURRENT_ENDPOINT.get()
+    if not _enum_field_is_scoped(endpoint_id, field):
+        return value
+    mapping = FIELD_ENUM_MAPS.get(field, {})
+    if endpoint_id is None:
+        return mapping.get(value, value)
+    return mapping.get(value, value)
 
 
 def make_order_by(sort: str, order: str | None) -> str:

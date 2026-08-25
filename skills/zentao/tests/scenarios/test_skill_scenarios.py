@@ -15,6 +15,35 @@ from zentao_skill.internal.zentao.tickets import TicketsAPI
 
 
 class SkillScenarioTests(unittest.TestCase):
+    def test_enum_mapping_is_field_scoped_and_preserves_free_text_and_credentials(self) -> None:
+        with FakeZenTao() as fake:
+            result = run_cli(fake.base_url, [
+                "bug", "create", "--product", "1", "--title", "code-error",
+                "--affected-build", "trunk", "--type", "code-error",
+                "--steps", "design-defect", "--json",
+            ])
+            self.assertEqual(0, result.returncode, result.stderr)
+            body = fake.state.requests[-1]["body"]
+            self.assertEqual("code-error", body["title"])
+            self.assertEqual("codeerror", body["type"])
+            self.assertEqual("design-defect", body["steps"])
+
+            result = run_cli(fake.base_url, [
+                "user", "create", "--account", "enum-account", "--realname", "agile-plus",
+                "--password", "code-error", "--json",
+            ])
+            self.assertEqual(0, result.returncode, result.stderr)
+            body = fake.state.requests[-1]["body"]
+            self.assertEqual("agile-plus", body["realname"])
+            self.assertEqual("code-error", body["password"])
+
+            result = run_cli(fake.base_url, [
+                "project", "create", "--name", "enum-project", "--model", "waterfall-plus",
+                "--begin", "2026-08-25", "--end", "2026-08-26", "--json",
+            ])
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertEqual("waterfallplus", fake.state.requests[-1]["body"]["model"])
+
     def test_non_integrated_system_sends_empty_children_array(self) -> None:
         with FakeZenTao() as fake:
             result = run_cli(fake.base_url, [
