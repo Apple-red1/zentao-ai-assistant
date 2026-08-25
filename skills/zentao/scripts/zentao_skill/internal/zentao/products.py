@@ -14,6 +14,15 @@ class ProductsAPI:
     def __init__(self, session: ZentaoSession) -> None:
         self.session = session
 
+    @staticmethod
+    def _description_value(value: object | None) -> object | None:
+        """Send ZenTao's scalar product description, even for legacy list input."""
+        if not isinstance(value, list):
+            return value
+        if len(value) == 1:
+            return value[0]
+        return "\n".join(str(item) for item in value)
+
     @endpoint('product.create')
     def create(self, *, name: object | None, acl: object | None = None, desc: list[object] | None = None, line: object | None = None, po: object | None = None, program: object | None = None, qd: object | None = None, rd: object | None = None, reviewer: list[object] | None = None, type: object | None = None) -> object | None:
         body = compact_dict({
@@ -23,7 +32,7 @@ class ProductsAPI:
             'type': map_enum('type', type),
             'PO': map_enum('PO', po),
             'reviewer': map_enum('reviewer', reviewer),
-            'desc': map_enum('desc', desc),
+            'desc': map_enum('desc', self._description_value(desc)),
             'QD': map_enum('QD', qd),
             'RD': map_enum('RD', rd),
             'acl': map_enum('acl', acl),
@@ -39,7 +48,7 @@ class ProductsAPI:
             'type': map_enum('type', type),
             'PO': map_enum('PO', po),
             'reviewer': map_enum('reviewer', reviewer),
-            'desc': map_enum('desc', desc),
+            'desc': map_enum('desc', self._description_value(desc)),
             'QD': map_enum('QD', qd),
             'RD': map_enum('RD', rd),
             'acl': map_enum('acl', acl),

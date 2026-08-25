@@ -33,7 +33,7 @@ class RequirementsAPI:
         return self.session.post('/requirements', body=body)
 
     @endpoint('requirement.edit')
-    def edit(self, *, item_id: int, title: object | None, assignee: object | None = None, category: object | None = None, estimate: object | None = None, module: object | None = None, parent: object | None = None, priority: object | None = None, source: object | None = None) -> object | None:
+    def edit(self, *, item_id: int, title: object | None, assignee: object | None = None, category: object | None = None, estimate: object | None = None, module: object | None = None, parent: object | None = None, priority: object | None = None, reviewer: list[object] | None = None, source: object | None = None) -> object | None:
         body = compact_dict({
             'title': map_enum('title', title),
             'pri': map_enum('pri', priority),
@@ -43,6 +43,7 @@ class RequirementsAPI:
             'category': map_enum('category', category),
             'source': map_enum('source', source),
             'assignedTo': map_enum('assignedTo', assignee),
+            'reviewer': map_enum('reviewer', reviewer),
         })
         return self.session.put(f'/requirements/{item_id}', body=body)
 
@@ -77,10 +78,11 @@ class RequirementsAPI:
         return self.session.get(f'/requirements/{item_id}')
 
     @endpoint('requirement.close')
-    def close(self, *, closed_reason: object | None, item_id: int, comment: object | None = None) -> object | None:
+    def close(self, *, closed_reason: object | None, item_id: int, comment: object | None = None, duplicate_story: object | None = None) -> object | None:
         body = compact_dict({
             'closedReason': map_enum('closedReason', closed_reason),
             'comment': map_enum('comment', comment),
+            'duplicateStory': map_enum('duplicateStory', duplicate_story),
         })
         return self.session.put(f'/requirements/{item_id}/close', body=body)
 

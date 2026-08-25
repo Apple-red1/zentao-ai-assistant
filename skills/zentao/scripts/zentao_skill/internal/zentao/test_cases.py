@@ -14,8 +14,18 @@ class TestCasesAPI:
     def __init__(self, session: ZentaoSession) -> None:
         self.session = session
 
+    @staticmethod
+    def _step_types(step: list[object] | None, step_type: list[object] | None) -> list[object] | None:
+        # ZenTao 21.7.8 silently keeps only the first step when a multi-step
+        # request omits stepType. The API documents stepType as optional, so
+        # fill the protocol default for ordinary steps instead of losing data.
+        if step_type is None and step is not None:
+            return ['step'] * len(step)
+        return step_type
+
     @endpoint('test-case.create')
     def create(self, *, product: object | None, title: object | None, execution: object | None = None, expect: list[object] | None = None, module: object | None = None, precondition: object | None = None, priority: object | None = None, project: object | None = None, step: list[object] | None = None, step_type: list[object] | None = None, story: object | None = None, type: object | None = None) -> object | None:
+        resolved_step_type = self._step_types(step, step_type)
         body = compact_dict({
             'productID': map_enum('productID', product),
             'product': map_enum('product', product),
@@ -27,7 +37,7 @@ class TestCasesAPI:
             'precondition': map_enum('precondition', precondition),
             'steps': map_enum('steps', step),
             'expects': map_enum('expects', expect),
-            'stepType': map_enum('stepType', step_type),
+            'stepType': map_enum('stepType', resolved_step_type),
             'project': map_enum('project', project),
             'execution': map_enum('execution', execution),
         })
@@ -35,6 +45,7 @@ class TestCasesAPI:
 
     @endpoint('test-case.edit')
     def edit(self, *, item_id: int, title: object | None, expect: list[object] | None = None, module: object | None = None, precondition: object | None = None, priority: object | None = None, step: list[object] | None = None, step_type: list[object] | None = None, story: object | None = None, type: object | None = None) -> object | None:
+        resolved_step_type = self._step_types(step, step_type)
         body = compact_dict({
             'title': map_enum('title', title),
             'module': map_enum('module', module),
@@ -44,7 +55,7 @@ class TestCasesAPI:
             'precondition': map_enum('precondition', precondition),
             'steps': map_enum('steps', step),
             'expects': map_enum('expects', expect),
-            'stepType': map_enum('stepType', step_type),
+            'stepType': map_enum('stepType', resolved_step_type),
         })
         return self.session.put(f'/testcases/{item_id}', body=body)
 

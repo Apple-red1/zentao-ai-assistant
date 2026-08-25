@@ -14,3 +14,5 @@
 | `epic.delete` | `DELETE` `/api.php/v2/epics/{storyID}` | `epic delete` | R3 | 删除业务需求 |
 
 风险：R0 读取；R1 普通写；R2 生命周期；R3 删除。R3 只有当前用户明确要求删除具体对象时才允许执行，并必须给 CLI 传 `--yes`。
+
+21.7.8 真实观察：创建业务需求的成功响应可能缺少 `id`，必须先用产品列表回读；优先级使用目标字段 `pri`。关闭原因为 `duplicate` 时目标还要求明确 `duplicateStory`，不能只发送关闭原因。目标实例启用评审时，`PUT /epics/{storyID}` 对省略 reviewer 采用替换语义，编辑 CLI 必须显式传入 reviewer，避免服务端清空既有评审人。

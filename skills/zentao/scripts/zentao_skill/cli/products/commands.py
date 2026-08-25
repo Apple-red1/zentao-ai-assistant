@@ -4,14 +4,14 @@ import argparse
 
 from ...internal.errors import UsageError
 from ...services.products.service import ProductsService
-from ..common import add_json_flag, auto_value, non_negative_int, number, page_int, per_page_int, positive_int, resolve_text
+from ..common import add_json_flag, auto_value, non_empty_text, non_negative_int, number, page_int, per_page_int, positive_int, resolve_text
 
 
 ENDPOINT_IDS = frozenset({'product.delete', 'product.edit', 'product.list_program', 'product.view', 'product.create', 'product.list'})
 
 def register(resource_subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     p_create = resource_subparsers.add_parser('create', help='创建产品')
-    p_create.add_argument('--name', type=str, required=True, dest='name', help='name 参数')
+    p_create.add_argument('--name', type=non_empty_text, required=True, dest='name', help='name 参数')
     p_create.add_argument('--program', type=positive_int, dest='program', help='program 参数')
     p_create.add_argument('--line', type=non_negative_int, dest='line', help='line 参数；允许 0 表示无产品线')
     p_create.add_argument('--type', type=str, choices=['branch', 'normal', 'platform'], dest='type', help='type 参数')
@@ -25,7 +25,7 @@ def register(resource_subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     p_create.set_defaults(_handler=_run_create)
     p_edit = resource_subparsers.add_parser('edit', help='修改产品')
     p_edit.add_argument("id", type=positive_int, help="资源 ID")
-    p_edit.add_argument('--name', type=str, required=True, dest='name', help='name 参数')
+    p_edit.add_argument('--name', type=non_empty_text, required=True, dest='name', help='name 参数')
     p_edit.add_argument('--program', type=positive_int, dest='program', help='program 参数')
     p_edit.add_argument('--line', type=non_negative_int, dest='line', help='line 参数；允许 0 表示无产品线')
     p_edit.add_argument('--type', type=str, choices=['branch', 'normal', 'platform'], dest='type', help='type 参数')

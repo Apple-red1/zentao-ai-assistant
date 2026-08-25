@@ -513,7 +513,10 @@
       "estimate": 1.0,
       "category": 1,
       "source": "sample",
-      "assignee": "admin"
+      "assignee": "admin",
+      "reviewer": [
+        "1"
+      ]
     },
     "cli_argv": [
       "epic",
@@ -535,6 +538,8 @@
       "sample",
       "--assignee",
       "admin",
+      "--reviewer",
+      "1",
       "--json"
     ]
   },
@@ -611,7 +616,8 @@
     "adapter_kwargs": {
       "item_id": 1,
       "closed_reason": "done",
-      "comment": "sample text"
+      "comment": "sample text",
+      "duplicate_story": 2
     },
     "cli_argv": [
       "epic",
@@ -621,6 +627,8 @@
       "done",
       "--comment",
       "sample text",
+      "--duplicate-story",
+      "2",
       "--json"
     ]
   },
@@ -1068,9 +1076,7 @@
       "reviewer": [
         "1"
       ],
-      "desc": [
-        "1"
-      ],
+      "desc": "1",
       "qd": "admin",
       "rd": "admin",
       "acl": "open"
@@ -1112,9 +1118,7 @@
       "reviewer": [
         "1"
       ],
-      "desc": [
-        "1"
-      ],
+      "desc": "1",
       "qd": "admin",
       "rd": "admin",
       "acl": "open"
@@ -1759,7 +1763,10 @@
       "estimate": 1.0,
       "category": 1,
       "source": "sample",
-      "assignee": "admin"
+      "assignee": "admin",
+      "reviewer": [
+        "1"
+      ]
     },
     "cli_argv": [
       "requirement",
@@ -1781,6 +1788,8 @@
       "sample",
       "--assignee",
       "admin",
+      "--reviewer",
+      "1",
       "--json"
     ]
   },
@@ -1857,7 +1866,8 @@
     "adapter_kwargs": {
       "item_id": 1,
       "closed_reason": "done",
-      "comment": "sample text"
+      "comment": "sample text",
+      "duplicate_story": 2
     },
     "cli_argv": [
       "requirement",
@@ -1867,6 +1877,8 @@
       "done",
       "--comment",
       "sample text",
+      "--duplicate-story",
+      "2",
       "--json"
     ]
   },

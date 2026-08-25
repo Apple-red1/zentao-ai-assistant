@@ -4,14 +4,14 @@ import argparse
 
 from ...internal.errors import UsageError
 from ...services.programs.service import ProgramsService
-from ..common import add_json_flag, auto_value, number, page_int, per_page_int, positive_int, resolve_text
+from ..common import add_json_flag, auto_value, non_empty_text, number, page_int, per_page_int, positive_int, resolve_text
 
 
 ENDPOINT_IDS = frozenset({'program.delete', 'program.list', 'program.edit', 'program.view', 'program.create'})
 
 def register(resource_subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     p_create = resource_subparsers.add_parser('create', help='创建项目集')
-    p_create.add_argument('--name', type=str, required=True, dest='name', help='name 参数')
+    p_create.add_argument('--name', type=non_empty_text, required=True, dest='name', help='name 参数')
     p_create.add_argument('--begin', type=str, required=True, dest='begin', help='begin 参数')
     p_create.add_argument('--end', type=str, required=True, dest='end', help='end 参数')
     p_create.add_argument('--pm', type=str, dest='pm', help='pm 参数')
@@ -22,7 +22,7 @@ def register(resource_subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     p_create.set_defaults(_handler=_run_create)
     p_edit = resource_subparsers.add_parser('edit', help='修改项目集')
     p_edit.add_argument("id", type=positive_int, help="资源 ID")
-    p_edit.add_argument('--name', type=str, required=True, dest='name', help='name 参数')
+    p_edit.add_argument('--name', type=non_empty_text, required=True, dest='name', help='name 参数')
     p_edit.add_argument('--begin', type=str, required=True, dest='begin', help='begin 参数')
     p_edit.add_argument('--end', type=str, required=True, dest='end', help='end 参数')
     p_edit.add_argument('--pm', type=str, dest='pm', help='pm 参数')

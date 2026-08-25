@@ -39,6 +39,7 @@ def register(resource_subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     p_edit.add_argument('--category', type=auto_value, dest='category', help='category 参数；兼容分类字符串或数字 ID')
     p_edit.add_argument('--source', type=str, dest='source', help='source 参数')
     p_edit.add_argument('--assignee', type=str, dest='assignee', help='assignee 参数')
+    p_edit.add_argument('--reviewer', action='append', required=True, dest='reviewer', help='reviewer 参数；目标 PUT 对省略字段采用替换语义，必须显式保留评审人')
     add_json_flag(p_edit)
     p_edit.set_defaults(_handler=_run_edit)
     p_change = resource_subparsers.add_parser('change', help='变更用户需求')
@@ -72,6 +73,7 @@ def register(resource_subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     p_close = resource_subparsers.add_parser('close', help='关闭用户需求')
     p_close.add_argument("id", type=positive_int, help="资源 ID")
     p_close.add_argument('--closed-reason', type=str, required=True, choices=['by-design', 'cancel', 'done', 'duplicate', 'postponed', 'subdivided', 'will-not-do'], dest='closed_reason', help='closed-reason 参数')
+    p_close.add_argument('--duplicate-story', type=positive_int, dest='duplicate_story', help='重复用户需求 ID；closed-reason=duplicate 时按目标要求提供')
     p_close_g_comment = p_close.add_mutually_exclusive_group(required=False)
     p_close_g_comment.add_argument('--comment', dest='comment', type=str, help='comment 参数')
     p_close_g_comment.add_argument('--comment-file', dest='comment_file', help="从 UTF-8 文件读取文本")
@@ -103,7 +105,7 @@ def _run_create(services: object, args: argparse.Namespace) -> object | None:
 
 def _run_edit(services: object, args: argparse.Namespace) -> object | None:
     service: RequirementsService = getattr(services, 'requirement')
-    return service.edit(item_id=args.id, title=getattr(args, 'title', None), priority=getattr(args, 'priority', None), module=getattr(args, 'module', None), parent=getattr(args, 'parent', None), estimate=getattr(args, 'estimate', None), category=getattr(args, 'category', None), source=getattr(args, 'source', None), assignee=getattr(args, 'assignee', None))
+    return service.edit(item_id=args.id, title=getattr(args, 'title', None), priority=getattr(args, 'priority', None), module=getattr(args, 'module', None), parent=getattr(args, 'parent', None), estimate=getattr(args, 'estimate', None), category=getattr(args, 'category', None), source=getattr(args, 'source', None), assignee=getattr(args, 'assignee', None), reviewer=getattr(args, 'reviewer', None))
 
 def _run_change(services: object, args: argparse.Namespace) -> object | None:
     service: RequirementsService = getattr(services, 'requirement')
@@ -124,7 +126,7 @@ def _run_close(services: object, args: argparse.Namespace) -> object | None:
     value_closed_reason = getattr(args, 'closed_reason', None)
     if value_closed_reason is not None and value_closed_reason not in {'duplicate', 'done', 'cancel', 'postponed', 'will-not-do', 'subdivided', 'by-design'}:
         raise UsageError("--closed-reason 不是当前 endpoint 支持的枚举值")
-    return service.close(item_id=args.id, closed_reason=getattr(args, 'closed_reason', None), comment=resolve_text(args, 'comment'))
+    return service.close(item_id=args.id, closed_reason=getattr(args, 'closed_reason', None), comment=resolve_text(args, 'comment'), duplicate_story=getattr(args, 'duplicate_story', None))
 
 def _run_activate(services: object, args: argparse.Namespace) -> object | None:
     service: RequirementsService = getattr(services, 'requirement')

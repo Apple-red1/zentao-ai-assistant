@@ -19,6 +19,12 @@ def positive_int(value: str) -> int:
     return number
 
 
+def non_empty_text(value: str) -> str:
+    if not value.strip():
+        raise argparse.ArgumentTypeError("不能为空")
+    return value
+
+
 def non_negative_int(value: str) -> int:
     try:
         number = int(value)

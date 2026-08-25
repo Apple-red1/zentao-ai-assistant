@@ -15,6 +15,36 @@ from zentao_skill.internal.zentao.tickets import TicketsAPI
 
 
 class SkillScenarioTests(unittest.TestCase):
+    def test_program_create_rejects_blank_name_before_http(self) -> None:
+        with FakeZenTao() as fake:
+            result = run_cli(fake.base_url, [
+                "program", "create", "--name", "", "--begin", "2027-01-01",
+                "--end", "2027-12-31", "--json",
+            ])
+            self.assertEqual(2, result.returncode)
+            self.assertEqual("", result.stdout)
+            self.assertEqual("USAGE_ERROR", json.loads(result.stderr)["error"]["code"])
+            self.assertEqual([], fake.state.requests)
+
+    def test_product_description_is_sent_as_scalar_text(self) -> None:
+        with FakeZenTao() as fake:
+            result = run_cli(fake.base_url, [
+                "product", "create", "--name", "description-product",
+                "--desc", "面向企业客户的统一 CRM", "--json",
+            ])
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertEqual("面向企业客户的统一 CRM", fake.state.requests[-1]["body"]["desc"])
+
+    def test_product_create_rejects_blank_name_before_http(self) -> None:
+        with FakeZenTao() as fake:
+            result = run_cli(fake.base_url, [
+                "product", "create", "--name", "", "--json",
+            ])
+            self.assertEqual(2, result.returncode)
+            self.assertEqual("", result.stdout)
+            self.assertEqual("USAGE_ERROR", json.loads(result.stderr)["error"]["code"])
+            self.assertEqual([], fake.state.requests)
+
     def test_bug_edit_rejects_unsupported_assignment_argument(self) -> None:
         with FakeZenTao() as fake:
             result = run_cli(fake.base_url, [
@@ -34,6 +64,67 @@ class SkillScenarioTests(unittest.TestCase):
             body = fake.state.requests[-1]["body"]
             self.assertEqual(1, body["productID"])
             self.assertEqual(1, body["product"])
+
+    def test_epic_duplicate_close_sends_duplicate_story(self) -> None:
+        with FakeZenTao() as fake:
+            result = run_cli(fake.base_url, [
+                "epic", "close", "1", "--closed-reason", "duplicate",
+                "--duplicate-story", "2", "--json",
+            ])
+            self.assertEqual(0, result.returncode, result.stderr)
+            body = fake.state.requests[-1]["body"]
+            self.assertEqual("duplicate", body["closedReason"])
+            self.assertEqual(2, body["duplicateStory"])
+
+    def test_requirement_duplicate_close_sends_duplicate_story(self) -> None:
+        with FakeZenTao() as fake:
+            result = run_cli(fake.base_url, [
+                "requirement", "close", "1", "--closed-reason", "duplicate",
+                "--duplicate-story", "2", "--json",
+            ])
+            self.assertEqual(0, result.returncode, result.stderr)
+            body = fake.state.requests[-1]["body"]
+            self.assertEqual("duplicate", body["closedReason"])
+            self.assertEqual(2, body["duplicateStory"])
+
+    def test_test_case_defaults_step_types_for_multistep_requests(self) -> None:
+        with FakeZenTao() as fake:
+            result = run_cli(fake.base_url, [
+                "test-case", "create", "--product", "1", "--title", "multi-step",
+                "--step", "one", "--step", "two", "--expect", "first", "--expect", "second",
+                "--json",
+            ])
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertEqual(["step", "step"], fake.state.requests[-1]["body"]["stepType"])
+
+    def test_requirement_edit_requires_reviewers_before_http(self) -> None:
+        with FakeZenTao() as fake:
+            result = run_cli(fake.base_url, [
+                "requirement", "edit", "1", "--title", "edited-requirement", "--priority", "1", "--json",
+            ])
+            self.assertEqual(2, result.returncode)
+            self.assertEqual("", result.stdout)
+            self.assertEqual("USAGE_ERROR", json.loads(result.stderr)["error"]["code"])
+            self.assertEqual([], fake.state.requests)
+
+    def test_epic_edit_can_preserve_reviewers_when_target_requires_them(self) -> None:
+        with FakeZenTao() as fake:
+            result = run_cli(fake.base_url, [
+                "epic", "edit", "1", "--title", "edited-epic",
+                "--priority", "1", "--estimate", "0.5", "--reviewer", "admin", "--json",
+            ])
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertEqual(["admin"], fake.state.requests[-1]["body"]["reviewer"])
+
+    def test_epic_edit_requires_reviewers_before_http(self) -> None:
+        with FakeZenTao() as fake:
+            result = run_cli(fake.base_url, [
+                "epic", "edit", "1", "--title", "edited-epic", "--priority", "1", "--json",
+            ])
+            self.assertEqual(2, result.returncode)
+            self.assertEqual("", result.stdout)
+            self.assertEqual("USAGE_ERROR", json.loads(result.stderr)["error"]["code"])
+            self.assertEqual([], fake.state.requests)
 
     def test_enum_mapping_is_field_scoped_and_preserves_free_text_and_credentials(self) -> None:
         with FakeZenTao() as fake:
@@ -129,7 +220,8 @@ class SkillScenarioTests(unittest.TestCase):
             FilesAPI(session).upload(file="/tmp/sample.txt", object_type="task", object_id=1)
         with self.assertRaises(ApiError):
             FilesAPI(session).edit(item_id=1, file_name="renamed.txt")
-        self.assertEqual({"status": "success", "id": 1}, FilesAPI(session).delete(item_id=1))
+        with self.assertRaises(ApiError):
+            FilesAPI(session).delete(item_id=1)
 
     def test_product_crud_lifecycle_uses_explicit_commands(self) -> None:
         with FakeZenTao() as fake:

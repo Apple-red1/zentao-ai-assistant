@@ -89,5 +89,7 @@ class FakeState:
         if operation == "delete":
             ident = item_id or next(iter(path_params.values()), 1)
             bucket.pop(str(ident), None)
+            if endpoint_id == "file.delete":
+                return 200, {"status": "success", "id": ident}
             return 204, None
         return 500, {"error": "unhandled operation", "endpoint": endpoint_id}

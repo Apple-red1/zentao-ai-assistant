@@ -32,5 +32,8 @@ class FilesAPI:
 
     @endpoint('file.delete')
     def delete(self, *, item_id: int) -> object | None:
-        result = self.session.delete(f'/files/{item_id}')
-        return result if result is not None else {'status': 'success', 'id': item_id}
+        return require_response_body(
+            self.session.delete(f'/files/{item_id}'),
+            endpoint_id='file.delete',
+            feature='附件删除',
+        )

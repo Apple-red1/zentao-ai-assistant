@@ -12,3 +12,5 @@
 | `product.delete` | `DELETE` `/api.php/v2/products/{productID}` | `product delete` | R3 | 删除产品 |
 
 风险：R0 读取；R1 普通写；R2 生命周期；R3 删除。R3 只有当前用户明确要求删除具体对象时才允许执行，并必须给 CLI 传 `--yes`。
+
+目标 ZenTao 21.7.8 兼容性观察：`product.create` / `product.edit` 的描述字段在目标实例按文本保存；适配器会把 CLI 的单值描述规范化为标量，避免服务端把列表序列化成字面量 `Array`。官方字段合同与目标实例观察分别见 `official-contract.json` 和兼容性 evidence。

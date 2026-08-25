@@ -1154,34 +1154,10 @@
         "query": [],
         "body": [
           {
-            "api_name": "productID",
-            "type": "integer",
-            "required": true,
-            "repeatable": false
-          },
-          {
-            "api_name": "product",
-            "type": "integer",
-            "required": true,
-            "repeatable": false
-          },
-          {
             "api_name": "title",
             "type": "string",
             "required": true,
             "repeatable": false
-          },
-          {
-            "api_name": "status",
-            "type": "string",
-            "required": true,
-            "repeatable": false,
-            "enum_values": [
-              "closed",
-              "doing",
-              "done",
-              "wait"
-            ]
           },
           {
             "api_name": "pri",
@@ -1224,6 +1200,12 @@
             "type": "string",
             "required": false,
             "repeatable": false
+          },
+          {
+            "api_name": "reviewer",
+            "type": "string",
+            "required": false,
+            "repeatable": true
           }
         ],
         "form": []
@@ -1424,6 +1406,12 @@
           {
             "api_name": "comment",
             "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "duplicateStory",
+            "type": "integer",
             "required": false,
             "repeatable": false
           }
@@ -4082,6 +4070,12 @@
             "type": "string",
             "required": false,
             "repeatable": false
+          },
+          {
+            "api_name": "reviewer",
+            "type": "string",
+            "required": false,
+            "repeatable": true
           }
         ],
         "form": []
@@ -4282,6 +4276,12 @@
           {
             "api_name": "comment",
             "type": "string",
+            "required": false,
+            "repeatable": false
+          },
+          {
+            "api_name": "duplicateStory",
+            "type": "integer",
             "required": false,
             "repeatable": false
           }

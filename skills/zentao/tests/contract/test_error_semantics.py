@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
+from unittest.mock import Mock
 
 from ..fake_zentao.server import FakeZenTao
 from zentao_skill.internal.config import Config
@@ -18,6 +19,19 @@ class ErrorSemanticsTests(unittest.TestCase):
 
     def calls(self, fake: FakeZenTao, endpoint_id: str) -> list[dict[str, object]]:
         return [request for request in fake.state.requests if request["endpoint_id"] == endpoint_id]
+
+    def test_result_fail_payload_is_an_api_error(self) -> None:
+        http = Mock()
+        http.request.return_value = {
+            "result": "fail",
+            "message": {"name": ["invalid"]},
+        }
+        session = ZentaoSession(Config("http://127.0.0.1", "admin", "secret"), http=http)
+        session._token = "test-token"
+        with self.assertRaises(ApiError) as raised:
+            session.post("/programs", body={"name": ""})
+        self.assertEqual("API_ERROR", raised.exception.code)
+        self.assertEqual("fail", raised.exception.details["response"]["result"])
 
     def test_redirects_are_rejected_without_following_or_forwarding_token(self) -> None:
         statuses = (301, 302, 303, 307, 308)

@@ -113,7 +113,9 @@ class ZentaoSession:
                     json_body=body,
                     multipart=multipart,
                 )
-                if isinstance(result, dict) and result.get("status") == "fail":
+                if isinstance(result, dict) and (
+                    result.get("status") == "fail" or result.get("result") == "fail"
+                ):
                     raise ApiError(
                         "ZenTao API 业务处理失败",
                         {"method": method, "path": path, "response": result},
