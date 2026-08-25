@@ -29,6 +29,13 @@ def non_negative_int(value: str) -> int:
     return number
 
 
+def build_ref(value: str) -> int | str:
+    """Parse a ZenTao build reference: a positive ID or the main trunk."""
+    if value == "trunk":
+        return value
+    return positive_int(value)
+
+
 def page_int(value: str) -> int:
     number = positive_int(value)
     return number

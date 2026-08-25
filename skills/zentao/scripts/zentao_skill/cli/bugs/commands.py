@@ -4,7 +4,7 @@ import argparse
 
 from ...internal.errors import UsageError
 from ...services.bugs.service import BugsService
-from ..common import add_json_flag, auto_value, number, page_int, per_page_int, positive_int, resolve_text
+from ..common import add_json_flag, auto_value, build_ref, non_negative_int, number, page_int, per_page_int, positive_int, resolve_text
 
 
 ENDPOINT_IDS = frozenset({'bug.create', 'bug.list_project', 'bug.activate', 'bug.delete', 'bug.edit', 'bug.list_execution', 'bug.list_product', 'bug.resolve', 'bug.close', 'bug.view'})
@@ -18,7 +18,7 @@ def register(resource_subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     p_create.add_argument('--module', type=positive_int, dest='module', help='module 参数')
     p_create.add_argument('--project', type=positive_int, dest='project', help='project 参数')
     p_create.add_argument('--execution', type=positive_int, dest='execution', help='execution 参数')
-    p_create.add_argument('--story', type=positive_int, dest='story', help='story 参数')
+    p_create.add_argument('--story', type=non_negative_int, dest='story', help='story 参数；允许 0 表示解除关联')
     p_create.add_argument('--task', type=positive_int, dest='task', help='task 参数')
     p_create.add_argument('--severity', type=positive_int, dest='severity', help='severity 参数')
     p_create.add_argument('--priority', type=positive_int, dest='priority', help='priority 参数')
@@ -45,7 +45,7 @@ def register(resource_subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     p_edit_g_steps.add_argument('--steps-file', dest='steps_file', help="从 UTF-8 文件读取文本")
     p_edit.add_argument('--project', type=positive_int, dest='project', help='project 参数')
     p_edit.add_argument('--execution', type=positive_int, dest='execution', help='execution 参数')
-    p_edit.add_argument('--story', type=positive_int, dest='story', help='story 参数')
+    p_edit.add_argument('--story', type=non_negative_int, dest='story', help='story 参数；允许 0 表示解除关联')
     p_edit.add_argument('--assignee', type=str, dest='assignee', help='assignee 参数')
     add_json_flag(p_edit)
     p_edit.set_defaults(_handler=_run_edit)
@@ -75,7 +75,7 @@ def register(resource_subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     p_resolve.add_argument("id", type=positive_int, help="资源 ID")
     p_resolve.add_argument('--resolution', type=str, required=True, choices=['by-design', 'duplicate', 'external', 'fixed', 'not-repro', 'postponed', 'to-story', 'will-not-fix'], dest='resolution', help='resolution 参数')
     p_resolve.add_argument('--resolved-date', type=str, dest='resolved_date', help='resolved-date 参数')
-    p_resolve.add_argument('--resolved-build', type=positive_int, dest='resolved_build', help='resolved-build 参数')
+    p_resolve.add_argument('--resolved-build', type=build_ref, dest='resolved_build', help='resolved-build 参数；可为正整数或 trunk')
     p_resolve.add_argument('--duplicate-bug', type=positive_int, dest='duplicate_bug', help='duplicate-bug 参数')
     p_resolve.add_argument('--assignee', type=str, dest='assignee', help='assignee 参数')
     p_resolve_g_comment = p_resolve.add_mutually_exclusive_group(required=False)

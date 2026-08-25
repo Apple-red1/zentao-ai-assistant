@@ -58,6 +58,28 @@ class CatalogContractTest(unittest.TestCase):
         steps=next(param for param in bug_create["parameters"]["body"] if param["api_name"]=="steps")
         self.assertEqual("--steps-file", steps["file_variant"])
 
+    def test_semantic_parameter_domains_are_explicit(self) -> None:
+        by_id = {item["endpoint_id"]: item for item in CATALOG}
+
+        def body_param(endpoint_id: str, api_name: str) -> dict[str, object]:
+            return next(param for param in by_id[endpoint_id]["parameters"]["body"] if param["api_name"] == api_name)
+
+        for endpoint_id, api_name in (
+            ("bug.create", "story"), ("bug.edit", "story"),
+            ("product.create", "line"), ("product.edit", "line"),
+            ("story.create", "module"), ("story.create", "parent"),
+            ("story.create", "execution"), ("story.edit", "module"),
+            ("story.edit", "parent"), ("test-case.create", "module"),
+            ("test-case.edit", "module"), ("user.edit", "dept"),
+        ):
+            param = body_param(endpoint_id, api_name)
+            self.assertEqual("non_negative_relation_id", param.get("domain"), (endpoint_id, api_name))
+            self.assertEqual(0, param.get("minimum"), (endpoint_id, api_name))
+
+        resolved_build = body_param("bug.resolve", "resolvedBuild")
+        self.assertEqual("build_reference", resolved_build.get("domain"))
+        self.assertEqual(["trunk"], resolved_build.get("allowed_special_values"))
+
     def test_protocol_field_names_stay_out_of_cli_and_services(self) -> None:
         forbidden=("assignedTo", "openedBuild", "pageID", "recPerPage", "resolvedDate", "resolvedBuild", "productID", "projectID", "executionID", "programID")
         for area in (SKILL_ROOT/"scripts"/"zentao_skill"/"cli", SKILL_ROOT/"scripts"/"zentao_skill"/"services"):

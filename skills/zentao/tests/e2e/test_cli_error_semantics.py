@@ -8,6 +8,32 @@ from ..support import run_cli
 
 
 class CliErrorSemanticsE2E(unittest.TestCase):
+    def test_semantic_parameter_domains_accept_documented_zero_and_trunk(self) -> None:
+        cases = (
+            (["bug", "edit", "1", "--story", "0", "--json"], "bug.edit", "story", 0),
+            (["user", "edit", "1", "--account", "admin", "--dept", "0", "--json"], "user.edit", "dept", 0),
+            (["test-case", "edit", "1", "--title", "zero-module", "--module", "0", "--json"], "test-case.edit", "module", 0),
+            (["story", "create", "--product", "1", "--title", "zero-relations", "--module", "0", "--parent", "0", "--execution", "0", "--json"], "story.create", "module", 0),
+            (["product", "create", "--name", "zero-line", "--line", "0", "--json"], "product.create", "line", 0),
+            (["bug", "resolve", "1", "--resolution", "fixed", "--resolved-build", "trunk", "--json"], "bug.resolve", "resolvedBuild", "trunk"),
+        )
+        for argv, endpoint_id, field, expected in cases:
+            with self.subTest(endpoint=endpoint_id):
+                with FakeZenTao() as fake:
+                    result = run_cli(fake.base_url, argv)
+                    self.assertEqual(0, result.returncode, result.stderr)
+                    request = [r for r in fake.state.requests if r["endpoint_id"] == endpoint_id][-1]
+                    self.assertEqual(expected, request["body"][field])
+
+    def test_resource_path_ids_remain_strictly_positive(self) -> None:
+        for argv in (("bug", "view", "0"), ("product", "view", "0"), ("story", "view", "-1")):
+            with self.subTest(argv=argv):
+                with FakeZenTao() as fake:
+                    result = run_cli(fake.base_url, [*argv, "--json"])
+                    self.assertEqual(2, result.returncode)
+                    self.assertEqual("", result.stdout)
+                    self.assertFalse([r for r in fake.state.requests if r["endpoint_id"] != "token.login"])
+
     def test_http_200_business_failure_is_not_success(self) -> None:
         with FakeZenTao() as fake:
             fake.state.plan_faults("bug.view", "status_fail")

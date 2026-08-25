@@ -4,7 +4,7 @@ import argparse
 
 from ...internal.errors import UsageError
 from ...services.stories.service import StoriesService
-from ..common import add_json_flag, auto_value, number, page_int, per_page_int, positive_int, resolve_text
+from ..common import add_json_flag, auto_value, non_negative_int, number, page_int, per_page_int, positive_int, resolve_text
 
 
 ENDPOINT_IDS = frozenset({'story.list_product', 'story.list_execution', 'story.delete', 'story.list_project', 'story.create', 'story.view', 'story.activate', 'story.change', 'story.edit', 'story.close'})
@@ -14,8 +14,8 @@ def register(resource_subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     p_create.add_argument('--product', type=positive_int, required=True, dest='product', help='product 参数')
     p_create.add_argument('--title', type=str, required=True, dest='title', help='title 参数')
     p_create.add_argument('--priority', type=positive_int, dest='priority', help='priority 参数')
-    p_create.add_argument('--module', type=positive_int, dest='module', help='module 参数')
-    p_create.add_argument('--parent', type=positive_int, dest='parent', help='parent 参数')
+    p_create.add_argument('--module', type=non_negative_int, dest='module', help='module 参数；允许 0 表示根模块')
+    p_create.add_argument('--parent', type=non_negative_int, dest='parent', help='parent 参数；允许 0 表示无父需求')
     p_create.add_argument('--estimate', type=number, dest='estimate', help='estimate 参数')
     p_create_g_spec = p_create.add_mutually_exclusive_group(required=False)
     p_create_g_spec.add_argument('--spec', dest='spec', type=str, help='spec 参数')
@@ -28,15 +28,15 @@ def register(resource_subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     p_create.add_argument('--assignee', type=str, dest='assignee', help='assignee 参数')
     p_create.add_argument('--reviewer', action='append', dest='reviewer', help='reviewer 参数')
     p_create.add_argument('--project', type=positive_int, dest='project', help='project 参数')
-    p_create.add_argument('--execution', type=positive_int, dest='execution', help='execution 参数')
+    p_create.add_argument('--execution', type=non_negative_int, dest='execution', help='execution 参数；允许 0 表示无执行')
     add_json_flag(p_create)
     p_create.set_defaults(_handler=_run_create)
     p_edit = resource_subparsers.add_parser('edit', help='修改研发需求')
     p_edit.add_argument("id", type=positive_int, help="资源 ID")
     p_edit.add_argument('--title', type=str, required=True, dest='title', help='title 参数')
     p_edit.add_argument('--priority', type=positive_int, dest='priority', help='priority 参数')
-    p_edit.add_argument('--module', type=positive_int, dest='module', help='module 参数')
-    p_edit.add_argument('--parent', type=positive_int, dest='parent', help='parent 参数')
+    p_edit.add_argument('--module', type=non_negative_int, dest='module', help='module 参数；允许 0 表示根模块')
+    p_edit.add_argument('--parent', type=non_negative_int, dest='parent', help='parent 参数；允许 0 表示无父需求')
     p_edit.add_argument('--estimate', type=number, dest='estimate', help='estimate 参数')
     p_edit.add_argument('--category', type=str, dest='category', help='category 参数')
     p_edit.add_argument('--source', type=str, dest='source', help='source 参数')

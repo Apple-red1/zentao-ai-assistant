@@ -4,7 +4,7 @@ import argparse
 
 from ...internal.errors import UsageError
 from ...services.test_cases.service import TestCasesService
-from ..common import add_json_flag, auto_value, number, page_int, per_page_int, positive_int, resolve_text
+from ..common import add_json_flag, auto_value, non_negative_int, number, page_int, per_page_int, positive_int, resolve_text
 
 
 ENDPOINT_IDS = frozenset({'test-case.list_project', 'test-case.view', 'test-case.delete', 'test-case.list_execution', 'test-case.list_product', 'test-case.create', 'test-case.edit'})
@@ -13,7 +13,7 @@ def register(resource_subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     p_create = resource_subparsers.add_parser('create', help='创建测试用例')
     p_create.add_argument('--product', type=positive_int, required=True, dest='product', help='product 参数')
     p_create.add_argument('--title', type=str, required=True, dest='title', help='title 参数')
-    p_create.add_argument('--module', type=positive_int, dest='module', help='module 参数')
+    p_create.add_argument('--module', type=non_negative_int, dest='module', help='module 参数；允许 0 表示根模块')
     p_create.add_argument('--story', type=positive_int, dest='story', help='story 参数')
     p_create.add_argument('--priority', type=positive_int, dest='priority', help='priority 参数')
     p_create.add_argument('--type', type=str, choices=['config', 'feature', 'install', 'interface', 'other', 'performance', 'security', 'unit'], dest='type', help='type 参数')
@@ -30,7 +30,7 @@ def register(resource_subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     p_edit = resource_subparsers.add_parser('edit', help='修改测试用例')
     p_edit.add_argument("id", type=positive_int, help="资源 ID")
     p_edit.add_argument('--title', type=str, required=True, dest='title', help='title 参数')
-    p_edit.add_argument('--module', type=positive_int, dest='module', help='module 参数')
+    p_edit.add_argument('--module', type=non_negative_int, dest='module', help='module 参数；允许 0 表示根模块')
     p_edit.add_argument('--story', type=positive_int, dest='story', help='story 参数')
     p_edit.add_argument('--priority', type=positive_int, dest='priority', help='priority 参数')
     p_edit.add_argument('--type', type=str, choices=['config', 'feature', 'install', 'interface', 'other', 'performance', 'security', 'unit'], dest='type', help='type 参数')

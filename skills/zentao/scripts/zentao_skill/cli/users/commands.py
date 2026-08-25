@@ -4,7 +4,7 @@ import argparse
 
 from ...internal.errors import UsageError
 from ...services.users.service import UsersService
-from ..common import add_json_flag, auto_value, number, page_int, per_page_int, positive_int, resolve_text
+from ..common import add_json_flag, auto_value, non_negative_int, number, page_int, per_page_int, positive_int, resolve_text
 
 
 ENDPOINT_IDS = frozenset({'user.list', 'user.view', 'user.edit', 'user.delete', 'user.create'})
@@ -21,7 +21,7 @@ def register(resource_subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     p_edit.add_argument("id", type=positive_int, help="资源 ID")
     p_edit.add_argument('--account', type=str, required=True, dest='account', help='account 参数')
     p_edit.add_argument('--realname', type=str, dest='realname', help='realname 参数')
-    p_edit.add_argument('--dept', type=positive_int, dest='dept', help='dept 参数')
+    p_edit.add_argument('--dept', type=non_negative_int, dest='dept', help='dept 参数；允许 0 表示无部门')
     p_edit.add_argument('--join', type=str, dest='join', help='join 参数')
     p_edit.add_argument('--group', action='append', dest='group', help='group 参数')
     p_edit.add_argument('--email', type=str, dest='email', help='email 参数')

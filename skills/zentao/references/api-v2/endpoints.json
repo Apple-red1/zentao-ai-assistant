@@ -88,7 +88,9 @@
             "cli": "--story",
             "type": "integer",
             "required": false,
-            "repeatable": false
+            "repeatable": false,
+            "domain": "non_negative_relation_id",
+            "minimum": 0
           },
           {
             "api_name": "task",
@@ -300,7 +302,9 @@
             "cli": "--story",
             "type": "integer",
             "required": false,
-            "repeatable": false
+            "repeatable": false,
+            "domain": "non_negative_relation_id",
+            "minimum": 0
           },
           {
             "api_name": "assignedTo",
@@ -733,7 +737,9 @@
             "cli": "--resolved-build",
             "type": "string / integer（版本相关）",
             "required": false,
-            "repeatable": false
+            "repeatable": false,
+            "domain": "build_reference",
+            "allowed_special_values": ["trunk"]
           },
           {
             "api_name": "duplicateBug",
@@ -1380,6 +1386,7 @@
             "cli": "--module",
             "type": "integer",
             "required": false,
+            "repeatable": false,
             "repeatable": false
           },
           {
@@ -1388,6 +1395,7 @@
             "cli": "--parent",
             "type": "integer",
             "required": false,
+            "repeatable": false,
             "repeatable": false
           },
           {
@@ -3171,7 +3179,9 @@
             "cli": "--line",
             "type": "integer",
             "required": false,
-            "repeatable": false
+            "repeatable": false,
+            "domain": "non_negative_relation_id",
+            "minimum": 0
           },
           {
             "api_name": "type",
@@ -3296,7 +3306,9 @@
             "cli": "--line",
             "type": "integer",
             "required": false,
-            "repeatable": false
+            "repeatable": false,
+            "domain": "non_negative_relation_id",
+            "minimum": 0
           },
           {
             "api_name": "type",
@@ -5640,7 +5652,9 @@
             "cli": "--module",
             "type": "integer",
             "required": false,
-            "repeatable": false
+            "repeatable": false,
+            "domain": "non_negative_relation_id",
+            "minimum": 0
           },
           {
             "api_name": "parent",
@@ -5648,7 +5662,9 @@
             "cli": "--parent",
             "type": "integer",
             "required": false,
-            "repeatable": false
+            "repeatable": false,
+            "domain": "non_negative_relation_id",
+            "minimum": 0
           },
           {
             "api_name": "estimate",
@@ -5747,7 +5763,9 @@
             "cli": "--execution",
             "type": "integer",
             "required": false,
-            "repeatable": false
+            "repeatable": false,
+            "domain": "non_negative_relation_id",
+            "minimum": 0
           }
         ],
         "form": []
@@ -5807,7 +5825,9 @@
             "cli": "--module",
             "type": "integer",
             "required": false,
-            "repeatable": false
+            "repeatable": false,
+            "domain": "non_negative_relation_id",
+            "minimum": 0
           },
           {
             "api_name": "parent",
@@ -5815,7 +5835,9 @@
             "cli": "--parent",
             "type": "integer",
             "required": false,
-            "repeatable": false
+            "repeatable": false,
+            "domain": "non_negative_relation_id",
+            "minimum": 0
           },
           {
             "api_name": "estimate",
@@ -7289,7 +7311,9 @@
             "cli": "--module",
             "type": "integer",
             "required": false,
-            "repeatable": false
+            "repeatable": false,
+            "domain": "non_negative_relation_id",
+            "minimum": 0
           },
           {
             "api_name": "story",
@@ -7428,7 +7452,9 @@
             "cli": "--module",
             "type": "integer",
             "required": false,
-            "repeatable": false
+            "repeatable": false,
+            "domain": "non_negative_relation_id",
+            "minimum": 0
           },
           {
             "api_name": "story",
@@ -8997,7 +9023,9 @@
             "cli": "--dept",
             "type": "integer",
             "required": false,
-            "repeatable": false
+            "repeatable": false,
+            "domain": "non_negative_relation_id",
+            "minimum": 0
           },
           {
             "api_name": "join",
