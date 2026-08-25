@@ -344,7 +344,7 @@
       "fake_route": "tests/fake_zentao/resources/bugs.py#bug.list_product",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "observed",
       "parameters": {
         "path": [
           {
@@ -453,7 +453,7 @@
       "fake_route": "tests/fake_zentao/resources/bugs.py#bug.list_project",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "observed",
       "parameters": {
         "path": [
           {
@@ -3506,7 +3506,7 @@
       "fake_route": "tests/fake_zentao/resources/products.py#product.list",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "observed",
       "parameters": {
         "path": [],
         "query": [
@@ -4648,7 +4648,7 @@
       "fake_route": "tests/fake_zentao/resources/projects.py#project.list",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "observed",
       "parameters": {
         "path": [],
         "query": [
@@ -9206,7 +9206,7 @@
       "fake_route": "tests/fake_zentao/resources/auth.py#token.login",
       "fake_contract_test": "tests/contract/test_all_endpoints.py#test_all_120_internal_adapters_match_request_and_state_contract",
       "cli_e2e_test": "tests/e2e/test_all_cli_endpoints.py#test_all_120_endpoints_are_reachable_through_cli_or_auth_bootstrap",
-      "compatibility": "not_observed",
+      "compatibility": "observed",
       "parameters": {
         "path": [],
         "query": [],

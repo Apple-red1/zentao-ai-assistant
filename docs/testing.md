@@ -15,6 +15,8 @@
 `endpoints.json` 生成。测试报告将实现覆盖（各 surface 的 120/120）、官方快照
 匹配数和 endpoint-specific deep-link 数分开显示。ZenTao 21.7.8 的真实观察只记录
 在 `skills/zentao/references/compatibility/zentao-21.7.8.json`，不会覆盖官方合同。
+报告还会输出 `21.7.8 observed/unsupported/not observed` 三项状态；catalog、evidence
+和验收文档的统计由 compatibility contract test 交叉校验。
 
 配置和用户文本文件的非法 UTF-8 也属于输入边界合同：`.env` 返回
 `CONFIG_ERROR`，`--steps-file` / `--comment-file` 等返回 `USAGE_ERROR`，均保持

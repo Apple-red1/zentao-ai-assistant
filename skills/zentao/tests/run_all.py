@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import sys
 import unittest
+from collections import Counter
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -41,7 +43,7 @@ def main() -> int:
         assert_catalog_matches_official,
         specific_source_count,
     )
-    from tests.support import CATALOG
+    from tests.support import CATALOG, SKILL_ROOT
 
     official_match = 0
     for item in CATALOG:
@@ -62,6 +64,15 @@ def main() -> int:
             print(f"  extra:   {', '.join(extra)}")
     print(f"Official snapshot:  {official_match:>3} / {len(OFFICIAL_ENDPOINTS)}")
     print(f"Specific sources:   {specific_source_count():>3} / {len(OFFICIAL_ENDPOINTS)}")
+    compatibility = json.loads(
+        (SKILL_ROOT / "references" / "compatibility" / "zentao-21.7.8.json").read_text(encoding="utf-8")
+    )
+    compatibility_counts = Counter(item["compatibility"] for item in CATALOG)
+    print(f"21.7.8 observed:    {compatibility_counts['observed']:>3} / {len(CATALOG)}")
+    print(f"21.7.8 unsupported: {compatibility_counts['unsupported']:>3} / {len(CATALOG)}")
+    print(f"21.7.8 not observed: {compatibility_counts['not_observed']:>3} / {len(CATALOG)}")
+    if dict(compatibility_counts) != compatibility["status_counts"]:
+        status = "FAIL"
     print("\nReal API calls:      0")
     print(f"Result: {status}")
     return 0 if status == "PASS" else 1

@@ -5,13 +5,23 @@
 ## 已验证
 
 - 本地 Fake 全量测试：62 tests passed；Catalog、Internal、CLI、Fake、Contract、CLI E2E 均为 120/120；独立 Official snapshot 120/120，Specific sources 11/120，真实 API 调用计数为 0。
-- 真实只读端点：44/44 通过，覆盖列表、详情、分页、排序、筛选和 token/doctor 流程。
+- 真实只读 endpoint-level evidence：5 个 endpoint ID 通过（`token.login`、`product.list`、`project.list`、`bug.list_product`、`bug.list_project`），具体 case 记录在 compatibility evidence 文件中；不再使用无法追溯的“44/44”口径。
 - 真实写入和状态流：项目集、产品、项目、执行、构建、应用、需求、用户需求、业务需求、任务、测试用例、测试单、Bug、用户的创建/编辑，以及需求/业务需求关闭激活、任务开始完成关闭激活、Bug 解决关闭激活均已成功。
 - 本轮创建的数据先用于后续真实编辑与列表回读；已清理可确认且不影响依赖的测试叶子对象，承载测试的产品/项目层级仍保留；系统没有 `system.delete` 端点。
 
 ## 已同步的 21.7.8 差异
 
-`endpoints.json` 已将对应端点标为 `observed`，并同步 Fake 合同与 CLI 样例：
+`endpoints.json` 的 compatibility 状态由 `skills/zentao/references/compatibility/zentao-21.7.8.json`
+逐条校验。当前 120 个 endpoint 的机器统计为：
+
+```text
+observed      = 24
+unsupported   = 16
+not_observed  = 80
+```
+
+只有有真实 evidence 的条目才标为 `observed`；没有 endpoint-level evidence 的条目
+保持 `not_observed`，不会因为历史“44/44”叙述而批量升级。已记录的兼容差异包括：
 
 - `test-case.create`、`test-task.create`：服务端要求同时接收 `productID` 和兼容字段 `product`。
 - `user.create`：服务端要求 `visions`，CLI 默认发送 `rnd`。
@@ -25,4 +35,4 @@
 - 反馈与工单模块：目标实例对创建、列表、详情及生命周期请求返回空响应（CLI 旧逻辑会渲染为 `status: success`）；产品配置探针返回 `Feedback does not exist.`，确认当前 21.7.8 未启用对应模块。代码现会把缺少对象字段的响应报告为 `API_ERROR`，而不是假成功。
 - 文件模块：在真实任务上上传后返回空响应，任务详情仍为 `files: []`；编辑同样返回空响应，未猜测附件 ID 执行删除。官方上传文档将该接口标注为 v22.0 及以上能力。
 
-发布前自动化门槛见 [release-checklist.md](../release-checklist.md)：完整测试必须在 Fake 环境达到 120/120，且真实 API 调用计数为 0。官方合同快照与 21.7.8 观察分别见 `references/api-v2/official-contract.json` 和 `references/compatibility/zentao-21.7.8.json`；真实实例差异以本文件和 `endpoints.json` 的 `observed` 记录为准。
+发布前自动化门槛见 [release-checklist.md](../release-checklist.md)：完整测试必须在 Fake 环境达到 120/120，且真实 API 调用计数为 0。官方合同快照与 21.7.8 观察分别见 `skills/zentao/references/api-v2/official-contract.json` 和 `skills/zentao/references/compatibility/zentao-21.7.8.json`；文档统计必须与机器 evidence contract 一致。

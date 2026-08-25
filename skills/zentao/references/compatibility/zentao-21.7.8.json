@@ -3,38 +3,36 @@
   "target": "ZenTao 21.7.8",
   "evidence_type": "runtime_observation",
   "observed_on": "2026-08-25",
-  "source": "docs/acceptance/zentao-21.7.8.md",
-  "note": "This file records observed target-version differences only. It is not an official API contract and never drives runtime dispatch.",
+  "endpoint_count": 120,
+  "status_counts": {"observed": 24, "unsupported": 16, "not_observed": 80},
+  "source": "docs/acceptance/zentao-21.7.8.md plus the read-only commands recorded in this acceptance run",
+  "note": "This file records target-version observations only. It is not an official API contract and never drives runtime dispatch. Endpoints without a record are derived as not_observed.",
+  "status_definitions": {
+    "observed": "A real target request or the acceptance record provides evidence for the endpoint.",
+    "unsupported": "A real target response or module probe shows the capability is unavailable; this is not the same as not_observed.",
+    "not_observed": "No endpoint-level target evidence is recorded yet."
+  },
   "observations": [
     {
-      "endpoint_ids": ["test-case.create", "test-task.create"],
+      "endpoint_ids": ["bug.create", "bug.edit", "epic.edit", "product-plan.create", "product-plan.edit", "product-plan.list_product", "product-plan.view", "product-plan.delete", "release.create", "release.edit", "release.list_product", "release.delete", "requirement.edit", "requirement.change", "system.create", "test-case.create", "test-task.create", "user.create", "user.edit"],
       "status": "observed",
-      "detail": "The instance requires productID and the compatibility field product."
+      "observed_at": "2026-08-25",
+      "evidence_id": "acceptance-21.7.8-write-flow",
+      "notes": "The acceptance record documents the successful create/edit/list/lifecycle flow and the version-specific compatibility fields for these endpoints."
     },
     {
-      "endpoint_ids": ["user.create"],
+      "endpoint_ids": ["token.login", "product.list", "project.list", "bug.list_product", "bug.list_project"],
       "status": "observed",
-      "detail": "The instance requires visions; the CLI defaults it to rnd."
+      "observed_at": "2026-08-25",
+      "evidence_id": "real-read-2026-08-25-01",
+      "notes": "Read-only verification in this run: doctor login; product list page 1; project list page 1; product Bug list with assigned-to-me; project Bug list with unresolved."
     },
     {
-      "endpoint_ids": ["requirement.change", "user.edit"],
-      "status": "observed",
-      "detail": "The instance requires reviewer for requirement.change and account for user.edit."
-    },
-    {
-      "endpoint_ids": ["requirement.edit", "epic.edit"],
-      "status": "observed",
-      "detail": "The instance accepts classification strings as well as numeric IDs."
-    },
-    {
-      "endpoint_ids": ["product-plan.create", "product-plan.edit", "release.create", "release.edit"],
-      "status": "observed",
-      "detail": "The instance requires the documented compatibility fields and status/date preservation described in the acceptance record."
-    },
-    {
-      "endpoint_ids": ["feedback.create", "feedback.list_product", "feedback.view", "ticket.create", "ticket.list_product", "ticket.view", "file.upload", "file.edit"],
-      "status": "observed_limit",
-      "detail": "The target returned empty responses or reported an unavailable module; the implementation reports an API error instead of treating the response as success."
+      "endpoint_ids": ["feedback.create", "feedback.edit", "feedback.list_product", "feedback.view", "feedback.close", "feedback.activate", "feedback.delete", "file.upload", "file.edit", "ticket.create", "ticket.edit", "ticket.list_product", "ticket.view", "ticket.close", "ticket.activate", "ticket.delete"],
+      "status": "unsupported",
+      "observed_at": "2026-08-25",
+      "evidence_id": "acceptance-21.7.8-module-limits",
+      "notes": "The target returned empty responses or reported an unavailable feedback/ticket module; file upload/edit returned empty responses and the official upload page marks the capability v22+."
     }
   ]
 }
