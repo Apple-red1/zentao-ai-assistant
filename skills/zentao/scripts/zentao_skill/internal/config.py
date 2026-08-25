@@ -96,7 +96,11 @@ def parse_env(path: Path) -> dict[str, str]:
     values: dict[str, str] = {}
     if not path.exists():
         return values
-    for line_no, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except UnicodeDecodeError as exc:
+        raise ConfigError(".env 必须使用 UTF-8 编码", {"path": str(path), "encoding": "utf-8", "position": exc.start}) from exc
+    for line_no, raw in enumerate(lines, 1):
         line = raw.strip()
         if not line or line.startswith("#"):
             continue

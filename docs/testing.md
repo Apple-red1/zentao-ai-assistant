@@ -16,4 +16,8 @@
 匹配数和 endpoint-specific deep-link 数分开显示。ZenTao 21.7.8 的真实观察只记录
 在 `skills/zentao/references/compatibility/zentao-21.7.8.json`，不会覆盖官方合同。
 
+配置和用户文本文件的非法 UTF-8 也属于输入边界合同：`.env` 返回
+`CONFIG_ERROR`，`--steps-file` / `--comment-file` 等返回 `USAGE_ERROR`，均保持
+`--json` 的 stdout/stderr 分流且不输出 traceback。
+
 Fake 每条合同/E2E 前重置为确定性状态；自动化测试不登录或访问真实 ZenTao。

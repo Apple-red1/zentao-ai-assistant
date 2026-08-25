@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+import json
 import os
 import stat
 import tempfile
@@ -12,7 +13,7 @@ from argparse import Namespace
 from unittest.mock import patch
 
 from ..support import SCRIPTS
-from zentao_skill.cli.main import _run_setup
+from zentao_skill.cli.main import _run_setup, main as cli_main
 from zentao_skill.cli.output import emit_error, emit_success
 from zentao_skill.internal.config import encode_env_value, load_config, parse_env, project_root, write_private_text_atomic
 from zentao_skill.internal.zentao.common import make_order_by, map_enum, validate_pagination
@@ -55,6 +56,18 @@ class UnitTests(unittest.TestCase):
             path.write_text('PASSWORD="bad\\q"\n', encoding="utf-8")
             with self.assertRaises(ConfigError):
                 parse_env(path)
+
+    def test_cli_reports_non_utf8_env_as_config_error_without_traceback(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / ".env").write_bytes(b"ZENTAO_PASSWORD=\xff\n")
+            stdout, stderr = io.StringIO(), io.StringIO()
+            with patch("zentao_skill.internal.config.project_root", return_value=root), patch.dict(os.environ, {}, clear=True), contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                code = cli_main(["doctor", "--json"])
+            self.assertEqual(1, code)
+            self.assertEqual("", stdout.getvalue())
+            self.assertNotIn("Traceback", stderr.getvalue())
+            self.assertEqual("CONFIG_ERROR", json.loads(stderr.getvalue())["error"]["code"])
 
     def test_setup_creates_private_file_even_with_permissive_umask(self) -> None:
         with tempfile.TemporaryDirectory() as td:

@@ -77,7 +77,13 @@ def read_text_file(path: str | None) -> str | None:
     target = Path(path)
     if not target.is_file():
         raise UsageError(f"文本文件不存在: {target}")
-    return target.read_text(encoding="utf-8")
+    try:
+        return target.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise UsageError(
+            "文本文件必须使用 UTF-8 编码",
+            {"path": str(target), "encoding": "utf-8", "position": exc.start},
+        ) from exc
 
 
 def resolve_text(args: argparse.Namespace, dest: str) -> object | None:

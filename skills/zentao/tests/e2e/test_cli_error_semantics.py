@@ -1,13 +1,30 @@
 from __future__ import annotations
 
 import json
+import tempfile
 import unittest
+from pathlib import Path
 
 from ..fake_zentao.server import FakeZenTao
 from ..support import run_cli
 
 
 class CliErrorSemanticsE2E(unittest.TestCase):
+    def test_non_utf8_text_file_is_usage_error_without_business_http(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            bad_file = Path(td) / "bad-steps.txt"
+            bad_file.write_bytes(b"\xff\xfe")
+            with FakeZenTao() as fake:
+                result = run_cli(fake.base_url, [
+                    "bug", "create", "--product", "1", "--title", "bad-file",
+                    "--affected-build", "trunk", "--steps-file", str(bad_file), "--json",
+                ])
+                self.assertEqual(2, result.returncode)
+                self.assertEqual("", result.stdout)
+                self.assertNotIn("Traceback", result.stderr)
+                self.assertEqual("USAGE_ERROR", json.loads(result.stderr)["error"]["code"])
+                self.assertEqual([], fake.state.requests)
+
     def test_semantic_parameter_domains_accept_documented_zero_and_trunk(self) -> None:
         cases = (
             (["bug", "edit", "1", "--story", "0", "--json"], "bug.edit", "story", 0),
