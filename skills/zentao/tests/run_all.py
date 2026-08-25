@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import sys
-import unittest
 from collections import Counter
 from pathlib import Path
 
@@ -11,6 +12,31 @@ REPO_ROOT=ROOT.parents[1]
 SCRIPTS=ROOT/"scripts"
 for value in (str(REPO_ROOT), str(ROOT), str(SCRIPTS)):
     if value not in sys.path: sys.path.insert(0,value)
+
+
+def test_modules() -> list[str]:
+    modules: list[str] = []
+    for path in sorted((ROOT / "tests").rglob("test_*.py")):
+        relative = path.relative_to(ROOT).with_suffix("")
+        if relative.parts[:2] == ("tests", "fake_zentao") and relative.parts[2:3] == ("resources",):
+            continue
+        modules.append(".".join(relative.parts))
+    return modules
+
+
+def run_test_modules() -> bool:
+    env = os.environ.copy()
+    pythonpath = [str(REPO_ROOT), str(ROOT), str(SCRIPTS)]
+    if env.get("PYTHONPATH"):
+        pythonpath.append(env["PYTHONPATH"] )
+    env["PYTHONPATH"] = os.pathsep.join(pythonpath)
+    ok = True
+    for module in test_modules():
+        print(f"\n== {module} ==", flush=True)
+        result = subprocess.run([sys.executable, "-m", "unittest", "-v", module], cwd=ROOT, env=env)
+        if result.returncode != 0:
+            ok = False
+    return ok
 
 
 def coverage_summary() -> tuple[list[tuple[str, frozenset[str], frozenset[str]]], bool]:
@@ -35,8 +61,7 @@ def coverage_summary() -> tuple[list[tuple[str, frozenset[str], frozenset[str]]]
 
 
 def main() -> int:
-    suite=unittest.defaultTestLoader.discover(str(ROOT/"tests"),pattern="test_*.py",top_level_dir=str(ROOT))
-    result=unittest.TextTestRunner(verbosity=2).run(suite)
+    tests_ok = run_test_modules()
     surfaces, exact=coverage_summary()
     from tests.contract.official_oracle import (
         OFFICIAL_ENDPOINTS,
@@ -52,7 +77,7 @@ def main() -> int:
         except AssertionError:
             continue
         official_match += 1
-    status="PASS" if result.wasSuccessful() and exact else "FAIL"
+    status="PASS" if tests_ok and exact else "FAIL"
     print("\nZenTao API v2 coverage\n")
     for label,actual,expected in surfaces:
         print(f"{label + ':':<18}{len(actual):>3} / {len(expected)}")

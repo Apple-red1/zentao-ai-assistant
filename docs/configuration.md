@@ -1,10 +1,6 @@
 # 本地配置
 
-`zentao` Skill 只读取项目根目录 `.env` 和同名环境变量，不依赖 YAML、keyring、独立 token 文件或凭据数据库。
-
-## 最小配置
-
-复制 `.env.example` 为 `.env`：
+长期连接配置只读取项目根 `.env` 和同名环境变量：
 
 ```dotenv
 ZENTAO_BASE_URL=https://zentao.example.com
@@ -12,27 +8,20 @@ ZENTAO_ACCOUNT=your-account
 ZENTAO_PASSWORD=your-password
 ```
 
-环境变量优先于 `.env` 中的同名值。脚本通过自身路径定位项目根目录，因此可以从任意当前工作目录执行。
+环境变量优先于 `.env`。脚本按自身路径定位项目根目录。`.env` 使用受限、对称的 dotenv codec，并以安全原子写入保存；POSIX 目标权限为 `0600`。
 
-`setup` 使用受限且对称的 dotenv 编码：双引号值中的 `\\` 与 `\"` 会在读取时还原，
-密码不会被统一 `.strip()`，因此引号、反斜杠、Unicode、`#`、`=` 以及首尾空格都能
-无损往返。NUL 和换行无法表示为单行 `.env` 值，会在写入前明确拒绝。
+`.env` 与 `.env.*` 被 Git 忽略，`.env.example` 明确保留。不得提交真实站点秘密。
 
-写入采用同目录临时文件、创建时 `0600`、写入后 flush/fsync、再 `os.replace` 的原子
-流程；任一步失败都会返回 `CONFIG_ERROR`、清理临时文件并保留旧配置。POSIX 会验证
-临时文件和目标文件权限，Windows 只保证标准库写入链路和失败可见，不把 POSIX mode
-检查冒充 Windows ACL 证明。
+## Token
 
-`.env` 与 `.env.*` 被 Git 忽略，`.env.example` 明确保留。请勿提交真实站点地址、账号、密码、Token、Cookie 或 Authorization Header。
+业务请求通过 `POST /api.php/v2/users/login` 获取 Token。Token 不写入 `.env`。
 
-## 登录与 Token
+为了让统计、个人和项目管理 Skill 的多个独立进程减少重复登录，Token 默认可以短期缓存在：
 
-业务请求前通过 `POST /api.php/v2/users/login` 获取 Token。Token 只保存在当前 Python 进程内存中，不写回 `.env`，也不持久化到其他文件。
-
-可以执行：
-
-```bash
-python skills/zentao/scripts/zentao.py doctor --json
+```text
+.tmp/zentao/auth/
 ```
 
-验证当前配置和 API v2 登录是否可用。
+缓存按站点 + account 隔离，默认本地 TTL 8 小时；服务端若提前使 Token 失效，明确 401 会触发一次重新登录。缓存不保存密码，`.tmp/` 不提交。
+
+`ZENTAO_TOKEN_CACHE_DIR` 和 `ZENTAO_TOKEN_CACHE_DISABLED=1` 是内部运行/测试覆盖开关，不属于长期连接配置事实源。

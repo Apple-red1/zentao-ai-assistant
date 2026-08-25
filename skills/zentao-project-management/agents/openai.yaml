@@ -1,0 +1,4 @@
+interface:
+  display_name: "禅道项目管理"
+  short_description: "分析项目/执行进度、风险和工作量分布"
+  default_prompt: "先用 zentao-project-management 生成事实报告；不要凭空生成健康评分或绩效结论。"

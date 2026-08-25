@@ -20,6 +20,9 @@ python skills/zentao/scripts/zentao.py doctor --json
 自动化测试问题请运行：
 
 ```bash
+python tests/run_all.py
+
+# 仅检查 API endpoint surface 时：
 python skills/zentao/tests/run_all.py
 ```
 

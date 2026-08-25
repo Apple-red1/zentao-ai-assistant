@@ -21,6 +21,9 @@ python skills/zentao/scripts/zentao.py task view 1 --json
 ## 测试
 
 ```bash
+python tests/run_all.py
+
+# 仅检查 API endpoint surface 时：
 python skills/zentao/tests/run_all.py
 ```
 

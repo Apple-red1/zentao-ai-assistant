@@ -72,7 +72,7 @@ class ContractTests(unittest.TestCase):
                         result=AuthAPI(fake.base_url, HttpClient(timeout=1)).login(**kwargs)
                         self.assertEqual("fake-token",result)
                     else:
-                        session=ZentaoSession(Config(fake.base_url,"admin","secret"),http=HttpClient(timeout=1),retry_delays=(0,0))
+                        session=ZentaoSession(Config(fake.base_url,"admin","secret"),http=HttpClient(timeout=1),retry_delays=(0,0),token_cache=False)
                         module_name,class_name,method_name=item["internal_adapter"].split(".")
                         module=importlib.import_module(f"zentao_skill.internal.zentao.{module_name}")
                         result=getattr(getattr(module,class_name)(session),method_name)(**kwargs)

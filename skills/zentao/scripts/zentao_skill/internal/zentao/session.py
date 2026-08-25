@@ -1,6 +1,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 from typing import Any
 from pathlib import Path
@@ -9,20 +10,41 @@ from urllib.parse import urlencode, urljoin, urlsplit, urlunsplit
 from ..config import Config
 from ..errors import ApiError, HttpFailure, NetworkError, ResourceSecurityError, TransportFailure, UnknownWriteResult
 from ..http.client import HttpClient
+from ..token_cache import TokenCache
 from .auth import AuthAPI
 
 
 class ZentaoSession:
-    def __init__(self, config: Config, *, http: HttpClient | None = None, retry_delays: tuple[float, float] = (0.2, 0.5)) -> None:
+    def __init__(self, config: Config, *, http: HttpClient | None = None, retry_delays: tuple[float, float] = (0.2, 0.5), token_cache: TokenCache | None | bool = None) -> None:
         self.config = config
         self.http = http or HttpClient()
         self.auth = AuthAPI(config.base_url, self.http)
         self.retry_delays = retry_delays
+        cache_disabled = os.environ.get("ZENTAO_TOKEN_CACHE_DISABLED", "").lower() in {"1", "true", "yes"}
+        if token_cache is False:
+            self.token_cache = None
+        elif isinstance(token_cache, TokenCache):
+            self.token_cache = token_cache
+        else:
+            self.token_cache = None if cache_disabled else TokenCache()
         self._token: str | None = None
 
-    def ensure_login(self) -> None:
+    def ensure_login(self, *, force: bool = False) -> None:
+        if force:
+            self._token = None
+        if self._token is not None:
+            return
+        if not force and self.token_cache is not None:
+            self._token = self.token_cache.load(self.config)
         if self._token is None:
             self._token = self.auth.login(account=self.config.account, password=self.config.password)
+            if self.token_cache is not None:
+                self.token_cache.store(self.config, self._token)
+
+    def _refresh_login(self) -> None:
+        if self.token_cache is not None:
+            self.token_cache.clear(self.config)
+        self.ensure_login(force=True)
 
     def get(self, path: str, *, query: dict[str, Any] | None = None) -> object | None:
         return self._request("GET", path, query=query)
@@ -41,6 +63,7 @@ class ZentaoSession:
         current = self._resolve_trusted_resource_url(source)
         attempts = 3
         redirects = 0
+        auth_refreshed = False
         while True:
             for attempt in range(attempts):
                 try:
@@ -50,6 +73,10 @@ class ZentaoSession:
                         headers={"Token": self._token or ""},
                     )
                 except HttpFailure as exc:
+                    if exc.status == 401 and not auth_refreshed:
+                        self._refresh_login()
+                        auth_refreshed = True
+                        continue
                     if exc.status in {301, 302, 303, 307, 308}:
                         location = exc.headers.get("Location") or exc.headers.get("location")
                         if not location:
@@ -104,38 +131,47 @@ class ZentaoSession:
             if encoded:
                 url += "?" + encoded
         attempts = 3 if method == "GET" else 1
+        auth_refreshed = False
         for attempt in range(attempts):
-            try:
-                result = self.http.request(
-                    method,
-                    url,
-                    headers={"Token": self._token or ""},
-                    json_body=body,
-                    multipart=multipart,
-                )
-                if isinstance(result, dict) and (
-                    result.get("status") == "fail" or result.get("result") == "fail"
-                ):
-                    raise ApiError(
-                        "ZenTao API 业务处理失败",
-                        {"method": method, "path": path, "response": result},
+            while True:
+                try:
+                    result = self.http.request(
+                        method,
+                        url,
+                        headers={"Token": self._token or ""},
+                        json_body=body,
+                        multipart=multipart,
                     )
-                if result is None and method != "DELETE":
-                    raise ApiError(
-                        "ZenTao API 返回空响应",
-                        {"method": method, "path": path, "response": None},
-                    )
-                return result
-            except HttpFailure as exc:
-                if method == "GET" and exc.status in {502, 503, 504} and attempt < attempts - 1:
-                    time.sleep(self.retry_delays[attempt])
-                    continue
-                raise ApiError("ZenTao API 返回错误", {"status": exc.status, "response": exc.body}) from exc
-            except TransportFailure as exc:
-                if method == "GET" and attempt < attempts - 1:
-                    time.sleep(self.retry_delays[attempt])
-                    continue
-                if method == "GET" or exc.definitely_not_sent:
-                    raise NetworkError("ZenTao 网络请求失败") from exc
-                raise UnknownWriteResult() from exc
+                    if isinstance(result, dict) and (
+                        result.get("status") == "fail" or result.get("result") == "fail"
+                    ):
+                        raise ApiError(
+                            "ZenTao API 业务处理失败",
+                            {"method": method, "path": path, "response": result},
+                        )
+                    if result is None and method != "DELETE":
+                        raise ApiError(
+                            "ZenTao API 返回空响应",
+                            {"method": method, "path": path, "response": None},
+                        )
+                    return result
+                except HttpFailure as exc:
+                    # 401 is an explicit authentication rejection. Refresh
+                    # the short-lived token once; transport failures never
+                    # replay, and repeated 401 is returned as an API error.
+                    if exc.status == 401 and not auth_refreshed:
+                        self._refresh_login()
+                        auth_refreshed = True
+                        continue
+                    if method == "GET" and exc.status in {502, 503, 504} and attempt < attempts - 1:
+                        time.sleep(self.retry_delays[attempt])
+                        break
+                    raise ApiError("ZenTao API 返回错误", {"status": exc.status, "response": exc.body}) from exc
+                except TransportFailure as exc:
+                    if method == "GET" and attempt < attempts - 1:
+                        time.sleep(self.retry_delays[attempt])
+                        break
+                    if method == "GET" or exc.definitely_not_sent:
+                        raise NetworkError("ZenTao 网络请求失败") from exc
+                    raise UnknownWriteResult() from exc
         raise NetworkError("ZenTao 读取请求重试后仍失败")

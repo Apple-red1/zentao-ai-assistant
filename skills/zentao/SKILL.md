@@ -42,7 +42,7 @@ python skills/zentao/scripts/zentao.py <resource> <action> [scope] [parameters] 
 - `ticket` → `references/api-v2/tickets.md`
 - `user` → `references/api-v2/users.md`
 
-Token 登录由内部 `token.login` 认证适配自动完成，不建立业务 `token` 命令域；`doctor` 可验证配置和登录。
+Token 登录由内部 `token.login` 认证适配自动完成，不建立业务 `token` 命令域；`doctor` 可验证配置和登录。仓库内其他高层 Skill 通过 `references/programmatic.md` 说明的 public facade 复用该基础能力。
 
 ## 风险与授权
 
@@ -69,4 +69,4 @@ Token 登录由内部 `token.login` 认证适配自动完成，不建立业务 `
 
 ## 配置
 
-项目根目录 `.env`：`ZENTAO_BASE_URL`、`ZENTAO_ACCOUNT`、`ZENTAO_PASSWORD`。Token 只保存在当前 Python 进程内存中，不持久化。
+项目根目录 `.env`：`ZENTAO_BASE_URL`、`ZENTAO_ACCOUNT`、`ZENTAO_PASSWORD`。Token 不写回 `.env`；允许按 `references/programmatic.md` 的安全合同短期缓存在 `.tmp/zentao/auth/`。

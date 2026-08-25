@@ -10,16 +10,26 @@ from urllib.parse import urlsplit
 from ..support import SKILL_ROOT
 
 
-PRODUCTION_ROOT = SKILL_ROOT / "scripts"
 REPOSITORY_ROOT = SKILL_ROOT.parents[1]
+PRODUCTION_ROOT = SKILL_ROOT / "scripts"
+HIGH_LEVEL_SKILLS = (
+    REPOSITORY_ROOT / "skills" / "zentao-statistics",
+    REPOSITORY_ROOT / "skills" / "zentao-personal",
+    REPOSITORY_ROOT / "skills" / "zentao-project-management",
+)
+SHARED_ROOT = REPOSITORY_ROOT / "skills" / "_shared" / "zentao"
 
 
 class RepositoryContractTests(unittest.TestCase):
     def test_runtime_and_tests_use_only_python_standard_library(self) -> None:
-        allowed_local = {"zentao_skill", "tests"}
+        allowed_local = {"zentao_skill", "tests", "zentao"}
         third_party: list[tuple[Path, str]] = []
-        python_roots = (PRODUCTION_ROOT, SKILL_ROOT / "tests")
-        for python_root in python_roots:
+        roots = [PRODUCTION_ROOT, SKILL_ROOT / "tests", SHARED_ROOT, REPOSITORY_ROOT / "tests"]
+        for skill in HIGH_LEVEL_SKILLS:
+            roots.extend([skill / "scripts", skill / "tests"])
+        for python_root in roots:
+            if not python_root.exists():
+                continue
             for path in python_root.rglob("*.py"):
                 tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
                 for node in ast.walk(tree):
@@ -34,7 +44,7 @@ class RepositoryContractTests(unittest.TestCase):
                             third_party.append((path.relative_to(REPOSITORY_ROOT), name))
         self.assertEqual([], third_party)
 
-    def test_layering_keeps_http_protocol_out_of_cli_and_services(self) -> None:
+    def test_api_layering_keeps_http_protocol_out_of_cli_and_services(self) -> None:
         forbidden = ("urllib", "/api.php/v2", "HttpClient", "urlopen(")
         violations: list[tuple[str, str]] = []
         for area in (PRODUCTION_ROOT / "zentao_skill" / "cli", PRODUCTION_ROOT / "zentao_skill" / "services"):
@@ -44,6 +54,27 @@ class RepositoryContractTests(unittest.TestCase):
                     if token in text:
                         violations.append((str(path.relative_to(REPOSITORY_ROOT)), token))
         self.assertEqual([], violations)
+
+    def test_high_level_skills_use_public_facade_instead_of_http_or_internal(self) -> None:
+        forbidden = ("urllib", "/api.php/v2", "zentao_skill.internal", "HttpClient", "urlopen(")
+        violations = []
+        areas = [SHARED_ROOT] + [skill / "scripts" for skill in HIGH_LEVEL_SKILLS]
+        for area in areas:
+            for path in area.rglob("*.py"):
+                text = path.read_text(encoding="utf-8")
+                for token in forbidden:
+                    if token in text:
+                        violations.append((str(path.relative_to(REPOSITORY_ROOT)), token))
+        self.assertEqual([], violations)
+        self.assertTrue((PRODUCTION_ROOT / "zentao_skill" / "public" / "client.py").is_file())
+
+    def test_expected_multi_skill_surface_exists(self) -> None:
+        for skill in HIGH_LEVEL_SKILLS:
+            with self.subTest(skill=skill.name):
+                self.assertTrue((skill / "SKILL.md").is_file())
+                self.assertTrue((skill / "agents" / "openai.yaml").is_file())
+                self.assertTrue((skill / "scripts").is_dir())
+        self.assertFalse((SHARED_ROOT / "SKILL.md").exists())
 
     def test_project_tmp_directory_is_git_ignored(self) -> None:
         gitignore = (REPOSITORY_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
@@ -55,11 +86,13 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertFalse((REPOSITORY_ROOT / "pyproject.toml").exists())
         self.assertFalse(any(REPOSITORY_ROOT.rglob(".mcp.json")))
 
-    def test_production_file_size_limits_and_lightweight_skill(self) -> None:
+    def test_production_file_size_limits_and_lightweight_api_skill(self) -> None:
         entry = SKILL_ROOT / "scripts" / "zentao.py"
         self.assertLess(len(entry.read_text(encoding="utf-8").splitlines()), 50)
         oversized = []
-        for path in PRODUCTION_ROOT.rglob("*.py"):
+        for path in (REPOSITORY_ROOT / "skills").rglob("*.py"):
+            if "/tests/" in path.as_posix():
+                continue
             lines = len(path.read_text(encoding="utf-8").splitlines())
             if lines >= 500:
                 oversized.append((str(path.relative_to(REPOSITORY_ROOT)), lines))
@@ -67,20 +100,20 @@ class RepositoryContractTests(unittest.TestCase):
 
         skill_text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
         self.assertLessEqual(len(skill_text.splitlines()), 100)
-        # Full endpoint parameter contracts belong in references/CLI help, not SKILL.md.
         self.assertNotIn("bug.create", skill_text)
         self.assertNotIn("--affected-build", skill_text)
 
     def test_test_sources_only_name_loopback_http_endpoints(self) -> None:
         urls: list[tuple[str, str]] = []
-        for path in (SKILL_ROOT / "tests").rglob("*.py"):
-            text = path.read_text(encoding="utf-8")
-            for url in re.findall(r"https?://[^\s\"']+", text):
-                if "{" in url:
-                    continue
-                urls.append((str(path.relative_to(REPOSITORY_ROOT)), url))
-                host = urlsplit(url).hostname
-                self.assertIn(host, {"127.0.0.1", "localhost"}, (path, url))
+        for root in (SKILL_ROOT / "tests", REPOSITORY_ROOT / "tests"):
+            for path in root.rglob("*.py"):
+                text = path.read_text(encoding="utf-8")
+                for url in re.findall(r"https?://[^\s\"']+", text):
+                    if "{" in url or "zentao.example.com" in url:
+                        continue
+                    urls.append((str(path.relative_to(REPOSITORY_ROOT)), url))
+                    host = urlsplit(url).hostname
+                    self.assertIn(host, {"127.0.0.1", "localhost"}, (path, url))
         self.assertTrue(urls, "测试必须显式包含本地 Fake/loopback 网络边界")
 
 

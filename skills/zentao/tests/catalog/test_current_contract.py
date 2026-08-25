@@ -28,19 +28,25 @@ class CurrentContractDocumentationTest(unittest.TestCase):
                 marked.append(path.relative_to(REPO_ROOT).as_posix())
         self.assertEqual([], marked)
 
-    def test_current_contract_describes_implemented_capabilities(self) -> None:
+    def test_current_contract_describes_multi_skill_capabilities(self) -> None:
         current = CURRENT.read_text(encoding="utf-8")
         for required in (
             "120 个 ZenTao API v2 endpoint",
+            "zentao-statistics",
+            "zentao-personal",
+            "zentao-project-management",
+            "zentao_skill.public",
+            ".tmp/zentao/auth/",
             "R3 delete",
             "--yes",
+            "python tests/run_all.py",
             "python3 skills/zentao/tests/run_all.py",
             "Real API calls: 0",
             "official-contract.json",
             "zentao-21.7.8.json",
         ):
             self.assertIn(required, current)
-        for stale in ("当前仓库仍存在旧形态", "不暴露 Bug 删除命令", "本轮明确延期"):
+        for stale in ("当前仓库仍存在旧形态", "不暴露 Bug 删除命令", "本轮明确延期", "产品边界是单一"):
             self.assertNotIn(stale, current)
 
 

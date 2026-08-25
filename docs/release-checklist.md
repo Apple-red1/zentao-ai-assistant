@@ -2,11 +2,11 @@
 
 ## 架构与安全
 
-- [ ] 主实现只位于 `skills/zentao/`，不存在 MCP Server、独立 `src/zentao_ai/` 主实现或系统级 `zentao-ai` 产品入口。
+- [ ] API 基础实现位于 `skills/zentao/`；高层能力位于各自 Skill / `skills/_shared/zentao/`，不存在 MCP Server、独立 `src/zentao_ai/` 主实现或系统级 `zentao-ai` 产品入口。
 - [ ] 运行时与测试只使用 Python 标准库。
 - [ ] `.env.example` 只有三项连接模板，真实 `.env` 不进入 Git。
 - [ ] CLI/Services 不直接使用 `urllib` 或拼接 `/api.php/v2`。
-- [ ] Token 只存在进程内，输出对 password/token/Authorization/Cookie 类字段递归脱敏。
+- [ ] Token 不写回 `.env`；若启用 `.tmp/zentao/auth/` 短期缓存，则权限、TTL、401 刷新和脱敏合同均通过。
 - [ ] 所有 R3 delete 在缺少 `--yes` 时不发送业务 HTTP。
 - [ ] 写入网络不确定返回 `UNKNOWN_WRITE_RESULT`，不自动重试、不自动 GET。
 - [ ] `.tmp/` 已被 Git 忽略；`resource fetch` 只能从对象附件区/富文本发现资源，并拒绝跨源 URL/重定向。
@@ -17,6 +17,9 @@
 执行：
 
 ```bash
+python tests/run_all.py
+
+# API endpoint 专项仍可单独执行
 python skills/zentao/tests/run_all.py
 ```
 

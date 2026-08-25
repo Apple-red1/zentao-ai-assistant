@@ -20,7 +20,7 @@ CLI = SKILL_ROOT / "scripts" / "zentao.py"
 
 def fake_env(base_url: str) -> dict[str, str]:
     env = os.environ.copy()
-    env.update({"ZENTAO_BASE_URL": base_url, "ZENTAO_ACCOUNT": "admin", "ZENTAO_PASSWORD": "secret"})
+    env.update({"ZENTAO_BASE_URL": base_url, "ZENTAO_ACCOUNT": "admin", "ZENTAO_PASSWORD": "secret", "ZENTAO_TOKEN_CACHE_DISABLED": "1"})
     return env
 
 

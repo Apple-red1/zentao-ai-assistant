@@ -140,7 +140,7 @@ class FakeZenTao:
                         pass
 
         self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        self.thread = Thread(target=self.httpd.serve_forever, daemon=True)
+        self.thread = Thread(target=lambda: self.httpd.serve_forever(poll_interval=0.01), daemon=True)
 
     @property
     def base_url(self) -> str:

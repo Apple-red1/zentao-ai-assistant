@@ -15,7 +15,7 @@ from zentao_skill.internal.zentao.session import ZentaoSession
 
 class ErrorSemanticsTests(unittest.TestCase):
     def session(self, fake: FakeZenTao, timeout: float = 1) -> ZentaoSession:
-        return ZentaoSession(Config(fake.base_url, "admin", "secret"), http=HttpClient(timeout=timeout), retry_delays=(0, 0))
+        return ZentaoSession(Config(fake.base_url, "admin", "secret"), http=HttpClient(timeout=timeout), retry_delays=(0, 0), token_cache=False)
 
     def calls(self, fake: FakeZenTao, endpoint_id: str) -> list[dict[str, object]]:
         return [request for request in fake.state.requests if request["endpoint_id"] == endpoint_id]
@@ -73,10 +73,14 @@ class ErrorSemanticsTests(unittest.TestCase):
 
                     origin = ThreadingHTTPServer(("127.0.0.1", 0), OriginHandler)
                     target = ThreadingHTTPServer(("127.0.0.1", 0), TargetHandler)
+                    # Python 3.13 waits for non-daemon request threads on server_close;
+                    # POST/PUT redirect probes intentionally do not consume request bodies.
+                    origin.daemon_threads = True
+                    target.daemon_threads = True
                     target_url = [f"http://127.0.0.1:{target.server_address[1]}"]
                     origin_url = f"http://127.0.0.1:{origin.server_address[1]}"
-                    origin_thread = Thread(target=origin.serve_forever, daemon=True)
-                    target_thread = Thread(target=target.serve_forever, daemon=True)
+                    origin_thread = Thread(target=lambda: origin.serve_forever(poll_interval=0.01), daemon=True)
+                    target_thread = Thread(target=lambda: target.serve_forever(poll_interval=0.01), daemon=True)
                     origin_thread.start()
                     target_thread.start()
                     try:
@@ -112,12 +116,34 @@ class ErrorSemanticsTests(unittest.TestCase):
                 self.assertEqual(3, len(self.calls(fake, "bug.view")))
 
     def test_get_does_not_retry_non_transient_http_failures(self) -> None:
-        for status in ("400", "401", "403", "404", "422", "500"):
+        for status in ("400", "403", "404", "422", "500"):
             with self.subTest(status=status), FakeZenTao() as fake:
                 fake.state.plan_faults("bug.view", status)
                 with self.assertRaises(ApiError):
                     BugsAPI(self.session(fake)).view(item_id=1)
                 self.assertEqual(1, len(self.calls(fake, "bug.view")))
+
+
+    def test_explicit_401_refreshes_auth_and_replays_once(self) -> None:
+        operations = (
+            ("bug.view", lambda api: api.view(item_id=1)),
+            ("bug.edit", lambda api: api.edit(item_id=1, title="changed")),
+        )
+        for endpoint_id, operation in operations:
+            with self.subTest(endpoint=endpoint_id), FakeZenTao() as fake:
+                fake.state.plan_faults(endpoint_id, "401")
+                result = operation(BugsAPI(self.session(fake)))
+                self.assertIsInstance(result, dict)
+                self.assertEqual(2, len(self.calls(fake, endpoint_id)))
+                self.assertEqual(2, len(self.calls(fake, "token.login")))
+
+    def test_repeated_401_stops_after_one_auth_refresh(self) -> None:
+        with FakeZenTao() as fake:
+            fake.state.plan_faults("bug.edit", "401", "401")
+            with self.assertRaises(ApiError):
+                BugsAPI(self.session(fake)).edit(item_id=1, title="changed")
+            self.assertEqual(2, len(self.calls(fake, "bug.edit")))
+            self.assertEqual(2, len(self.calls(fake, "token.login")))
 
     def test_get_retries_response_drop_and_fails_after_three_drops(self) -> None:
         with FakeZenTao() as fake:
@@ -145,7 +171,7 @@ class ErrorSemanticsTests(unittest.TestCase):
             self.assertEqual(1, len(self.calls(fake, "bug.view")))
 
     def test_explicit_write_http_failures_are_api_errors_without_retry(self) -> None:
-        for status in ("400", "401", "403", "404", "422", "500", "502", "503", "504"):
+        for status in ("400", "403", "404", "422", "500", "502", "503", "504"):
             with self.subTest(status=status), FakeZenTao() as fake:
                 fake.state.plan_faults("bug.edit", status)
                 with self.assertRaises(ApiError):
@@ -198,7 +224,7 @@ class ErrorSemanticsTests(unittest.TestCase):
                 fake.__exit__(None, None, None)
 
     def test_connection_refused_login_is_network_error(self) -> None:
-        session=ZentaoSession(Config("http://127.0.0.1:9","admin","secret"),http=HttpClient(timeout=0.1),retry_delays=(0,0))
+        session=ZentaoSession(Config("http://127.0.0.1:9","admin","secret"),http=HttpClient(timeout=0.1),retry_delays=(0,0),token_cache=False)
         with self.assertRaises(NetworkError):
             session.ensure_login()
 
