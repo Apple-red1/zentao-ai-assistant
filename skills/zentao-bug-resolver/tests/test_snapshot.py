@@ -115,11 +115,23 @@ class SnapshotTests(unittest.TestCase):
 
     def test_view_path_is_read_only_and_rejects_non_object(self) -> None:
         client = ViewClient({"id": 1, "status": "active"})
-        payload = mod.build_snapshot(1, client.view("bug", 1))
+        payload = mod.build_snapshot(1, mod._read_view(client, 1))
         self.assertEqual(1, payload["bug_id"])
         self.assertEqual([("bug", 1)], client.calls)
         with self.assertRaises(ValueError):
-            mod.build_snapshot(1, ViewClient(None).view("bug", 1))
+            mod._read_view(ViewClient(None), 1)
+
+    def test_read_view_unwraps_api_bug_payload(self) -> None:
+        client = ViewClient({"bug": self.complete_bug(), "status": "success"})
+        payload = mod.build_snapshot(1, mod._read_view(client, 1))
+        self.assertEqual(1, payload["critical"]["id"])
+        self.assertEqual("same", payload["critical"]["title"])
+        self.assertEqual([], payload["unavailable_fields"])
+        self.assertEqual([("bug", 1)], client.calls)
+
+    def test_read_view_rejects_malformed_wrapped_payload(self) -> None:
+        with self.assertRaises(ValueError):
+            mod._read_view(ViewClient({"bug": None, "status": "success"}), 1)
 
     def test_snapshot_payload_is_json_serializable(self) -> None:
         payload = mod.build_snapshot(4, {"id": 4, "openedBy": {"account": "alice"}, "status": "active"})

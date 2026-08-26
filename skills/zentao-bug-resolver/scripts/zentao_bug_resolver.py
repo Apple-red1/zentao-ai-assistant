@@ -330,14 +330,14 @@ def compare_snapshots(bug_id: int, baseline: dict[str, Any], bug: dict[str, Any]
         "unavailable_fields": unavailable,
     }
 
-
 def _read_view(client: Any, bug_id: int) -> dict[str, Any]:
     value = client.view("bug", bug_id)
     if not isinstance(value, dict):
         raise ValueError("Bug 详情不是对象")
+    value = value.get("bug", value)
+    if not isinstance(value, dict):
+        raise ValueError("Bug 详情不是对象")
     return value
-
-
 def _read_baseline(path: str, bug_id: int) -> dict[str, Any]:
     try:
         with open(path, encoding="utf-8") as handle:
