@@ -1,59 +1,44 @@
-# 禅道 AI Bug 助手（Codex 插件）
+# zentao-ai-assistant
 
-在 Codex 里用一句话查询和安全更新禅道 Bug。支持查询自己的未关闭 Bug、配置团队的 Bug、团队外部人员的 Bug、任意条件组合与单个 Bug 详情；支持添加备注、编辑白名单字段、激活和指派。
+当前行为与开发事实入口：[`docs/current-contract.md`](docs/current-contract.md)。
 
-首要兼容目标是禅道开源版 **21.7.8** 和 API v2。账号、密码与 Token 都只在本机使用；仓库和 YAML 不保存秘密。
+本仓库提供一组供 AI 使用的 ZenTao 项目管理 Skills：
 
-## 三分钟开始
+- `zentao`：ZenTao API v2 原子读取/写入和附件资源能力；
+- `zentao-statistics`：确定性统计、聚合和范围对比；
+- `zentao-personal`：个人待办、风险、工作列表和摘要；
+- `zentao-project-management`：Project / Execution 的进度事实、风险和工作量分析。
 
-准备好以下内容：禅道地址、个人账号和密码、Python 3.11+、已安装的 Codex CLI，以及这个 GitHub 仓库的读取权限。
+运行时只依赖 Python 3.11+ 标准库，不依赖 MCP 或第三方 Python 包。
 
-### macOS / Linux
+## 配置
 
-```bash
-git clone https://github.com/wwtweiwenting/zentao-ai-assistant.git
-cd zentao-ai-assistant
-./scripts/install.sh
-```
+复制 `.env.example` 为 `.env`，填写 `ZENTAO_BASE_URL / ZENTAO_ACCOUNT / ZENTAO_PASSWORD`。Token 不写回 `.env`，允许短期缓存在 Git ignored 的 `.tmp/zentao/auth/`。
 
-### Windows PowerShell
-
-Windows 安装入口是 `scripts/install.ps1`：
-
-```powershell
-git clone https://github.com/wwtweiwenting/zentao-ai-assistant.git
-cd zentao-ai-assistant
-.\scripts\install.ps1
-```
-
-安装器会隔离安装 `zentao-ai`、注册当前仓库 Marketplace、安装 `zentao-ai-bug@zentao-ai-assistant`，然后启动配置与检查。也可以分开执行：
+## API Skill
 
 ```bash
-./scripts/install.sh --non-interactive
-zentao-ai setup
-zentao-ai doctor
+python skills/zentao/scripts/zentao.py doctor --json
+python skills/zentao/scripts/zentao.py bug list --product 1 --json
+python skills/zentao/scripts/zentao.py resource fetch --object-type bug --object-id 123 --json
 ```
 
-默认本地配置文件是 `~/.codex/zentao-ai-bug/config.yaml`；可用 `ZENTAO_CONFIG` 指定其他位置。配置时只输入禅道地址、个人账号、隐藏密码和可选团队成员；密码进入系统凭据库，不进入配置文件。
+删除属于 R3，必须有明确删除意图并传 `--yes`。
 
-安装后重启 Codex 或**新建任务**，即可这样说：
+## 高层 Skill 示例
 
-- “查询我未关闭的 Bug，汇总状态和严重程度。”
-- “查询团队成员未关闭的 Bug，按指派人汇总。”
-- “查询外部人员王小明的 Bug 清单。”
-- “查询产品 3 中严重程度为 1、标题含登录的未关闭 Bug。”
-- “给 Bug 123 添加备注：请补充日志。”
+```bash
+python skills/zentao-statistics/scripts/zentao_statistics.py summary bug --product 1 --json
+python skills/zentao-personal/scripts/zentao_personal.py overview --json
+python skills/zentao-project-management/scripts/zentao_project_management.py health --project 12 --json
+```
 
-## 写入安全
+详细自然语言边界见各 Skill 的 `SKILL.md`。
 
-备注、编辑、激活和指派只在当前消息明确包含 Bug ID、动作和必要参数时执行。写请求超时不会自动重试；删除永久不支持。当前版本也不提供创建、解决或关闭工具。
+## 测试
 
-## 文档
+```bash
+python tests/run_all.py
+```
 
-- [安装与升级](docs/installation.md)
-- [本地配置](docs/configuration.md)
-- [功能与示例](docs/features.md)
-- [安全模型](docs/security.md)
-- [排错指南](docs/troubleshooting.md)
-
-许可证：Apache-2.0。安全问题请参阅 [SECURITY.md](SECURITY.md)。
+`zentao` API 专项仍维持 20 个资源、120 个官方 API v2 endpoint 的完整覆盖门槛；高层 Skill 的场景测试单独统计，不能把 API `120/120` 解释为整个项目的用户场景覆盖率。

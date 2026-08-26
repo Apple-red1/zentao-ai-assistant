@@ -1,0 +1,4 @@
+interface:
+  display_name: "禅道个人工作"
+  short_description: "整理个人待办、逾期风险和工作摘要"
+  default_prompt: "先运行 zentao-personal 获取个人工作事实，再基于真实优先级、严重程度和截止日期解释。"

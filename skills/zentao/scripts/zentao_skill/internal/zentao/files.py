@@ -1,0 +1,39 @@
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+from ..errors import UsageError
+from .common import compact_dict, endpoint, make_order_by, map_enum, require_response_body, validate_pagination
+from .session import ZentaoSession
+
+
+class FilesAPI:
+    ENDPOINT_IDS = frozenset({'file.delete', 'file.upload', 'file.edit'})
+
+    def __init__(self, session: ZentaoSession) -> None:
+        self.session = session
+
+    @endpoint('file.upload')
+    def upload(self, *, file: str | Path, object_id: object | None, object_type: object | None) -> object | None:
+        multipart = compact_dict({
+            'file': file,
+            'objectType': object_type,
+            'objectID': object_id,
+        })
+        return require_response_body(self.session.post('/files', multipart=multipart), endpoint_id='file.upload', feature='文件上传')
+
+    @endpoint('file.edit')
+    def edit(self, *, file_name: object | None, item_id: int) -> object | None:
+        body = compact_dict({
+            'fileName': map_enum('fileName', file_name),
+        })
+        return require_response_body(self.session.put(f'/files/{item_id}', body=body), endpoint_id='file.edit', feature='附件编辑')
+
+    @endpoint('file.delete')
+    def delete(self, *, item_id: int) -> object | None:
+        return require_response_body(
+            self.session.delete(f'/files/{item_id}'),
+            endpoint_id='file.delete',
+            feature='附件删除',
+        )

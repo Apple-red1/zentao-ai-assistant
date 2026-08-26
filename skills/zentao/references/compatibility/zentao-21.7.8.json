@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "target": "ZenTao 21.7.8",
+  "evidence_type": "runtime_observation",
+  "observed_on": "2026-08-25",
+  "endpoint_count": 120,
+  "status_counts": {"observed": 92, "unsupported": 18, "not_observed": 10},
+  "source": "docs/acceptance/zentao-21.7.8.md plus the read-only commands recorded in this acceptance run",
+  "note": "This file records target-version observations only. It is not an official API contract and never drives runtime dispatch. Endpoints without a record are derived as not_observed.",
+  "status_definitions": {
+    "observed": "A real target request or the acceptance record provides evidence for the endpoint.",
+    "unsupported": "A real target response or module probe shows the capability is unavailable; this is not the same as not_observed.",
+    "not_observed": "No endpoint-level target evidence is recorded yet."
+  },
+  "observations": [
+    {
+      "endpoint_ids": ["bug.create", "product-plan.create", "product-plan.edit", "product-plan.list_product", "product-plan.view", "product-plan.delete", "product.create", "product.edit"],
+      "status": "observed",
+      "observed_at": "2026-08-25",
+      "evidence_id": "acceptance-21.7.8-write-flow",
+      "notes": "The acceptance record documents the successful create/list/lifecycle flow and the version-specific compatibility fields for these endpoints. In particular, bug.create requires both productID and the compatibility alias product; the target does not reject cross-product project/execution/story combinations (#61 probe), so callers must prevalidate relations with explicit reads; system.create can return status=success without an id even though the object is created; story.create requires reviewer on the target even though the official parameter is optional; product.create and product.edit accept the official request but require the scalar desc value observed in the target response path, because sending the CLI's legacy one-item list is stored as the literal string Array."
+    },
+    {
+      "endpoint_ids": ["bug.edit"],
+      "status": "unsupported",
+      "observed_at": "2026-08-25",
+      "evidence_id": "issue-26-bug-007-edit",
+      "notes": "On the real 21.7.8 instance, PUT /bugs/{bugID} returned an empty 2xx response and a subsequent readback showed no change for active Bugs (#12 title probe, #36/#53 steps, #37 severity, #38 priority, #51 story=0 unbind, #52 execution, #54 title/severity/priority/type) and a resolved Bug (#11). The official v2 edit contract has no assignedTo field; there is no usable standalone reassignment through this endpoint."
+    },
+    {
+      "endpoint_ids": ["token.login", "product.list", "project.list", "bug.list_product", "bug.list_project", "bug.list_execution"],
+      "status": "observed",
+      "observed_at": "2026-08-25",
+      "evidence_id": "real-read-2026-08-25-01",
+      "notes": "Read-only verification in this run: doctor login; product list page 1; project list page 1; product Bug list with assigned-to-me; project Bug list with unresolved; execution Bug list scoped to execution 9. On the target, browseType=unresolved did not remove resolved/closed rows, so callers must inspect status after a sufficiently broad read."
+    },
+    {
+      "endpoint_ids": ["bug.activate"],
+      "status": "observed",
+      "observed_at": "2026-08-25",
+      "evidence_id": "issue-26-bug-002-activate",
+      "notes": "On the real 21.7.8 instance, activate without openedBuild returned a business validation error (『影响版本』不能为空). The same lifecycle action succeeds when the current affected/resolved build is explicitly supplied. The endpoint only accepts resolved or closed Bugs; activating an active Bug for an assignment-only handoff returned 状态不是已解决或已关闭的Bug不能激活, and no standalone active-Bug reassignment endpoint was available."
+    },
+    {
+      "endpoint_ids": ["feedback.create", "feedback.edit", "feedback.list_product", "feedback.view", "feedback.close", "feedback.activate", "feedback.delete", "file.upload", "file.edit", "ticket.create", "ticket.edit", "ticket.list_product", "ticket.view", "ticket.close", "ticket.activate", "ticket.delete"],
+      "status": "unsupported",
+      "observed_at": "2026-08-25",
+      "evidence_id": "acceptance-21.7.8-module-limits",
+      "notes": "The target returned empty responses or reported an unavailable feedback/ticket module; file upload/edit returned empty responses and the official upload page marks the capability v22+."
+    },
+    {
+      "endpoint_ids": ["project.create", "project.edit", "project.list_program", "project.delete", "product.view", "product.delete"],
+      "status": "observed",
+      "observed_at": "2026-08-25",
+      "evidence_id": "issue-27-project-real-flow",
+      "notes": "Real Project and Product flows on 21.7.8: project create succeeds for scrum/waterfall/kanban/agile-plus/waterfall-plus; omitting products auto-creates and binds a same-name product, while a branch product requires the target's undocumented branch form and the official adapter cannot complete that association. PUT project edit persists core fields but replaces or clears omitted optional project configuration fields. project.list_program can return a real no-permission error; global project list ignored an id filter and an invalid page fell back to page 1. Project and product DELETE require --yes and succeed even when the pre-read downstream count is nonzero, so the target does not enforce the observed dependency. Product view returns stable product and dynamics data for readback."
+    },
+    {
+      "endpoint_ids": ["execution.create", "execution.edit", "execution.list", "execution.list_project", "execution.view", "execution.delete"],
+      "status": "observed",
+      "observed_at": "2026-08-25",
+      "evidence_id": "issue-27-execution-real-flow",
+      "notes": "Real Execution flows on 21.7.8: sprint/stage/kanban creation and type/attribute/lifetime/date edits are accepted; the target rejects dates outside the parent project and invalid products. execution.view/list omit product and plan fields even when product dynamics confirm the product association, and multi-product or some stage/ops associations were not observable. PUT edit replaces omitted optional fields (days and acl were cleared when omitted). Global/project lists work with a real project-scope permission error and invalid page fallback. DELETE requires --yes and succeeds for an execution with a downstream task, leaving the task orphaned; the target does not enforce that dependency."
+    },
+    {
+      "endpoint_ids": ["epic.create", "epic.edit", "epic.change", "epic.list_product", "epic.view", "epic.close", "epic.activate", "epic.delete"],
+      "status": "observed",
+      "observed_at": "2026-08-25",
+      "evidence_id": "issue-27-epic-real-flow",
+      "notes": "Real Epic flows on 21.7.8: create may return status=success without id while creating the object, so the client reports API_ERROR and list_product is required for readback; the target uses pri for priority and accepts string categories. change requires title and reviewer and HTML-normalizes URLs/entities in spec/verify. When review is enabled, edit requires an explicit reviewer and omitted fields can be replaced/reset; the CLI rejects missing reviewer before HTTP. duplicate close requires duplicateStory, activate/close/delete work, pagination/order are readable, and deleting a parent or an Epic with downstream children is allowed, leaving child references orphaned."
+    },
+    {
+      "endpoint_ids": ["requirement.create", "requirement.edit", "requirement.change", "requirement.list_product", "requirement.view", "requirement.close", "requirement.activate", "requirement.delete"],
+      "status": "observed",
+      "observed_at": "2026-08-25",
+      "evidence_id": "issue-27-requirement-real-flow",
+      "notes": "Real Requirement flows on 21.7.8: create may return success without id and requires list_product readback; change requires reviewer and target HTML-normalizes URLs/entities in spec/verify; edit accepts category strings but enabled review requires explicit reviewer, while omitted pri resets to the target default. close duplicate requires duplicateStory, activate/close/delete work, list sorting/page fallback and view errors are readable. Parent edits returned an empty response with no state change, cross-product parent creation was accepted, and deleting a parent with a child left an orphaned parent reference."
+    },
+    {
+      "endpoint_ids": ["story.create", "story.edit", "story.change", "story.list_product", "story.list_project", "story.list_execution", "story.view", "story.close", "story.activate", "story.delete"],
+      "status": "observed",
+      "observed_at": "2026-08-25",
+      "evidence_id": "issue-27-story-real-flow",
+      "notes": "Real Story flows on 21.7.8: create accepts reviewer and can return id or UNKNOWN_WRITE_RESULT; edit/change/lifecycle/list/view/delete were exercised with readback. PUT edit is replacement-like: omitting source/reviewer/assignee can clear them and pri can reset, so the run used explicit full fields when preserving state and did not claim safe partial semantics. change requires reviewer and HTML-normalizes file text URLs/entities. Project scope may return a 302/no-permission error, execution scope can expose a story whose product/view association fields are null or inconsistent, and there are no native project/execution/product-plan link or unlink endpoints. Cross-type Epic parent IDs were accepted by the target; deleting a parent with a child leaves an orphaned parent reference."
+    },
+    {
+      "endpoint_ids": ["task.create", "task.edit", "task.list_execution", "task.view", "task.start", "task.finish", "task.close", "task.activate", "task.delete"],
+      "status": "observed",
+      "observed_at": "2026-08-25",
+      "evidence_id": "issue-27-task-real-flow",
+      "notes": "Real Task flows on 21.7.8: execution #40 is absent, so the run used confirmed execution #10 for create/edit/lifecycle/list/readback. Partial edit preserves most fields but omitted priority resets to 0; start requires nonzero consumed or left and repeated lifecycle requests were handled by readback. finish adds currentConsumed to existing consumed (a passed total value is not authoritative), so total 8 was achieved by pre-reading/preparing consumed 5 plus current 3. The target HTML-normalizes URLs in descriptions, rejects nonexistent assignees/Stories, has no pause endpoint, accepts decimal estimates, and deleting a parent cascaded to its child; R3 deletes were individually confirmed."
+    },
+    {
+      "endpoint_ids": ["test-case.create", "test-case.edit", "test-case.list_product", "test-case.list_project", "test-case.list_execution", "test-case.view", "test-case.delete"],
+      "status": "observed",
+      "observed_at": "2026-08-26",
+      "evidence_id": "issue-27-test-case-real-flow",
+      "notes": "Real Test Case flows on 21.7.8: create/edit/list-by-product/list-by-project/list-by-execution/view/delete were exercised with explicit readback. The target create may return an empty response or UNKNOWN_WRITE_RESULT while creating the case; list/view confirmed the object, so the client correctly reports API_ERROR or UNKNOWN_WRITE_RESULT and never fabricates an id. Multi-step requests that omit stepType silently retain only the first step; the adapter now defaults each supplied step to type=step. The target PUT edit requires type in practice and treats omitted fields as replacement/clear semantics: product can reset to 0 and steps can be deleted, so title-only preservation is not supported by the official edit surface. Project-scope listings were inconsistent for some cross-project records, project/execution mismatch was accepted, nonexistent Story creation returned a real error, and delete allowed cases linked to project/execution without a dependency guard."
+    },
+    {
+      "endpoint_ids": ["test-task.create", "test-task.list_product", "test-task.list_project", "test-task.list_execution", "test-task.delete"],
+      "status": "observed",
+      "observed_at": "2026-08-26",
+      "evidence_id": "issue-27-test-task-real-flow",
+      "notes": "Real Test Task create, all three list scopes, and delete were exercised with product/build/execution readback. create accepts the productID/product compatibility pair, optional execution=0, and even cross-product build/execution combinations. DELETE was inconsistent: one created test task was removed successfully, while the remaining created IDs returned the same Task does not exist error and stayed visible in lists; no alternate API was used. Status close is not a native endpoint, view/report/case-link surfaces are absent."
+    },
+    {
+      "endpoint_ids": ["test-task.edit"],
+      "status": "unsupported",
+      "observed_at": "2026-08-26",
+      "evidence_id": "issue-27-test-task-edit-21.7.8",
+      "notes": "PUT /testtasks/{testtaskID} consistently returned the real business error Task does not exist for existing IDs 2, 7, and 11 that were present in the product/project lists. Owner, date, status, name, type, and build edit probes all left the list state unchanged; the official v2 edit surface is unavailable on this 21.7.8 instance."
+    },
+    {
+      "endpoint_ids": ["build.create", "build.edit", "build.list_project", "build.list_execution", "build.delete"],
+      "status": "observed",
+      "observed_at": "2026-08-26",
+      "evidence_id": "issue-27-build-real-flow",
+      "notes": "Real Build flows on 21.7.8: create/edit/project-list/execution-list/delete were exercised with explicit readback. The target preserves Unicode and spaces in filePath and multiline desc, but HTML-escapes '&' as '&amp;' in SCM paths containing query parameters. It accepts system/product and execution/project mismatches, enforces duplicate build names within an execution, and has no view/submit-test/merge/pass/rollback endpoint. Delete requires --yes but does not enforce downstream Test Task dependencies: Build #35 was hidden while nine test tasks retained the old build reference. Empty write responses are reported as API_ERROR, and UNKNOWN_WRITE_RESULT is resolved only by a subsequent explicit list read."
+    },
+    {
+      "endpoint_ids": ["release.create", "release.edit", "release.list_product", "release.delete"],
+      "status": "observed",
+      "observed_at": "2026-08-26",
+      "evidence_id": "issue-27-release-real-flow",
+      "notes": "Real Release flows on 21.7.8: create/edit/product-list/delete were exercised with explicit readback. wait and normal releases work; normal requires releasedDate, while fail and terminate still returned the target error 『实际发布日期』不能为空 even when releasedDate was supplied. Product list returned duplicate rows for multi-build releases, page=2 fell back to page 1, and browse=wait did not filter out normal rows. Cross-product Build references could be stored as a raw ',36,' value but expanded builds was empty. The target has no view/activate/close/rollback endpoint, rejects duplicate release names within a product, and allows deleting a release referenced by a System latestRelease field."
+    },
+    {
+      "endpoint_ids": ["system.create", "system.edit", "system.list_product"],
+      "status": "observed",
+      "observed_at": "2026-08-26",
+      "evidence_id": "issue-27-system-real-flow",
+      "notes": "Real System flows on 21.7.8: create/edit/product-list were exercised with explicit readback. create commonly returns status=success without id while the application is created, so the client reports API_ERROR and list_product recovers the object. The target enforces globally unique names, preserves child order as a comma string, rejects an integrated application with an empty child list, but accepts nonexistent and self child IDs. Product page 2 fell back to page 1, descriptions HTML-escaped '&' as '&amp;', and edit does not expose integrated. No System view/delete/close/activate endpoint exists, so the GH27 fixtures cannot be removed through the official v2 surface."
+    },
+    {
+      "endpoint_ids": ["user.create", "user.edit", "user.list", "user.view", "user.delete"],
+      "status": "observed",
+      "observed_at": "2026-08-26",
+      "evidence_id": "issue-27-user-real-flow",
+      "notes": "Real User flows on 21.7.8: create/edit/list/view/delete were exercised with non-sensitive readback. create defaults visions to rnd; edit requires account and, on this target, also requires realname and visions even though the official fields are optional, so sparse updates must first read and explicitly preserve them. Dept #3 was absent, group IDs were accepted but no group field is returned by list/view, and page 2 fell back when the list was shorter. View never returned password; duplicate account and nonexistent user errors were real. UNKNOWN/empty create responses were resolved only by explicit list reads. Deleting a user referenced as a Test Task owner succeeded and left the old owner string, so the target has no dependency guard."
+    },
+    {
+      "endpoint_ids": ["file.delete"],
+      "status": "observed",
+      "observed_at": "2026-08-26",
+      "evidence_id": "issue-27-file-real-flow",
+      "notes": "A real DELETE /files/{fileID} request for nonexistent attachment #900 returned the target business error and did not alter the Task fixture. A controlled empty-body response exposed that normalizing DELETE None to a synthetic success object was unsafe; the adapter now requires a response body and reports API_ERROR for empty responses."
+    }
+  ]
+}

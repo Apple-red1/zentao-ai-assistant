@@ -1,4 +1,0 @@
-interface:
-  display_name: "禅道 AI Bug 助手"
-  short_description: "用自然语言查询汇总团队禅道 Bug，并安全执行备注编辑激活和指派"
-  default_prompt: "查询我当前未关闭的 Bug，并汇总状态、指派人和严重程度。"

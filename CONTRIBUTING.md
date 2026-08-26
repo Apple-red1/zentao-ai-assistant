@@ -1,9 +1,9 @@
 # Contributing
 
-1. Create a focused branch from the default branch.
-2. Add a failing test before changing behavior.
-3. Keep secrets, local configuration, runtime state and generated files out of Git.
-4. Run `python -m pytest`, `python -m ruff check src tests`, `python -m mypy src`, package build checks, and plugin validation.
-5. Open a pull request describing behavior, safety impact and verification evidence.
+修改前请阅读根目录 [`AGENTS.md`](AGENTS.md) 和目标 Skill 的 `SKILL.md`。
 
-Never add a Bug deletion capability. New write operations require an explicit security design and current-message authorization.
+- API endpoint 变更必须完整传播 catalog / adapter / Service / CLI / Fake / tests / docs。
+- 高层 Skill 不得直接访问 ZenTao HTTP/Internal；使用 `zentao_skill.public`。
+- 只使用 Python 标准库。
+- 提交前运行 `python tests/run_all.py`。
+- API surface 变更额外关注 `python skills/zentao/tests/run_all.py` 的 120/120 门槛。

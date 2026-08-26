@@ -1,12 +1,9 @@
 # Changelog
 
-All notable changes are documented here.
+## Unreleased
 
-## 0.1.0 - 2026-07-27
-
-- Add local Codex plugin and Python MCP server for ZenTao 21.7.8.
-- Add personal, team, external-user and conditional Bug queries with summaries.
-- Add guarded comment, edit, activate and assign operations.
-- Add OS credential storage and automatic Token refresh after 401.
-- Add cross-platform installers, interactive setup, doctor and three-minute documentation.
-- Add three-platform Python CI, package checks, plugin contracts and a sanitized acceptance checklist.
+- 将仓库定位升级为面向 AI 的 ZenTao 项目管理多 Skill 集合。
+- 新增 `zentao-statistics`、`zentao-personal`、`zentao-project-management`。
+- 新增只读 `zentao_skill.public` programmatic facade、完整分页读取和分页停滞检测。
+- 新增 `.tmp/zentao/auth/` 短期 Token cache，支持明确 401 后刷新。
+- 新增仓库级 `python tests/run_all.py` 测试入口。

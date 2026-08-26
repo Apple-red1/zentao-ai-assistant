@@ -1,0 +1,4 @@
+interface:
+  display_name: "禅道统计"
+  short_description: "对禅道数据做确定性统计、聚合和范围对比"
+  default_prompt: "使用 zentao-statistics 的脚本计算数字与分布，再根据 JSON 解释结果；不要手工计数。"
