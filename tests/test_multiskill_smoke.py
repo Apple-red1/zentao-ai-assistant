@@ -47,6 +47,44 @@ class MultiSkillSmokeTests(unittest.TestCase):
             self.assertGreaterEqual(outputs[1]['total_items'], 2)
             self.assertEqual('risk', outputs[2]['status'])
 
+    def test_bug_resolver_read_commands_run_in_subprocess_and_stay_read_only(self) -> None:
+        with FakeZenTao() as fake, tempfile.TemporaryDirectory() as td:
+            env = env_for(fake.base_url)
+            script = 'skills/zentao-bug-resolver/scripts/zentao_bug_resolver.py'
+
+            select = subprocess.run(
+                [sys.executable, script, 'select', '--product', '1', '--json'],
+                cwd=ROOT, env=env, text=True, capture_output=True, timeout=20,
+            )
+            self.assertEqual(0, select.returncode, select.stderr)
+            self.assertEqual(1, json.loads(select.stdout)['current_bug_id'])
+
+            snapshot = subprocess.run(
+                [sys.executable, script, 'snapshot', '--bug-id', '1', '--json'],
+                cwd=ROOT, env=env, text=True, capture_output=True, timeout=20,
+            )
+            self.assertEqual(0, snapshot.returncode, snapshot.stderr)
+            snapshot_payload = json.loads(snapshot.stdout)
+            self.assertEqual(1, snapshot_payload['bug_id'])
+
+            baseline = Path(td) / 'snapshot.json'
+            baseline.write_text(snapshot.stdout, encoding='utf-8')
+            compare = subprocess.run(
+                [sys.executable, script, 'compare', '--bug-id', '1', '--baseline-file', str(baseline), '--json'],
+                cwd=ROOT, env=env, text=True, capture_output=True, timeout=20,
+            )
+            self.assertEqual(0, compare.returncode, compare.stderr)
+            compare_payload = json.loads(compare.stdout)
+            self.assertTrue(compare_payload['changed'])
+            self.assertTrue(compare_payload['comparison_blocked'])
+            self.assertEqual('CRITICAL_FIELD_UNAVAILABLE', compare_payload['block_reason'])
+            self.assertEqual([], compare_payload['changes'])
+
+            business_requests = [request for request in fake.state.requests if request['endpoint_id'] != 'token.login']
+            self.assertTrue(business_requests)
+            self.assertTrue(all(request['method'] == 'GET' for request in business_requests))
+            self.assertFalse(any(request['endpoint_id'] == 'bug.resolve' for request in fake.state.requests))
+
 
     def test_statistics_cache_data_is_private_and_under_project_tmp(self) -> None:
         with FakeZenTao() as fake:

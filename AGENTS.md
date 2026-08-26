@@ -11,9 +11,12 @@ skills/zentao/                    # ZenTao API v2 原子能力
 skills/zentao-statistics/         # 统计、聚合、范围对比
 skills/zentao-personal/           # 个人待办、风险和工作摘要
 skills/zentao-project-management/ # Project / Execution 管理分析
+skills/zentao-bug-resolver/       # Bug 证据驱动分析、修复编排和受控 resolve
 ```
 
 `zentao` 是基础能力层，继续通过 Python 标准库访问 ZenTao 官方 API v2；高层 Skill 组合只读能力形成项目管理信息。后续可以增加新的高层 Skill，但不得把同一职责复制到多个 Skill。
+
+`zentao-bug-resolver` 是证据驱动的高层工作流：resolver script 只做 Bug 选择、快照、写前比较等确定性读取，Agent 负责业务仓库证据、最小本地修复与验证；需要一次 R2 lifecycle resolve 时只能回到基础 `zentao` CLI。
 
 API CLI 公开入口保持：
 
@@ -68,10 +71,29 @@ zentao-statistics / zentao-personal / zentao-project-management
   -> internal/http
 ```
 
+Bug resolver 的读取与写入编排链路：
+
+```text
+zentao_bug_resolver.py (select / snapshot / compare，只读)
+  -> skills/_shared/zentao
+  -> zentao_skill.public（只读）
+  -> zentao Services
+  -> internal/zentao
+  -> internal/http
+  -> ZenTao API v2
+
+Agent：读取证据 + 业务仓库最小修复/验证
+  -> 写前 compare（只读复查，不是 CAS/ETag/锁）
+  -> 基础 zentao CLI 的一次 R2 bug resolve
+  -> 显式 snapshot / bug view 回读
+```
+
 禁止：
 
 - 高层 Skill 自己拼 `/api.php/v2` URL 或直接使用 `urllib`；
 - 高层 Skill import `zentao_skill.internal.*` 或直接绕过 API Skill 安全合同；
+- `zentao-bug-resolver` script 执行 lifecycle 或写入；Agent 的一次 R2 resolve 只能调用基础 `zentao` CLI，不能改走 facade、私有接口或替代 endpoint；
+- 将 resolver 的 `compare` 当作 CAS、ETag、锁或强一致写入保证；它只是写前的只读并发复查；
 - `cli`/`services` 直接使用 HTTP；
 - 恢复 MCP、独立系统级 `zentao-ai` 应用或第三方 Python 运行时依赖；
 - 通过读取 `endpoints.json` 动态生成业务请求。
@@ -91,6 +113,8 @@ API endpoint 覆盖率只描述 `zentao` 基础 Skill，不能当作整个多 Sk
 - 可复用的低层分页、身份、临时数据能力放 `skills/_shared/zentao/`；有业务含义的算法留在所属 Skill。
 - `partial_failures`、`complete`、截断或分页异常必须向上保留，不能把不完整数据展示成完整事实。
 - 高层 Skill 默认只读；需要写操作时转到 `zentao` 的明确 API 能力和风险授权规则。
+- `zentao-bug-resolver` 的脚本只通过 `zentao_skill.public` 读取；Agent 只有在证据、验证、diff、并发复查和授权门槛全部满足时，才可把一次 R2 resolve 回交基础 CLI。
+- resolver 的 `compare` 是写入前复查；`changed=true`、比较失败或关键事实不可安全比较都必须阻止写入，`changed=false` 也不提供 CAS/ETag/锁保证。
 
 ## 7. CLI 与写入安全
 
@@ -162,4 +186,4 @@ python tests/run_all.py
 
 ### 程序化 facade 写入边界
 
-程序化 facade 只读。高层 Skill 不得通过 facade 执行 create/edit/lifecycle/delete；需要写入时必须回到 `zentao` 的公开 CLI 和既有风险合同。
+程序化 facade 只读。高层 Skill 不得通过 facade 执行 create/edit/lifecycle/delete；需要写入时必须回到 `zentao` 的公开 CLI 和既有风险合同。resolver script 永远不执行 lifecycle；Agent 的一次 R2 resolve 只能调用基础 CLI 一次，随后显式回读。

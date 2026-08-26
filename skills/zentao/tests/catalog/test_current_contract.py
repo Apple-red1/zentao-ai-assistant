@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import unittest
 from pathlib import Path
 
@@ -9,6 +10,8 @@ from ..support import SKILL_ROOT
 REPO_ROOT = SKILL_ROOT.parents[1]
 CURRENT = REPO_ROOT / "docs" / "current-contract.md"
 HISTORICAL = SKILL_ROOT / "RULES.md"
+README = REPO_ROOT / "README.md"
+FEATURES = REPO_ROOT / "docs" / "features.md"
 
 
 class CurrentContractDocumentationTest(unittest.TestCase):
@@ -48,6 +51,82 @@ class CurrentContractDocumentationTest(unittest.TestCase):
             self.assertIn(required, current)
         for stale in ("当前仓库仍存在旧形态", "不暴露 Bug 删除命令", "本轮明确延期", "产品边界是单一"):
             self.assertNotIn(stale, current)
+
+    def test_bug_resolver_is_registered_across_current_documentation_surfaces(self) -> None:
+        current = CURRENT.read_text(encoding="utf-8")
+        readme = README.read_text(encoding="utf-8")
+        features = FEATURES.read_text(encoding="utf-8")
+        for name, document in (("current contract", current), ("README", readme), ("features", features)):
+            with self.subTest(document=name):
+                self.assertIn("zentao-bug-resolver", document)
+        self.assertIn("| `skills/zentao-bug-resolver/` |", current)
+
+    def test_bug_resolver_contract_locks_read_only_r2_queue_and_evidence_boundaries(self) -> None:
+        current = CURRENT.read_text(encoding="utf-8")
+        for anchor in (
+            "`select`",
+            "`snapshot`",
+            "`compare`",
+            "只读 facade",
+            "zentao_skill.public",
+            "不是新的 API endpoint",
+            "ANALYZE_ONLY",
+            "LOCAL_FIX_ALLOWED",
+            "RESOLVE_R2_ALLOWED",
+            "SOLVABLE",
+            "UNCLEAR",
+            "NO_CODE_EVIDENCE",
+            "BLOCKED",
+            "complete=false",
+            "partial_failures",
+            "unsupported_filters",
+            "unavailable_fields",
+            "pending_queue",
+            "用户再次明确继续",
+            "基础 `zentao` CLI",
+            "不会自动 close",
+            "standalone comment",
+            "active Bug 单独转派",
+            "不访问真实 ZenTao",
+            "Real API calls: 0",
+        ):
+            with self.subTest(anchor=anchor):
+                self.assertIn(anchor, current)
+
+    def test_bug_resolver_summary_invariants_are_shared_by_user_docs(self) -> None:
+        documents = {
+            "README": README.read_text(encoding="utf-8"),
+            "current contract": CURRENT.read_text(encoding="utf-8"),
+            "features": FEATURES.read_text(encoding="utf-8"),
+        }
+        sections = {
+            "README": ("Bug 证据驱动流程的确定性脚本入口为：", "详细自然语言边界"),
+            "current contract": ("- `zentao-bug-resolver` 是第四个", "- R3 delete"),
+            "features": ("## `zentao-bug-resolver`", None),
+        }
+        required = (
+            "select", "snapshot", "compare", "只读", "pending_queue", "Agent",
+            "facade", "bug resolve", "ANALYZE_ONLY", "LOCAL_FIX_ALLOWED",
+            "RESOLVE_R2_ALLOWED", "SOLVABLE", "UNCLEAR", "NO_CODE_EVIDENCE", "BLOCKED",
+        )
+        for name, document in documents.items():
+            start, end = sections[name]
+            start_at = document.index(start)
+            section = document[start_at:document.index(end, start_at) if end else None]
+            with self.subTest(document=name):
+                for anchor in required:
+                    self.assertIn(anchor, section)
+                self.assertIsNotNone(re.search(r"select.*snapshot.*compare", section, re.S))
+                self.assertIn("只读", section)
+                self.assertIsNotNone(re.search(r"pending_queue.*不(?:会)?自动继续", section, re.S))
+                self.assertIsNotNone(re.search(r"回到基础 `zentao` CLI", section, re.S))
+                self.assertIsNotNone(re.search(r"不是(?:新的)? API endpoint.*120", section, re.S))
+                self.assertIsNotNone(re.search(r"ANALYZE_ONLY.*LOCAL_FIX_ALLOWED.*RESOLVE_R2_ALLOWED", section, re.S))
+                self.assertIsNotNone(re.search(r"SOLVABLE.*UNCLEAR.*NO_CODE_EVIDENCE.*BLOCKED", section, re.S))
+                self.assertIn("Real API calls: 0", document)
+                self.assertTrue(
+                    "不是新的 API endpoint" in document or "不是 API endpoint" in document
+                )
 
 
 if __name__ == "__main__":

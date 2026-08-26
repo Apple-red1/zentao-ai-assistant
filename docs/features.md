@@ -1,6 +1,6 @@
 # 功能概览
 
-当前产品是面向 AI 的 ZenTao 项目管理 Skill 集合。
+当前产品是面向 AI 的 ZenTao 项目管理 Skill 集合：一个基础 API Skill 加四个高层 Skill。
 
 ## `zentao`
 
@@ -17,3 +17,17 @@
 ## `zentao-project-management`
 
 Project / Execution 的资源概览、风险信号和开放事项工作量分布。默认不发明数值健康分或人员绩效结论。
+
+## `zentao-bug-resolver`
+
+面向单个当前 Bug 的证据驱动流程。确定性脚本提供只读 `select`、`snapshot`、`compare`，Agent 再据此编排 ZenTao/业务仓库证据、最小修改、真实验证和写前复查。
+
+`pending_queue` 只保留待处理项，不自动继续；`complete=false`、`partial_failures`、`unsupported_filters` 和 `unavailable_fields` 必须作为证据边界保留。该 Skill 的脚本/组合能力不是 API endpoint，不计入基础 `zentao` 的 120 个 ZenTao API v2 endpoint；程序化 facade 只读，需要 R2 生命周期写入时必须回到基础 `zentao` CLI，并取得当前用户明确授权。
+
+高层 Skill 测试使用标准库桩或本地 FakeZenTao，不访问真实 ZenTao（`Real API calls: 0`）。
+
+授权采用 `ANALYZE_ONLY`、`LOCAL_FIX_ALLOWED`、`RESOLVE_R2_ALLOWED`，证据结论采用
+`SOLVABLE`、`UNCLEAR`、`NO_CODE_EVIDENCE`、`BLOCKED`。一次任务只处理当前 Bug，
+pending 项不继承授权；模糊“处理 Bug”不产生 R2。只有满足完整证据、验证、diff 和
+写前比较门槛时，Agent 才能回到基础 `zentao` CLI 执行一次 `bug resolve` 并回读；
+`UNCLEAR`/`NO_CODE_EVIDENCE` 不修改代码。

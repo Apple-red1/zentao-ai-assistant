@@ -8,7 +8,7 @@
 python tests/run_all.py
 ```
 
-该入口先执行 `zentao` API Skill 的完整门槛，再执行 `zentao-statistics`、`zentao-personal`、`zentao-project-management` 的专项单元/行为测试。
+该入口先执行 `zentao` API Skill 的完整门槛，再执行 `zentao-statistics`、`zentao-personal`、`zentao-project-management`、`zentao-bug-resolver` 的专项单元/行为测试。
 
 ## API Skill
 
@@ -30,5 +30,8 @@ python skills/zentao/tests/run_all.py
 - `zentao-statistics`：去重、状态/负责人/优先级/严重程度、Task deadline、compare。
 - `zentao-personal`：用户重名、个人过滤、严重 Bug、逾期 Task。
 - `zentao-project-management`：事实型 health signals、无数值健康分、开放事项 workload。
+- `zentao-bug-resolver`：只读 `select`、Bug snapshot、写前 `compare` 及证据完整性边界。
+
+resolver 的多 Skill smoke 使用本地 FakeZenTao 服务器，由独立子进程实际运行 `select`、`snapshot`、`compare`；断言业务请求均为 GET、没有 `bug.resolve`，因此不代表真实 ZenTao 调用。全仓库和 API 专项结果中的 `Real API calls: 0` 仍是硬边界：测试只验证本地 Fake/桩合同，不验证真实环境兼容性。
 
 后续增加场景时优先覆盖多页、空集、部分失败、重复数据、日期边界和真实用户表达。

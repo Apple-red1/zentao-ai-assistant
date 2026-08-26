@@ -14,30 +14,8 @@ if str(SHARED) not in sys.path:
     sys.path.insert(0, str(SHARED))
 
 from zentao.records import assignee, deadline_state, dedupe_records, is_open, priority, severity, title  # noqa: E402
+from zentao.identity import AmbiguousMatchError, MatchNotFoundError, resolve_user  # noqa: E402
 from zentao.runtime import get_client, store_temp_json  # noqa: E402
-
-
-class UserAmbiguousError(ValueError):
-    def __init__(self, value: str, candidates: list[str]) -> None:
-        self.value = value
-        self.candidates = candidates
-        super().__init__(f"用户姓名存在歧义: {', '.join(candidates)}")
-
-
-def resolve_user(users: list[dict[str, Any]], value: str) -> dict[str, Any]:
-    exact_account = [row for row in users if str(row.get("account", "")) == value]
-    if len(exact_account) == 1:
-        return exact_account[0]
-    exact_name = [row for row in users if str(row.get("realname", row.get("name", ""))) == value]
-    if len(exact_name) > 1:
-        candidates = [str(row.get("account", row.get("id", ""))) for row in exact_name]
-        raise UserAmbiguousError(value, candidates)
-    if len(exact_name) == 1:
-        return exact_name[0]
-    folded = [row for row in users if str(row.get("account", "")).lower() == value.lower()]
-    if len(folded) == 1:
-        return folded[0]
-    raise ValueError(f"未找到用户: {value}")
 
 
 def _risk_item(resource: str, row: dict[str, Any], *, today: str | date | None = None) -> dict[str, Any]:
@@ -184,8 +162,14 @@ def main(argv: list[str] | None = None) -> int:
             payload["temp_data"] = store_temp_json("personal", {"account": account, "resources": resources})
         print(json.dumps(payload, ensure_ascii=False, separators=(",", ":") if args.json else None, indent=None if args.json else 2))
         return 0
-    except UserAmbiguousError as exc:
-        print(json.dumps({"error": {"code": "USER_AMBIGUOUS", "message": str(exc), "details": {"user": exc.value, "candidates": exc.candidates}}}, ensure_ascii=False, separators=(",", ":")), file=sys.stderr)
+    except AmbiguousMatchError as exc:
+        candidates = list(exc.candidates)
+        message = f"用户姓名存在歧义: {', '.join(candidates)}"
+        print(json.dumps({"error": {"code": "USER_AMBIGUOUS", "message": message, "details": {"user": exc.value, "candidates": candidates}}}, ensure_ascii=False, separators=(",", ":")), file=sys.stderr)
+        return 1
+    except MatchNotFoundError as exc:
+        message = f"未找到用户: {exc.value}"
+        print(json.dumps({"error": {"code": "PERSONAL_ERROR", "message": message, "details": {}}}, ensure_ascii=False, separators=(",", ":")), file=sys.stderr)
         return 1
     except Exception as exc:
         print(json.dumps({"error": {"code": "PERSONAL_ERROR", "message": str(exc), "details": {}}}, ensure_ascii=False, separators=(",", ":")), file=sys.stderr)

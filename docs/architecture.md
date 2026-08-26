@@ -18,7 +18,19 @@
 
 API endpoint 保持显式实现，`endpoints.json` 不参与运行时路由。
 
-## 高层 Skill
+## Skill 职责
+
+| Skill | 职责与边界 |
+|---|---|
+| `zentao` | 官方 API v2 的原子读取、写入、认证、资源获取和 CLI 安全合同；是所有 ZenTao 写入的唯一公开入口。 |
+| `zentao-statistics` | 对支持的资源做确定性统计、聚合和同类范围比较；只读。 |
+| `zentao-personal` | 聚合当前/指定用户的待办、风险、工作列表和摘要；只读，不把工作量当作绩效结论。 |
+| `zentao-project-management` | 聚合 Project / Execution 的进度事实、风险信号和工作量分布；只读，不臆造健康分或绩效结论。 |
+| `zentao-bug-resolver` | 以 Bug 为单位执行证据驱动的选择、快照、代码证据、最小修复与验证编排；resolver script 只读，生命周期写入由 Agent 回到基础 CLI。 |
+
+统计、个人和项目管理脚本负责确定性分页、去重和聚合，向上保留 `complete` 与 `partial_failures`。Bug resolver 同样保留读取完整性和不可用字段；它的业务证据与本地修复属于 Agent 工作流，不扩展 API endpoint surface。
+
+## 高层 Skill 读取链路
 
 ```text
 zentao-statistics ---------┐
@@ -35,6 +47,24 @@ zentao-project-management -┘        |
 ```
 
 `zentao_skill.public` 是仓库内部稳定 programmatic facade，用于在一个 Python 进程内复用 Session 和完整分页。高层 Skill 禁止直接访问 `internal/zentao` / `internal/http`。
+
+## Bug resolver 工作流链路
+
+```text
+zentao_bug_resolver.py
+  select / snapshot / compare
+        |
+        v
+skills/_shared/zentao -> zentao_skill.public（只读） -> existing Services -> ZenTao API v2
+
+Agent 读取 resolver JSON 与业务仓库
+  -> 证据分类 / 必要的最小本地修复 / 真实验证
+  -> 写前 compare（只读并发复查）
+  -> 基础 zentao CLI 的一次 R2 bug resolve
+  -> 显式 snapshot 或 bug view 回读
+```
+
+`compare` 只比较起始 snapshot 与当前 Bug 的关键可观察字段，用于写前发现并发变化；它不是 CAS、ETag、锁或强一致保证。`changed=true`、比较失败或关键字段不可安全比较时停止写入；即使 `changed=false`，Agent 仍须遵守 R2 授权、证据、验证和 CLI 安全门槛。resolver script 不执行任意 shell、业务仓库写入或 ZenTao lifecycle；一次 R2 resolve 只能回到基础 `zentao` CLI。
 
 ## 临时运行数据
 

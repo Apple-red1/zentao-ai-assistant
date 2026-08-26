@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
+import json
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 MODULE = Path(__file__).resolve().parents[1] / 'scripts' / 'zentao_personal.py'
 spec = importlib.util.spec_from_file_location('zentao_personal', MODULE)
@@ -17,9 +22,70 @@ class PersonalTests(unittest.TestCase):
             {'id': 1, 'account': 'alice', 'realname': '张三'},
             {'id': 2, 'account': 'alice2', 'realname': '张三'},
         ]
-        with self.assertRaises(mod.UserAmbiguousError) as raised:
+        with self.assertRaises(mod.AmbiguousMatchError) as raised:
             mod.resolve_user(users, '张三')
+        self.assertEqual('user', raised.exception.kind)
+        self.assertEqual('张三', raised.exception.value)
         self.assertEqual(['alice', 'alice2'], raised.exception.candidates)
+
+    def test_main_preserves_user_ambiguous_error_output(self) -> None:
+        users = [
+            {'id': 1, 'account': 'alice', 'realname': '张三'},
+            {'id': 2, 'account': 'alice2', 'realname': '张三'},
+        ]
+
+        class FakeClient:
+            account = 'current'
+
+            def list_all(self, resource: str, **kwargs: object) -> SimpleNamespace:
+                if resource != 'user':
+                    raise AssertionError(f'unexpected resource: {resource}')
+                return SimpleNamespace(items=users, partial_failures=[])
+
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with patch.object(mod, 'get_client', return_value=FakeClient()), contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            code = mod.main(['overview', '--user', '张三', '--json'])
+
+        self.assertEqual(1, code)
+        self.assertEqual('', stdout.getvalue())
+        self.assertEqual(
+            {
+                'error': {
+                    'code': 'USER_AMBIGUOUS',
+                    'message': '用户姓名存在歧义: alice, alice2',
+                    'details': {'user': '张三', 'candidates': ['alice', 'alice2']},
+                }
+            },
+            json.loads(stderr.getvalue()),
+        )
+
+    def test_main_preserves_user_not_found_error_output(self) -> None:
+        class FakeClient:
+            account = 'current'
+
+            def list_all(self, resource: str, **kwargs: object) -> SimpleNamespace:
+                if resource != 'user':
+                    raise AssertionError(f'unexpected resource: {resource}')
+                return SimpleNamespace(items=[], partial_failures=[])
+
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with patch.object(mod, 'get_client', return_value=FakeClient()), contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            code = mod.main(['overview', '--user', 'missing', '--json'])
+
+        self.assertEqual(1, code)
+        self.assertEqual('', stdout.getvalue())
+        self.assertEqual(
+            {
+                'error': {
+                    'code': 'PERSONAL_ERROR',
+                    'message': '未找到用户: missing',
+                    'details': {},
+                }
+            },
+            json.loads(stderr.getvalue()),
+        )
 
     def test_personal_overview_filters_assignee_and_builds_risk_buckets(self) -> None:
         resources = {

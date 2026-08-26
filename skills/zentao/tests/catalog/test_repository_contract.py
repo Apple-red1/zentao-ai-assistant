@@ -16,6 +16,7 @@ HIGH_LEVEL_SKILLS = (
     REPOSITORY_ROOT / "skills" / "zentao-statistics",
     REPOSITORY_ROOT / "skills" / "zentao-personal",
     REPOSITORY_ROOT / "skills" / "zentao-project-management",
+    REPOSITORY_ROOT / "skills" / "zentao-bug-resolver",
 )
 SHARED_ROOT = REPOSITORY_ROOT / "skills" / "_shared" / "zentao"
 
