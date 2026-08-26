@@ -25,14 +25,33 @@ if ! command -v codex >/dev/null 2>&1; then
   exit 2
 fi
 
+# 运行 pipx 的统一入口：默认使用 python3 -m pipx；当通过 Homebrew
+# 安装 pipx 时（Homebrew Python 受 PEP 668 保护，python3 -m pipx
+# 无法使用），改用独立的 pipx 可执行文件。
+PIPX_CMD=''
+pipx_run() {
+  if [ -n "$PIPX_CMD" ]; then
+    command "$PIPX_CMD" "$@"
+  else
+    "$python_bin" -m pipx "$@"
+  fi
+}
+
 if ! "$python_bin" -m pipx --version >/dev/null 2>&1; then
-  "$python_bin" -m pip install --user pipx
-  "$python_bin" -m pipx ensurepath
+  if command -v brew >/dev/null 2>&1; then
+    brew install pipx
+    PIPX_CMD='pipx'
+  elif ! "$python_bin" -m pip install --user pipx; then
+    echo "无法自动安装 pipx：当前 Python 环境受 PEP 668 保护（externally-managed-environment）。" >&2
+    echo "请先手动安装 pipx（例如 brew install pipx），然后重新运行本脚本。" >&2
+    exit 2
+  fi
+  pipx_run ensurepath
 fi
 
-"$python_bin" -m pipx install --force "$repo_root"
+pipx_run install --force "$repo_root"
 
-pipx_bin_dir=$("$python_bin" -m pipx environment --value PIPX_BIN_DIR 2>/dev/null || true)
+pipx_bin_dir=$(pipx_run environment --value PIPX_BIN_DIR 2>/dev/null || true)
 if [ -n "$pipx_bin_dir" ]; then
   PATH="${pipx_bin_dir}:${PATH}"
   export PATH

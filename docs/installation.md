@@ -33,6 +33,20 @@ codex plugin add zentao-ai-bug@zentao-ai-assistant
 
 ## 手动安装
 
+macOS（Homebrew Python）请先用 Homebrew 安装 pipx，避免 PEP 668 拦截 `pip install --user`：
+
+```bash
+brew install pipx
+pipx ensurepath
+pipx install --force .
+codex plugin marketplace add "$PWD"
+codex plugin add zentao-ai-bug@zentao-ai-assistant
+zentao-ai setup
+zentao-ai doctor
+```
+
+其他平台（如 python.org 安装的 Python 或旧版发行版）：
+
 ```bash
 python3 -m pip install --user pipx
 python3 -m pipx ensurepath
