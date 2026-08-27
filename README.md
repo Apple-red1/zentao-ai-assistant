@@ -12,9 +12,45 @@
 
 运行时只依赖 Python 3.11+ 标准库，不依赖 MCP 或第三方 Python 包。
 
+## 两种使用入口
+
+### Clone / project
+
+直接 clone 后，Codex 读取 `AGENTS.md`；Claude Code 和 Gemini CLI 分别通过薄的
+`CLAUDE.md` / `GEMINI.md` 指向同一份 `AGENTS.md`。五个正式 Skill 位于根目录
+`skills/`，不需要复制到宿主目录。
+
+```bash
+python skills/zentao/scripts/zentao.py setup
+python skills/zentao/scripts/zentao.py doctor --json
+```
+
+`setup` 默认写 project scope 的 `.env`，也可以显式使用
+`setup --scope project`。配置和临时数据位置见
+[安装说明](docs/installation.md) 与 [配置说明](docs/configuration.md)。
+
+### Plugin / user
+
+仓库同时包含 portable `plugin.json`、Claude Plugin 元数据和 Codex repo
+marketplace 元数据。按宿主安装后，首次配置统一使用：
+
+```bash
+python skills/zentao/scripts/zentao.py setup --scope user
+python skills/zentao/scripts/zentao.py doctor --json
+```
+
+user scope 使用 `~/.zentao-ai-assistant/`，不会要求把配置复制到 Claude/Codex
+的 Plugin cache。真实宿主安装命令和 support matrix 见
+[安装说明](docs/installation.md) 与 [功能边界](docs/features.md)。
+
 ## 配置
 
-复制 `.env.example` 为 `.env`，填写 `ZENTAO_BASE_URL / ZENTAO_ACCOUNT / ZENTAO_PASSWORD`。Token 不写回 `.env`，允许短期缓存在 Git ignored 的 `.tmp/zentao/auth/`。
+project scope 的 `.env` 或 user scope 的
+`~/.zentao-ai-assistant/config.env` 使用 `ZENTAO_BASE_URL / ZENTAO_ACCOUNT /
+ZENTAO_PASSWORD`。不把 password 放到命令行；`setup` 会交互式读取密码，写入后
+用 `doctor --json` 显式验证。Token 不写回配置文件，运行时按 scope 保存到受保护
+的 cache/tmp 目录。完整优先级、权限和 CI/test 约定见
+[configuration.md](docs/configuration.md)。
 
 ## API Skill
 
@@ -51,6 +87,29 @@ pending 项不继承授权；模糊的“处理 Bug”最多允许本地修复�
 `bug resolve` 并回读；`UNCLEAR`/`NO_CODE_EVIDENCE` 不修改业务代码。
 
 详细自然语言边界见各 Skill 的 `SKILL.md`。
+
+## 宿主安装入口
+
+Claude Code 本地开发/验证和 marketplace 安装使用官方 CLI：
+
+```bash
+claude plugin validate .
+claude --plugin-dir .
+claude plugin marketplace add .
+claude plugin install zentao-ai-assistant@zentao-ai-assistant
+```
+
+Codex 先登记仓库 marketplace，再在 `/plugins` 浏览器中安装，并在新会话中使用：
+
+```bash
+codex plugin marketplace add .
+codex plugin marketplace list
+codex
+# 在 Codex 中输入 /plugins，选择 zentao-ai-assistant marketplace 并安装
+```
+
+这些是宿主操作入口，不改变五个 Skill 的业务边界；Plugin 的真实 validate、
+load、install、discovery 和缓存运行结果必须以 T10 宿主验收为准。
 
 ## 测试
 

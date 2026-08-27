@@ -26,6 +26,47 @@ python skills/zentao/scripts/zentao.py <resource> <action> [scope] [parameters] 
 
 仓库内高层 Skill 需要复用同一个 Session 时，应使用 `zentao_skill.public` programmatic facade，不直接依赖 `internal/**`。
 
+### Clone / Plugin 两种入口概要
+
+仓库根目录是唯一 canonical 业务能力源。Plugin 与直接 clone 使用同一组
+`skills/`，不复制第二份 Skills：
+
+```text
+Portable Plugin -> plugin.json -> skills/
+Claude Plugin   -> .claude-plugin/plugin.json -> skills/
+Codex Plugin    -> .codex-plugin/plugin.json -> skills/
+Codex Clone     -> AGENTS.md
+Claude Clone    -> CLAUDE.md -> AGENTS.md
+Gemini Clone    -> GEMINI.md -> AGENTS.md
+```
+
+正式 Skill inventory 只有以下五个：
+
+| Skill | 主要职责 |
+|---|---|
+| `skills/zentao/` | ZenTao API v2 原子 read/write/lifecycle/delete/resource |
+| `skills/zentao-statistics/` | 数量、分布、汇总、范围比较 |
+| `skills/zentao-personal/` | 个人待办、风险和工作摘要 |
+| `skills/zentao-project-management/` | Project/Execution 进度、健康、风险、工作量 |
+| `skills/zentao-bug-resolver/` | Bug 证据、修复编排和受控 resolve |
+
+`skills/_shared/zentao/` 只是共享实现目录，没有 `SKILL.md`，不得作为公开
+Skill 或独立路由目标。
+
+按用户最终交付目标选择唯一主 Skill：
+
+| 最终目标 | 主 Skill |
+|---|---|
+| 调查/修复/验证并可能 resolve Bug | `zentao-bug-resolver` |
+| Project/Execution 进度、健康、风险、工作量 | `zentao-project-management` |
+| 自己/某人的待办、风险、工作摘要 | `zentao-personal` |
+| 数量、分布、汇总、比较 | `zentao-statistics` |
+| 原子 ZenTao read/write/lifecycle/delete/resource | `zentao` |
+
+选中后必须读取对应 `skills/<name>/SKILL.md`，再按其中的职责、
+触发条件和安全边界执行。高层主 Skill 可以继续使用基础层的 public facade
+和 CLI；此路由不改变既有依赖架构或写入安全合同。
+
 ## 2. 开始修改前必须阅读
 
 按任务范围至少阅读：
@@ -128,7 +169,19 @@ API endpoint 覆盖率只描述 `zentao` 基础 Skill，不能当作整个多 Sk
 
 ## 8. 配置、Token 与 `.tmp`
 
-长期连接配置只使用根目录 `.env` 与同名环境变量：
+长期连接配置只使用以下 canonical 配置文件与同名环境变量：
+
+```text
+project scope: <repo>/.env
+user scope:    ~/.zentao-ai-assistant/config.env
+```
+
+配置选择顺序严格为 `ZENTAO_CONFIG_FILE` → 仓库根目录 `.env`（存在时）→
+用户配置；只选择一个文件，不跨文件补字段，环境变量再覆盖文件中的同名值。
+显式指定的不存在配置文件必须报错。`setup` 默认 project scope，可用
+`--scope user` 写入用户配置；两种 scope 的 Token 与临时数据目录彼此隔离。
+
+配置键保持：
 
 ```text
 ZENTAO_BASE_URL
@@ -142,15 +195,22 @@ Token 通过 `/users/login` 获取。为减少多个 Skill/进程重复登录，
 .tmp/zentao/auth/
 ```
 
+用户 scope 的运行数据位于：
+
+```text
+~/.zentao-ai-assistant/cache/auth/
+~/.zentao-ai-assistant/tmp/
+```
+
 规则：
 
 - `.tmp/` 必须 Git ignore；不得把 Token 写入 `.env`、仓库文件、日志或测试快照。
 - Token cache 按 base URL + account 隔离，不保存密码；默认本地 TTL 8 小时。
 - POSIX cache 目录 `0700`、文件 `0600`。
 - 缓存无效/过期时删除并重新登录；服务端 401 可触发一次认证刷新。
-- 高层 Skill 的大批量中间数据也可以落到 `.tmp/zentao/<skill>/`；这些文件属于临时运行数据，不得成为长期事实源。
+- 高层 Skill 的大批量中间数据也可以落到当前 scope 的临时目录；这些文件属于临时运行数据，不得成为长期事实源。
 
-对象附件仍按 `resource fetch` 既有规则落到 `.tmp/zentao-resources/`。
+对象附件仍按 `resource fetch` 既有规则落到当前 scope 的临时目录下。
 
 ## 9. 测试要求
 
@@ -168,7 +228,7 @@ python skills/zentao/tests/run_all.py
 
 并继续要求 Catalog/Internal/CLI/Skill routes/Fake/Contract/CLI E2E 精确 `120/120`、`Real API calls: 0` 和 `Result: PASS`。
 
-高层 Skill 至少覆盖：完整分页、重复 ID、空数据、部分失败、用户重名、日期边界、稳定排序、数据完整性和各自核心用户场景。自动化测试不得访问真实 ZenTao。
+高层 Skill 至少覆盖：完整分页、重复 ID、空数据、部分失败、用户重名、日期边界、稳定排序、数据完整性和各自核心用户场景。自动化测试不得访问真实 ZenTao；Fake/真实 ZenTao 实例必须隔离。
 
 ## 10. 文档同步与防漂移
 

@@ -27,10 +27,17 @@ python skills/zentao/scripts/zentao.py resource fetch \
 - 用户明确要求获取/分析对象资源时，发现到的全部资源都会尝试下载，不按图片类型筛选；
 - HTTP 资源必须与 `ZENTAO_BASE_URL` 同源，同源重定向允许继续，跨源重定向拒绝；
 - Token 只会发送给通过同源校验的资源请求；
-- HTTP 文件以流式方式写入 `<project-root>/.tmp/zentao-resources/<object-type>-<object-id>/`；
-- `.tmp/` 被 Git 忽略，资源默认不自动清理；
+- HTTP 文件以流式方式写入当前 runtime scope 的资源目录：project 为
+  `<project-root>/.tmp/zentao-resources/<object-type>-<object-id>/`，user 为
+  `~/.zentao-ai-assistant/tmp/zentao-resources/<object-type>-<object-id>/`；
+- 项目 `.tmp/` 与用户 runtime `tmp/` 均用于临时数据，资源默认不自动清理；
 - 同名文件自动生成 `-2`、`-3` 等唯一名称，不覆盖已有文件；
 - `data:` 内联资源直接从对象内容解码到同一临时目录。
+
+资源落盘目录由当前 runtime scope 决定，不接受调用方用任意路径覆盖。目录及其
+父级必须是受保护的普通目录；拒绝符号链接和逃逸到可信临时根之外的路径。
+HTTP 请求继续只允许与 `ZENTAO_BASE_URL` 同源，逐跳校验同源重定向，跨源重定向
+拒绝，并且只向通过同源校验的请求发送 Token。
 
 ## 结果语义
 

@@ -6,16 +6,18 @@ import unittest
 from pathlib import Path
 
 from ..fake_zentao.server import FakeZenTao
-from ..support import run_cli
+from ..support import TEST_HOME, run_cli
 from zentao_skill.internal.config import project_root
 
 
-RESOURCE_ROOT = project_root() / ".tmp" / "zentao-resources"
+RESOURCE_ROOT = TEST_HOME / ".zentao-ai-assistant" / "tmp" / "zentao-resources"
+LEGACY_RESOURCE_ROOT = project_root() / ".tmp" / "zentao-resources"
 
 
 class ResourceFetchE2ETests(unittest.TestCase):
     def tearDown(self) -> None:
         shutil.rmtree(RESOURCE_ROOT, ignore_errors=True)
+        shutil.rmtree(LEGACY_RESOURCE_ROOT, ignore_errors=True)
 
     def test_fetch_downloads_attachment_and_rich_text_resources(self) -> None:
         with FakeZenTao() as fake:
@@ -101,7 +103,7 @@ class ResourceFetchE2ETests(unittest.TestCase):
             ])
             self.assertEqual(0, result.returncode, result.stderr)
             self.assertIn("good.txt -> ", result.stdout)
-            self.assertIn(".tmp/zentao-resources/bug-907/good.txt", result.stdout)
+            self.assertIn(".zentao-ai-assistant/tmp/zentao-resources/bug-907/good.txt", result.stdout)
             self.assertIn("partial_failures:", result.stdout)
             self.assertIn("API_ERROR", result.stdout)
 

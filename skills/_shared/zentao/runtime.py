@@ -13,7 +13,7 @@ ZENTAO_SCRIPTS = REPO_ROOT / "skills" / "zentao" / "scripts"
 if str(ZENTAO_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(ZENTAO_SCRIPTS))
 
-from zentao_skill.public import ListResult, ZentaoClient  # noqa: E402
+from zentao_skill.public import ListResult, ZentaoClient, prepare_runtime_temp_root  # noqa: E402
 
 
 def get_client() -> ZentaoClient:
@@ -22,7 +22,7 @@ def get_client() -> ZentaoClient:
 
 def store_temp_json(kind: str, payload: object) -> str:
     run_id = uuid.uuid4().hex
-    directory = REPO_ROOT / ".tmp" / "zentao" / kind / run_id
+    directory = prepare_runtime_temp_root() / "zentao" / kind / run_id
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     if os.name == "posix":
         directory.chmod(0o700)

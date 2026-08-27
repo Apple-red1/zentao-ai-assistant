@@ -1,0 +1,10 @@
+{
+  "name": "zentao-ai-assistant",
+  "version": "1.0.0",
+  "description": "ZenTao project management skills for AI coding agents.",
+  "author": {
+    "name": "Apple-red1"
+  },
+  "repository": "https://github.com/Apple-red1/zentao-ai-assistant",
+  "license": "MIT"
+}

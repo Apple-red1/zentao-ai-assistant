@@ -6,6 +6,7 @@ import stat
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 from urllib.parse import urlparse
 
 from .errors import ConfigError
@@ -16,6 +17,17 @@ class Config:
     base_url: str
     account: str
     password: str
+
+
+RuntimeScope = Literal["project", "user"]
+
+
+@dataclass(frozen=True)
+class RuntimePaths:
+    scope: RuntimeScope
+    config_path: Path
+    token_cache_root: Path
+    temp_root: Path
 
 
 def encode_env_value(value: str) -> str:
@@ -92,6 +104,79 @@ def project_root() -> Path:
     raise ConfigError("无法从 Skill 脚本位置定位项目根目录")
 
 
+def _user_data_root() -> Path:
+    return Path.home() / ".zentao-ai-assistant"
+
+
+def paths_for_scope(scope: RuntimeScope) -> RuntimePaths:
+    if scope == "project":
+        root = project_root()
+        return RuntimePaths(
+            scope="project",
+            config_path=root / ".env",
+            token_cache_root=root / ".tmp" / "zentao" / "auth",
+            temp_root=root / ".tmp",
+        )
+    if scope == "user":
+        root = _user_data_root()
+        return RuntimePaths(
+            scope="user",
+            config_path=root / "config.env",
+            token_cache_root=root / "cache" / "auth",
+            temp_root=root / "tmp",
+        )
+    raise ConfigError("运行 scope 必须是 project 或 user", {"scope": scope})
+
+
+def _explicit_config_path(value: str) -> Path:
+    if not value.strip():
+        raise ConfigError("ZENTAO_CONFIG_FILE 不能为空")
+    path = Path(value).expanduser()
+    try:
+        path = path.resolve(strict=False)
+    except OSError as exc:
+        raise ConfigError("无法解析显式配置文件路径") from exc
+    if not path.is_file():
+        raise ConfigError("显式配置文件不存在", {"path": str(path)})
+    return path
+
+
+def resolve_runtime_paths() -> RuntimePaths:
+    explicit = os.environ.get("ZENTAO_CONFIG_FILE")
+    if explicit is not None:
+        config_path = _explicit_config_path(explicit)
+        project_paths = paths_for_scope("project")
+        if config_path == project_paths.config_path.resolve():
+            return project_paths
+        user_paths = paths_for_scope("user")
+        return RuntimePaths(
+            scope="user",
+            config_path=config_path,
+            token_cache_root=user_paths.token_cache_root,
+            temp_root=user_paths.temp_root,
+        )
+
+    project_paths = paths_for_scope("project")
+    if project_paths.config_path.is_file():
+        return project_paths
+    return paths_for_scope("user")
+
+
+def ensure_private_directory(path: Path) -> None:
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        if path.is_symlink() or not path.is_dir():
+            raise ConfigError("私有运行目录必须是目录且不能是符号链接", {"path": str(path)})
+        if os.name == "posix":
+            path.chmod(0o700)
+            if stat.S_IMODE(path.stat().st_mode) != 0o700:
+                raise ConfigError("私有运行目录权限必须为 0700", {"path": str(path)})
+    except ConfigError:
+        raise
+    except OSError as exc:
+        raise ConfigError("无法安全创建私有运行目录", {"path": str(path)}) from exc
+
+
 def parse_env(path: Path) -> dict[str, str]:
     values: dict[str, str] = {}
     if not path.exists():
@@ -100,6 +185,8 @@ def parse_env(path: Path) -> dict[str, str]:
         lines = path.read_text(encoding="utf-8").splitlines()
     except UnicodeDecodeError as exc:
         raise ConfigError(".env 必须使用 UTF-8 编码", {"path": str(path), "encoding": "utf-8", "position": exc.start}) from exc
+    except OSError as exc:
+        raise ConfigError("无法读取配置文件", {"path": str(path)}) from exc
     for line_no, raw in enumerate(lines, 1):
         line = raw.strip()
         if not line or line.startswith("#"):
@@ -114,7 +201,7 @@ def parse_env(path: Path) -> dict[str, str]:
 
 
 def load_config() -> Config:
-    file_values = parse_env(project_root() / ".env")
+    file_values = parse_env(resolve_runtime_paths().config_path)
     def get(name: str, *, normalize: bool = False) -> str:
         value = os.environ.get(name, file_values.get(name, ""))
         if value == "":

@@ -7,7 +7,7 @@ import stat
 import time
 from pathlib import Path
 
-from .config import Config, project_root, write_private_text_atomic
+from .config import Config, ensure_private_directory, resolve_runtime_paths, write_private_text_atomic
 from .errors import ConfigError
 
 
@@ -20,7 +20,7 @@ class TokenCache:
     def __init__(self, *, root: Path | None = None, ttl_seconds: int = DEFAULT_TOKEN_CACHE_TTL_SECONDS) -> None:
         override = os.environ.get("ZENTAO_TOKEN_CACHE_DIR")
         self._uses_default_root = root is None and not override
-        self.root = Path(override) if root is None and override else (root or project_root() / ".tmp" / "zentao" / "auth")
+        self.root = Path(override) if root is None and override else (root or resolve_runtime_paths().token_cache_root)
         self.ttl_seconds = max(0, int(ttl_seconds))
 
     def path_for(self, config: Config) -> Path:
@@ -78,6 +78,7 @@ class TokenCache:
         )
 
     def clear(self, config: Config) -> None:
+        self._validate_root_location()
         try:
             self.path_for(config).unlink(missing_ok=True)
         except OSError:
@@ -87,23 +88,24 @@ class TokenCache:
         if self.root.is_symlink():
             raise ConfigError("Token cache 目录不能是符号链接")
         if self._uses_default_root:
-            expected_root = project_root().resolve()
+            runtime_paths = resolve_runtime_paths()
+            expected_root = runtime_paths.token_cache_root
+            if self.root != expected_root:
+                raise ConfigError("默认 Token cache 路径与当前 runtime scope 不一致")
+            anchor = runtime_paths.temp_root.parent
             try:
-                resolved = self.root.resolve(strict=False)
-                resolved.relative_to(expected_root)
+                current = self.root
+                anchor = anchor.resolve()
+                while current != anchor:
+                    if current.is_symlink():
+                        raise ConfigError("默认 Token cache 路径不能包含符号链接")
+                    current = current.parent
             except (OSError, ValueError) as exc:
-                raise ConfigError("默认 Token cache 必须位于项目根目录 .tmp 下") from exc
+                raise ConfigError("默认 Token cache 必须位于当前 runtime 数据目录下") from exc
 
     def _ensure_private_dir(self) -> None:
         self._validate_root_location()
-        self.root.mkdir(parents=True, exist_ok=True)
-        if self.root.is_symlink():
-            raise ConfigError("Token cache 目录不能是符号链接")
-        if os.name == "posix":
-            try:
-                self.root.chmod(0o700)
-                mode = stat.S_IMODE(self.root.stat().st_mode)
-            except OSError as exc:
-                raise ConfigError("无法确保 Token cache 目录权限安全") from exc
-            if mode != 0o700:
-                raise ConfigError("Token cache 目录权限必须为 0700")
+        if self._uses_default_root and resolve_runtime_paths().scope == "user":
+            ensure_private_directory(self.root.parents[1])
+            ensure_private_directory(self.root.parent)
+        ensure_private_directory(self.root)

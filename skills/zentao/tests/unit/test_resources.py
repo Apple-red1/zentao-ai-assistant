@@ -1,12 +1,64 @@
 from __future__ import annotations
 
+import os
+import shutil
+import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
+from zentao_skill.internal.config import RuntimePaths
+from zentao_skill.internal.errors import ResourceSecurityError
 from zentao_skill.internal.zentao.resources import discover_resources, display_source
 from zentao_skill.services.resources.service import ResourcesService
 
 
 class ResourceDiscoveryTests(unittest.TestCase):
+    @staticmethod
+    def _runtime_paths(base: Path) -> RuntimePaths:
+        home = base / "home"
+        return RuntimePaths(
+            scope="user",
+            config_path=home / ".zentao-ai-assistant" / "config.env",
+            token_cache_root=home / ".zentao-ai-assistant" / "cache" / "auth",
+            temp_root=home / ".zentao-ai-assistant" / "tmp",
+        )
+
+    def test_output_directory_uses_user_runtime_temp_root(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            root = base / "repo"
+            root.mkdir()
+            runtime = self._runtime_paths(base)
+            with patch("zentao_skill.services.resources.service.project_root", return_value=root, create=True), patch(
+                "zentao_skill.services.resources.service.resolve_runtime_paths", return_value=runtime, create=True
+            ):
+                output = ResourcesService._output_directory("bug", 42)
+            expected = runtime.temp_root / "zentao-resources" / "bug-42"
+            self.assertEqual(expected, output)
+            self.assertTrue(output.is_dir())
+            if os.name == "posix":
+                self.assertEqual(0o700, output.stat().st_mode & 0o777)
+            shutil.rmtree(base / "home", ignore_errors=True)
+
+    @unittest.skipUnless(hasattr(os, "symlink"), "symlink unavailable")
+    def test_output_directory_rejects_symlink_outside_user_runtime_root(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            root = base / "repo"
+            root.mkdir()
+            runtime = self._runtime_paths(base)
+            resource_root = runtime.temp_root / "zentao-resources"
+            resource_root.parent.mkdir(parents=True)
+            outside = base / "outside"
+            outside.mkdir()
+            resource_root.symlink_to(outside, target_is_directory=True)
+            with patch("zentao_skill.services.resources.service.project_root", return_value=root, create=True), patch(
+                "zentao_skill.services.resources.service.resolve_runtime_paths", return_value=runtime, create=True
+            ):
+                with self.assertRaises(ResourceSecurityError):
+                    ResourcesService._output_directory("bug", 43)
+
     def test_discovers_attachment_and_rich_text_resources_and_deduplicates(self) -> None:
         detail = {
             "files": {

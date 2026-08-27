@@ -1,7 +1,7 @@
 # ZenTao AI 项目管理 Skills 当前合同入口
 
 > 状态：**CURRENT / 当前唯一权威入口**
-> 更新日期：2026-08-26
+> 更新日期：2026-08-27
 > 适用范围：仓库内所有 ZenTao Skills、API v2 基础能力、共享脚本、测试和发布检查。
 
 本页是“现在应该相信什么”的索引。历史设计文档只用于追溯，不能覆盖本页指向的当前源码、测试与合同。
@@ -17,6 +17,35 @@
 | `skills/zentao-bug-resolver/` | 证据驱动的 Bug 只读 `select` / `snapshot` / `compare` 与 Agent 编排 |
 
 共享低层辅助位于 `skills/_shared/zentao/`，它没有 `SKILL.md`，不参与 Skill 路由。
+
+当前公开 surface 为 5 Skills，且只有仓库根目录的这一份 `skills/` 是 canonical
+业务能力源。Clone 与 Plugin 入口共用相同 Skill 文件：
+
+```text
+Clone:  AGENTS.md；Claude/Gemini 分别由 CLAUDE.md / GEMINI.md 薄引用
+Plugin: plugin.json / .claude-plugin / .codex-plugin -> 根目录 skills/
+```
+
+Clone 使用 project scope；Plugin 使用 user scope。当前运行合同称为
+project/user scope：项目配置为 `<repo>/.env`，用户配置为
+`~/.zentao-ai-assistant/config.env`。配置选择严格为
+`ZENTAO_CONFIG_FILE` → 仓库根 `.env`（存在时）→ Home config，环境变量只覆盖
+所选文件，不跨文件补字段。
+
+支持边界：
+
+| Surface | 当前合同 |
+|---|---|
+| Clone + Codex | supported，通过 `AGENTS.md` |
+| Clone + Claude Code | supported，通过 `CLAUDE.md` |
+| Clone + Gemini CLI | supported，通过 `GEMINI.md` |
+| Claude Code Plugin | v1 formal support target；Claude Code verified gate 必须在发布前真实通过 |
+| Codex Plugin | v1 formal support target；Codex verified gate 必须在发布前真实通过 |
+| Gemini Plugin | Gemini Plugin not v1 |
+| Cursor/Copilot/VS Code Plugin | Cursor/Copilot/VS Code unverified |
+
+静态 manifest 或自动化测试不能代替 Claude/Codex verified gate；宿主不可用时必须
+记录 `BLOCKED_ENVIRONMENT`，不得把 Plugin 支持写成已完成。
 
 ## 权威文件及职责
 
@@ -48,8 +77,15 @@
 - 信息不足的 `UNCLEAR` / `NO_CODE_EVIDENCE` 不修改业务代码；`will-not-fix` 仅表示按门槛退回补充信息，不是技术修复结论。
 - 当前不宣称 module 名称映射、Bug 历史、ETag 或其它未经真实证据验证的字段/接口。
 - R3 delete 仍要求用户明确删除意图与 `--yes`；写请求网络失败不自动重试，未知结果使用 `UNKNOWN_WRITE_RESULT`。
-- Token 允许短期缓存到 `.tmp/zentao/auth/`；不写回 `.env`，不保存密码。明确 401 会清理缓存并重新登录一次。
-- `.tmp/zentao/<skill>/` 可保存临时聚合数据，但不是长期事实源。
+- project scope Token 允许短期缓存到 `.tmp/zentao/auth/`；user scope 使用
+  `~/.zentao-ai-assistant/cache/auth/`；不写回配置文件，不保存密码。明确 401
+  会清理缓存并重新登录一次。
+- project scope 的聚合/资源临时数据位于 `.tmp/zentao/<skill>/` 与
+  `.tmp/zentao-resources/`；user scope 位于
+  `~/.zentao-ai-assistant/tmp/zentao/<skill>/` 与
+  `~/.zentao-ai-assistant/tmp/zentao-resources/`。这些目录都不是长期事实源。
+- 运行约束：`standard library only / no MCP`；不复制第二份 Skills，不把宿主
+  Plugin cache 当作配置、Token 或持久数据目录。
 
 ## 测试入口
 
@@ -70,3 +106,6 @@ API 专项仍必须输出各 surface `120/120`、`Real API calls: 0` 和 `Result
 ## 程序化访问边界
 
 程序化 facade 只读；高层 Skill 的写操作不得绕过 `zentao` CLI 的既有安全合同。
+
+风险等级不变：R0/R1/R2/R3；R3 delete 必须明确删除意图并带 `--yes`，写请求
+不确定结果使用 `UNKNOWN_WRITE_RESULT`。Fake 自动化与真实 ZenTao 实例严格隔离。

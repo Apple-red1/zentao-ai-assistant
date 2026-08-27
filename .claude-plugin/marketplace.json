@@ -1,0 +1,12 @@
+{
+  "name": "zentao-ai-assistant",
+  "owner": {
+    "name": "Apple-red1"
+  },
+  "plugins": [
+    {
+      "name": "zentao-ai-assistant",
+      "source": "."
+    }
+  ]
+}

@@ -7,7 +7,7 @@ from email.message import Message
 from pathlib import Path
 from typing import Any
 
-from ...internal.config import project_root
+from ...internal.config import ensure_private_directory, resolve_runtime_paths
 from ...internal.errors import ResourceFetchError, ResourceSecurityError, ZentaoError
 from ...internal.zentao.resources import RESOURCE_OBJECT_TYPES, ResourcesAPI, decode_data_uri, discover_resources, display_source, source_file_name
 
@@ -71,22 +71,29 @@ class ResourcesService:
 
     @classmethod
     def _output_directory(cls, object_type: str, object_id: int) -> Path:
-        root = project_root().resolve()
-        current = root
-        for name in (".tmp", "zentao-resources", f"{object_type}-{object_id}"):
+        runtime_paths = resolve_runtime_paths()
+        if runtime_paths.scope == "user":
+            ensure_private_directory(runtime_paths.temp_root.parent)
+        ensure_private_directory(runtime_paths.temp_root)
+        root = runtime_paths.temp_root.resolve()
+        current = runtime_paths.temp_root
+        for name in ("zentao-resources", f"{object_type}-{object_id}"):
             current = current / name
+            if current.is_symlink():
+                raise ResourceSecurityError("资源临时目录不能是符号链接", {"path": str(current)})
             if current.exists():
                 resolved = current.resolve()
                 if not resolved.is_relative_to(root):
-                    raise ResourceSecurityError("资源临时目录必须位于项目根目录 .tmp 内", {"path": str(current)})
+                    raise ResourceSecurityError("资源临时目录必须位于当前 runtime temp 根内", {"path": str(current)})
                 if not resolved.is_dir():
                     raise ResourceSecurityError("资源临时路径必须是目录", {"path": str(current)})
                 current = resolved
                 continue
-            current.mkdir()
+            current.mkdir(mode=0o700)
+            ensure_private_directory(current)
         resolved = current.resolve()
         if not resolved.is_relative_to(root):
-            raise ResourceSecurityError("资源临时目录必须位于项目根目录 .tmp 内", {"path": str(current)})
+            raise ResourceSecurityError("资源临时目录必须位于当前 runtime temp 根内", {"path": str(current)})
         return resolved
 
     @staticmethod
