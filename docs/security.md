@@ -34,7 +34,15 @@
 
 - `zentao-bug-resolver` 的 `select`、`snapshot`、`compare` 脚本只做确定性读取和比较，统一借 `zentao_skill.public`；不直连 HTTP，不 import `internal/**`，不执行 ZenTao lifecycle，也不写业务仓库。
 - `compare` 是写前只读并发复查：`changed=true`、比较失败或关键事实不可安全比较时必须阻止写入。它不是 CAS、ETag、锁或强一致保证；`changed=false` 不代表对象已被保留或随后写入必然安全。
-- Agent 只有在当前用户明确 R2 授权、证据分类/最小修复/真实验证/diff 审阅和 compare 门槛均通过后，才可调用基础 `zentao` CLI 一次执行 `bug resolve`，随后显式 snapshot/view 回读。不得通过 facade、私有接口或替代 lifecycle endpoint 写入，也不得把一次 R2 resolve 自动扩展为 close、activate、delete 或下一 Bug。
+- 普通证据流程的 Agent 只有在当前用户明确 R2 授权、证据分类/最小修复/真实验证/diff 审阅和 compare 门槛均通过后，才可调用基础 `zentao` CLI 一次执行 `bug resolve`，随后显式 snapshot/view 回读。不得通过 facade、私有接口或替代 lifecycle endpoint 写入，也不得把普通流程的一次 R2 resolve 自动扩展为 close、activate、delete 或下一 Bug。
+
+## 人工确认解决的独立授权边界
+
+`HUMAN_ATTESTED_RESOLVE` 只接受当前用户明确的已解决确认及唯一目标；该消息就是对应 Bug 的人工业务结论与 R2 授权。“帮我修复”、条件句或不确定表达不构成完成确认。此分支不读取业务仓库、提交、测试、diff、附件或 patch，不执行 select/snapshot/compare；普通证据门槛不适用。
+
+每个 Bug 最小 pre-view 后，active 才允许一次基础 CLI fixed resolve 并显式回读；resolved/closed 零写入。默认显式 `--resolved-build trunk`，用户明确值覆盖；默认不传 assignee/resolved-date。自动 HUMAN-ATTESTED 备注只记录用户结论及本次版本参数，不编造验证或提交事实。
+
+单 Bug 可由当前上下文唯一确定；多 Bug 请求只处理当前消息明确列出的 ID，按输入顺序去重、严格串行，不补入历史 pending 项。真实阻塞时不读取后续对象。包括 trunk 被拒绝在内的业务/权限错误必须如实反馈，不猜字段、不自动重试，不用 edit/close/activate 或私有接口绕过。`UNKNOWN_WRITE_RESULT` 停止整个队列，仅显式只读回读；即使回读为 resolved 也不自动继续，无法确认则保留 unknown。最小 view 不是 CAS/ETag/锁，不保证读写间无并发变化。
 
 ## 写入与结果不确定
 

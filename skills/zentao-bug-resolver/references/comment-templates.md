@@ -2,6 +2,24 @@
 
 这些模板只用于 Agent 已经满足 `workflow.md` 对当前 Bug 的写入门槛之后。模板本身不授予生命周期写入权限；缺少任一门槛时，只报告缺失事实，不调用 lifecycle endpoint。
 
+## Human-attested：人工确认已解决
+
+只用于 `HUMAN_ATTESTED_RESOLVE`。当前用户明确确认当前 Bug 已解决即提供该分支 R2 授权；不套用下方普通 Fixed 模板的代码、测试、账号或 compare 门槛。
+
+用户未提供解决说明时，自动生成以下最小 UTF-8 备注（替换实际 ID）：
+
+```text
+[CODEX-HUMAN-ATTESTED-RESOLUTION]
+
+用户已明确确认 Bug #<id> 已解决。
+本次按人工确认执行 resolution=fixed。
+本次解决版本参数默认使用主干（trunk）。
+```
+
+用户提供解决说明时，在末尾追加“用户说明：”并按原意整理，不将用户描述改写成 Agent 验证事实。用户明确指定其它解决版本时，用“本次解决版本参数按用户指定使用 <explicit-build>。”覆盖主干那一行，与实际命令一致。这里记录的是调用参数，不是代码已在某版本修复的独立证据。
+
+不编造测试通过、commit/push/merge/SHA、修改文件/symbol、diff 或自动审计结论；不追问这些事实。每个 Bug 单独生成文件，不能把上一 Bug 的说明带入下一 Bug。具体 CLI 和错误规则以 workflow 第 0 节为准。
+
 ## Fixed：`SOLVABLE` 修复回写
 
 仅当当前用户针对当前 Bug 明确给出 `RESOLVE_R2_ALLOWED`，证据分类为 `SOLVABLE`，业务代码最小修改已经完成且真实验证通过，写前 `compare` 为 unchanged，并且 resolved-build 与 assignee 都有明确事实依据时使用。把占位符替换为实际观察，不要把计划或猜测写成结果。

@@ -57,14 +57,18 @@ zentao_bug_resolver.py
         v
 skills/_shared/zentao -> zentao_skill.public（只读） -> existing Services -> ZenTao API v2
 
-Agent 读取 resolver JSON 与业务仓库
+Agent 普通流程读取 resolver JSON 与业务仓库
   -> 证据分类 / 必要的最小本地修复 / 真实验证
   -> 写前 compare（只读并发复查）
   -> 基础 zentao CLI 的一次 R2 bug resolve
   -> 显式 snapshot 或 bug view 回读
 ```
 
-`compare` 只比较起始 snapshot 与当前 Bug 的关键可观察字段，用于写前发现并发变化；它不是 CAS、ETag、锁或强一致保证。`changed=true`、比较失败或关键字段不可安全比较时停止写入；即使 `changed=false`，Agent 仍须遵守 R2 授权、证据、验证和 CLI 安全门槛。resolver script 不执行任意 shell、业务仓库写入或 ZenTao lifecycle；一次 R2 resolve 只能回到基础 `zentao` CLI。
+普通流程的 `compare` 只比较起始 snapshot 与当前 Bug 的关键可观察字段，用于写前发现并发变化；它不是 CAS、ETag、锁或强一致保证。`changed=true`、比较失败或关键字段不可安全比较时停止写入；即使 `changed=false`，Agent 仍须遵守 R2 授权、证据、验证和 CLI 安全门槛。resolver script 不执行任意 shell、业务仓库写入或 ZenTao lifecycle；一次 R2 resolve 只能回到基础 `zentao` CLI。
+
+`HUMAN_ATTESTED_RESOLVE` 由 Agent 执行：当前消息明确确认已解决且目标唯一 → 最小 bug view → active 时一次基础 CLI fixed resolve → 显式 bug view 回读。已 resolved/closed 不重复写；当前消息明确列出的 ID 严格串行，真实阻塞或 UNKNOWN_WRITE_RESULT 停止整个队列。
+
+人工确认默认 `--resolved-build trunk`，用户明确值覆盖；默认不传 assignee/resolved-date，自动生成 HUMAN-ATTESTED 备注。跳过业务审计与 select/snapshot/compare，不增加 Python 写入编排器，不扩展 facade、endpoint 或普通流程的 pending 授权。
 
 ## 临时运行数据
 
@@ -73,6 +77,7 @@ Agent 读取 resolver JSON 与业务仓库
 .tmp/zentao/statistics/         # 可选统计中间数据
 .tmp/zentao/personal/           # 可选个人聚合中间数据
 .tmp/zentao/project-management/ # 可选项目聚合中间数据
+.tmp/zentao/bug-resolver/       # Agent 生成的逐 Bug 人工确认备注
 .tmp/zentao-resources/          # 对象附件/富文本资源
 ```
 

@@ -128,6 +128,14 @@ class CurrentContractDocumentationTest(unittest.TestCase):
                     "不是新的 API endpoint" in document or "不是 API endpoint" in document
                 )
 
+    def test_human_attested_path_is_propagated_without_weakening_ordinary_path(self) -> None:
+        for relative in ("AGENTS.md", "README.md", "docs/current-contract.md", "docs/features.md", "docs/security.md", "docs/architecture.md", "docs/testing.md"):
+            document = (REPO_ROOT / relative).read_text(encoding="utf-8")
+            with self.subTest(document=relative):
+                for anchor in ("HUMAN_ATTESTED_RESOLVE", "trunk", "普通", "只读", "回读"):
+                    self.assertIn(anchor, document)
+                self.assertNotIn("默认不传 `--resolved-build`", document)
+
 
 if __name__ == "__main__":
     unittest.main()

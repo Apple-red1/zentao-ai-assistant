@@ -1,7 +1,7 @@
 # ZenTao AI 项目管理 Skills 当前合同入口
 
 > 状态：**CURRENT / 当前唯一权威入口**
-> 更新日期：2026-08-26
+> 更新日期：2026-08-27
 > 适用范围：仓库内所有 ZenTao Skills、API v2 基础能力、共享脚本、测试和发布检查。
 
 本页是“现在应该相信什么”的索引。历史设计文档只用于追溯，不能覆盖本页指向的当前源码、测试与合同。
@@ -41,12 +41,15 @@
 - 高层 Skill 通过 `zentao_skill.public` 复用现有 Services/Session，不直接访问 `internal/http` 或拼接 API URL。
 - `zentao-bug-resolver` 是第四个高层 Skill：其脚本只做证据驱动的只读 `select`、`snapshot`、`compare`，通过 `zentao_skill.public` 的只读 facade 取数；Agent 负责基于结果编排业务仓库证据、最小修改、验证和写前复查。这些脚本操作不是新的 API endpoint，不新增、不计入基础 `zentao` 的 120 个 API endpoint。
 - 统计、个人与项目管理的关键数量由脚本确定性计算；所有高层结果的 `complete/partial_failures` 必须保留。Bug resolver 还必须保留 `complete=false`、`pending_queue`、`unsupported_filters` 和 `unavailable_fields`；候选不完整时不得声称证据完整。
-- `pending_queue` 只记录待处理 ID，不自动继续；下一项必须由用户再次明确继续，并重新解析授权与起始 snapshot。
-- 程序化 facade 对所有高层 Skill 只读；Bug resolver 的 R2 生命周期写入不能由脚本或 facade 执行，必须在当前用户明确授权、证据/验证/写前 compare 门槛全部满足后回到基础 `zentao` CLI。
-- Bug resolver 使用 `ANALYZE_ONLY`、`LOCAL_FIX_ALLOWED`、`RESOLVE_R2_ALLOWED` 三个授权等级，以及 `SOLVABLE`、`UNCLEAR`、`NO_CODE_EVIDENCE`、`BLOCKED` 四类证据结论；一次任务只处理一个当前 Bug，pending 项不继承授权。
-- 只有 `SOLVABLE` 的完整证据、验证、diff 和写前 compare 门槛满足后，Agent 才能经基础 `zentao` CLI 执行一次 `bug resolve` 并显式回读；不会自动 close、activate、delete，也不把生命周期动作当作 standalone comment 或 active Bug 单独转派。
+- 普通流程的 `pending_queue` 只记录待处理 ID，不自动继续；下一项必须由用户再次明确继续，并重新解析授权与起始 snapshot。
+- 程序化 facade 对所有高层 Skill 只读；Bug resolver 的 R2 生命周期写入不能由脚本或 facade 执行，必须在当前用户明确授权、对应分支门槛满足后回到基础 `zentao` CLI。
+- Bug resolver 普通流程使用 `ANALYZE_ONLY`、`LOCAL_FIX_ALLOWED`、`RESOLVE_R2_ALLOWED` 三个授权等级，以及 `SOLVABLE`、`UNCLEAR`、`NO_CODE_EVIDENCE`、`BLOCKED` 四类证据结论；一次任务只处理一个当前 Bug，pending 项不继承授权。
+- 普通 fixed 分支只有 `SOLVABLE` 的完整证据、验证、diff 和写前 compare 门槛满足后，Agent 才能经基础 `zentao` CLI 执行一次 `bug resolve` 并显式回读；不会自动 close、activate、delete，也不把生命周期动作当作 standalone comment 或 active Bug 单独转派。
 - 信息不足的 `UNCLEAR` / `NO_CODE_EVIDENCE` 不修改业务代码；`will-not-fix` 仅表示按门槛退回补充信息，不是技术修复结论。
 - 当前不宣称 module 名称映射、Bug 历史、ETag 或其它未经真实证据验证的字段/接口。
+- `HUMAN_ATTESTED_RESOLVE`：当前消息明确确认已解决且目标唯一，即人工结论与对应 Bug 的 R2 授权；最小 bug view → active 时一次 fixed resolve → 显式 bug view 回读。不读取业务仓库/源码/提交/测试/diff/附件/patch，不运行 select/snapshot/compare，不套用普通证据门槛。
+- 人工确认默认显式 `--resolved-build trunk`，用户明确指定其它值时覆盖；默认不传 assignee/resolved-date，自动生成 `[CODEX-HUMAN-ATTESTED-RESOLUTION]` 备注，不伪造代码或测试事实。resolved/closed 不重复写；当前消息明确列出的多个 Bug 按输入顺序去重并严格串行；真实阻塞停止，`UNKNOWN_WRITE_RESULT` 停止整个队列、只读回读且绝不重试。仅在真实阻塞时提问，不自动 close 或切换 endpoint。
+- “帮我解决/修复”与不确定表达不触发人工确认；人工确认是 Agent 指令分支，没有新增 Python lifecycle 编排器，不改变 120 endpoint 或只读 facade。
 - R3 delete 仍要求用户明确删除意图与 `--yes`；写请求网络失败不自动重试，未知结果使用 `UNKNOWN_WRITE_RESULT`。
 - Token 允许短期缓存到 `.tmp/zentao/auth/`；不写回 `.env`，不保存密码。明确 401 会清理缓存并重新登录一次。
 - `.tmp/zentao/<skill>/` 可保存临时聚合数据，但不是长期事实源。

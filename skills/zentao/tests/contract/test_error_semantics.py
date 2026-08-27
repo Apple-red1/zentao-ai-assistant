@@ -48,8 +48,12 @@ class ErrorSemanticsTests(unittest.TestCase):
 
                         def _handle(self) -> None:
                             origin_requests.append((self.command, self.headers.get("Token")))
+                            # Drain POST/PUT bodies before closing the socket; unread
+                            # bytes can cause a TCP reset instead of a readable 3xx.
+                            self.rfile.read(int(self.headers.get("Content-Length", "0")))
                             self.send_response(status)
                             self.send_header("Location", target_url[0] + "/redirected")
+                            self.send_header("Content-Length", "0")
                             self.end_headers()
 
                         do_GET = _handle
@@ -74,7 +78,7 @@ class ErrorSemanticsTests(unittest.TestCase):
                     origin = ThreadingHTTPServer(("127.0.0.1", 0), OriginHandler)
                     target = ThreadingHTTPServer(("127.0.0.1", 0), TargetHandler)
                     # Python 3.13 waits for non-daemon request threads on server_close;
-                    # POST/PUT redirect probes intentionally do not consume request bodies.
+                    # Keep probe teardown bounded even when an assertion fails.
                     origin.daemon_threads = True
                     target.daemon_threads = True
                     target_url = [f"http://127.0.0.1:{target.server_address[1]}"]

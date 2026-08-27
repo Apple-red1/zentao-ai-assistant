@@ -1,4 +1,4 @@
 interface:
-  display_name: "禅道 Bug 证据驱动修复"
-  short_description: "基于当前禅道与业务代码证据分析、修复并受控 resolve Bug"
-  default_prompt: "先读取当前 Bug snapshot 和必要资源，再检查业务仓库约束与 git status；只基于直接源码证据分类和修复。模糊的‘处理 Bug’不授权 R2，不猜测账号或根因，不自动处理 pending Bug；只有用户明确授权且所有 workflow 门槛通过时才调用一次基础 CLI resolve 并回读。"
+  display_name: "禅道 Bug 修复与人工确认解决"
+  short_description: "基于证据分析修复 Bug，或按明确人工确认串行标记已解决并回读"
+  default_prompt: "使用 $zentao-bug-resolver 按当前意图处理 Bug：明确确认已解决时进入 HUMAN_ATTESTED_RESOLVE，否则走普通证据分析与修复流程。"

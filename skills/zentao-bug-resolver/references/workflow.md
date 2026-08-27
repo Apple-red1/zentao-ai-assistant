@@ -2,6 +2,86 @@
 
 本文件是 `SKILL.md` 的详细执行合同。它只描述当前实现支持的读取入口和已有基础 CLI；没有真实字段、模块名称查询或强并发令牌证据时，必须保留 unavailable/blocked，而不是补猜测。
 
+先选择路径：当前消息明确确认已解决，执行第 0 节；普通分析/修复请求执行第 1～7 节。**第 1～7 节的业务证据、账号、验证、compare 和 pending 隔离门槛只约束普通流程**，不得套用到第 0 节。
+
+## 0. HUMAN_ATTESTED_RESOLVE
+
+### 0.1 触发与当前授权（H-001）
+
+当前消息必须明确表达“已解决 / 解决了 / 标记已解决”，并且每个目标可唯一确定。显式 Bug ID 优先；没有 ID 时仅能使用当前上下文唯一正在处理的 Bug。无目标或多个候选时提问，不能搜索后猜一个、从历史授权或 pending queue 补入 ID。人工确认同时构成当前 Bug 的 `RESOLVE_R2_ALLOWED`，不是 SOLVABLE 代码审计结论。
+
+| 当前表达 | 路由 / 条件 |
+|---|---|
+| 3641 已解决 | HUMAN_ATTESTED_RESOLVE |
+| Bug #3641 解决了，更新禅道 | HUMAN_ATTESTED_RESOLVE |
+| 把刚才那个 Bug 标记已解决 | 上下文唯一才进入人工确认，否则提问 |
+| 刚才那个已解决 | 无目标或多个目标时提问 |
+| #3641、#3642 已解决 | 当前消息明确列出的 ID 按输入顺序串行处理 |
+| 处理一下 | 普通流程，不授权 R2 |
+| 看一下 | 普通流程，只读分析 |
+| 修一下 | 普通流程，本地修复 |
+| 帮我解决 Bug #3641 | 普通流程，不视为已解决 |
+| 修复后标记已解决 | 普通流程，只有修复和证据门槛通过后才允许 R2 |
+| 应该好了 | 不触发人工确认 |
+| 可能没问题了 | 不触发人工确认 |
+
+否定、假设、条件句或引用别人的话不等于当前用户的完成确认；必须理解整条消息，不能仅匹配“已解决”字样。此分支的目标列表只存在于本次请求，不成为持久队列，不继承普通流程的 pending 项。
+
+### 0.2 跳过业务代码审计（H-007）
+
+人工确认是本分支的最终业务结论，不重新证明。对目标业务 Bug **不执行也不要求**：业务仓库 `AGENTS.md`、`git status`、`git diff`、源码搜索/根因分析、附件/截图、commit/push/merge/SHA、test/lint/typecheck/build、业务修复 patch，也不运行 resolver 的 select/snapshot/compare。先前的代码门槛、验证失败或 snapshot 缺字段不应重新成为该分支门槛。
+
+这里只跳过被处理业务 Bug 的审计；开发本 Skill 自身仍遵守本仓库的测试和 patch 交付规则。
+
+### 0.3 单 Bug 的 CLI 顺序（H-002 / H-003 / H-005 / H-008）
+
+1. 只执行一次最小 pre-view，判断对象存在、可访问及当前 status。不下载附件、不查询创建人或测试账号。
+
+```bash
+python skills/zentao/scripts/zentao.py bug view <id> --json
+```
+
+成功 JSON 可为 Bug 对象或 `{"bug": {...}}`；读取 Bug 对象内的 `status`，不能把响应外层 `status=success` 当作 Bug 状态。若有返回 ID 必须与目标一致。缺少/无法识别 status、非对象响应、ID 不一致、不可访问或不存在都停止并说明真实阻塞，不补猜测。
+
+| pre-view 状态 | 下一步 |
+|---|---|
+| `active` | eligible；每个 active Bug 最多一次 resolve |
+| `resolved` / `closed` | 不重复写，报告当前状态，可继续下一个明确 ID |
+| 其它 / 不可识别 | 停止整个队列，说明状态并提问 |
+
+2. 仅 active 时，按 comment-templates 的 Human-attested 模板生成 UTF-8 文件。用户有说明则保留原意，无说明不追问。默认文件放在项目 Git ignored 的 `.tmp/zentao/bug-resolver/`，逐 Bug 使用独立文件，不含认证秘密。
+
+```bash
+python skills/zentao/scripts/zentao.py bug resolve <id> \
+  --resolution fixed \
+  --resolved-build trunk \
+  --comment-file <generated-human-attested-comment.txt> \
+  --json
+```
+
+默认显式 `resolvedBuild=trunk`（主干）。用户明确指定其它解决版本时，将唯一的 `--resolved-build` 值覆盖为用户明确值，不追加第二个参数。基础 CLI 接受正整数版本 ID 或 `trunk`；无法表达的用户值按真实 CLI 校验错误反馈，不猜版本或把版本名当 ID。默认不传 `--assignee` 和 `--resolved-date`，不主动查询或追问负责人、备注、日期、版本、commit/push/merge。备注只记录人工确认及本次使用的版本参数，不伪造已验证的解决版本证据。
+
+3. resolve 后必须通过另一个明确命令显式 post-view；基础 CLI 自身不自动 GET。
+
+```bash
+python skills/zentao/scripts/zentao.py bug view <id> --json
+```
+
+回读真实为 `resolved` 才报告“回读已解决”；如果 pre-view 原本就是 resolved/closed，应说明“原已处于该状态，本次未写入”。写响应成功不能替代回读。若写后读到 active/closed/其它状态、读失败或响应不合法，报告 API 与回读差异并停止，不能声称本次 resolve 已成功，不发送后续写入。写前 view 不是 CAS、ETag 或锁，不保证读写之间没有并发变化。
+
+### 0.4 多 Bug、真实阻塞与未知结果（H-004 / H-006）
+
+当前消息明确列出多个已解决 Bug 时按输入顺序去重，严格串行：前一项 pre-view → eligible resolve → post-view 完成后，才读取下一项。不并行发 lifecycle；已 resolved/closed 零写入后可继续。普通流程仍一次一个 current Bug，不因本分支放宽 pending 授权。
+
+只有真实阻塞才反问：目标缺失/歧义、对象不存在/不可访问、状态不允许、权限拒绝、ZenTao 要求额外必填字段或其它必须由人决定的业务校验、未知写入后仍不能确认。错误命令 exit 非 0 时读取 stderr 的 `error.code/message/details`，按真实错误说明，不展示秘密。不得提前问元数据或审计事实。
+
+- 校验/权限等明确失败（包括实际拒绝 trunk）：停在当前对象，不读取后续 Bug，携带真实错误提问；不猜版本、不自动重试，不自动填默认值后再写。必要的 post-view 只用于陈述当前状态，不能把失败改报为成功。
+- `UNKNOWN_WRITE_RESULT`：立刻停止整个队列，绝不重试原 resolve，只读回读。即使回读为 resolved，也只报告“写入响应未知；当前回读为 resolved”，不自动继续剩余 ID；无法确认则保持 unknown 并请求人工决定。
+- 401 只继承基础 CLI 认证层的一次刷新/重放，Agent 不再执行第二个 resolve 命令。
+- 不通过 edit/close/activate、私有接口、数据库或 facade 绕过失败；不自动 close、activate、delete。
+
+结束报告逐项给出实际状态、是否发送 resolve、实际回读和未处理 ID；不要求普通流程的分类、测试、diff 或 compare 报告。阻塞后的剩余对象等待用户新的明确指令。
+
 ## 1. 执行面
 
 ```text
@@ -9,7 +89,7 @@
   select / snapshot / compare
     -> zentao programmatic public facade（只读）
 
-Agent 工作流
+Agent 普通证据工作流
   读取上述 JSON + 业务仓库
     -> 最小代码修改/真实验证
     -> 写前 compare
@@ -103,7 +183,7 @@ python skills/zentao/scripts/zentao.py resource fetch --object-type bug --object
 
 ### 5.4 写前并发复查
 
-在任何 lifecycle 写入前重新运行：
+在普通证据流程的任何 lifecycle 写入前重新运行：
 
 ```bash
 python skills/zentao-bug-resolver/scripts/zentao_bug_resolver.py compare --bug-id <id> --baseline-file <start-snapshot.json> --json

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import shlex
 import unittest
 from pathlib import Path
 
@@ -99,7 +100,8 @@ class BugResolverSkillContractTests(unittest.TestCase):
         self.assertIn("UNKNOWN_WRITE_RESULT", WORKFLOW)
         self.assertIn("绝不重试原 resolve", WORKFLOW)
 
-    def test_templates_have_exactly_two_fixed_prefixes(self) -> None:
+    def test_templates_have_three_distinct_fixed_prefixes(self) -> None:
+        self.assertEqual(1, TEMPLATES.count("[CODEX-HUMAN-ATTESTED-RESOLUTION]"))
         self.assertEqual(1, TEMPLATES.count("[CODEX-BUG-RESOLUTION]"))
         self.assertEqual(1, TEMPLATES.count("[CODEX-BUG-UNCLEAR]"))
         fixed_start = TEMPLATES.index("[CODEX-BUG-RESOLUTION]")
@@ -207,6 +209,89 @@ class BugResolverSkillContractTests(unittest.TestCase):
 
     def test_skill_links_the_template_document(self) -> None:
         self.assertIn("references/comment-templates.md", SKILL)
+
+    def human_workflow(self) -> str:
+        self.assertIn("## 0. HUMAN_ATTESTED_RESOLVE", WORKFLOW)
+        return section(WORKFLOW, "## 0. HUMAN_ATTESTED_RESOLVE", "## 1. 执行面")
+
+    def test_human_routing_distinguishes_completion_from_requests_and_uncertainty(self) -> None:
+        human = self.human_workflow()
+        for example, outcome in (
+            ("3641 已解决", "HUMAN_ATTESTED_RESOLVE"),
+            ("Bug #3641 解决了，更新禅道", "HUMAN_ATTESTED_RESOLVE"),
+            ("把刚才那个 Bug 标记已解决", "上下文唯一"),
+            ("刚才那个已解决", "多个目标时提问"),
+            ("#3641、#3642 已解决", "输入顺序串行"),
+            ("处理一下", "普通流程"),
+            ("看一下", "普通流程"),
+            ("修一下", "普通流程"),
+            ("帮我解决 Bug #3641", "普通流程"),
+            ("修复后标记已解决", "普通流程"),
+            ("应该好了", "不触发"),
+            ("可能没问题了", "不触发"),
+        ):
+            with self.subTest(example=example):
+                row = next((line for line in human.splitlines() if line.startswith(f"| {example} |")), "")
+                self.assertIn(outcome, row)
+        self.assertIn("当前消息", human)
+        self.assertIn("RESOLVE_R2_ALLOWED", human)
+        self.assertIn("不是 SOLVABLE", human)
+        self.assertIn("普通证据流程", SKILL)
+        self.assertNotIn("指代不唯一或没有 ID 时先提问", SKILL)
+
+    def test_human_path_skips_business_audit_and_only_uses_basic_cli(self) -> None:
+        human = self.human_workflow()
+        skip = section(human, "### 0.2", "### 0.3")
+        for operation in ("AGENTS.md", "git status", "git diff", "snapshot", "compare", "附件", "源码", "commit", "push", "merge", "SHA", "test", "lint", "typecheck", "build", "patch"):
+            self.assertIn(operation, skip)
+        self.assertIn("不执行也不要求", skip)
+        commands = re.findall(r"```bash\n(.*?)\n```", human, re.S)
+        self.assertEqual(3, len(commands))
+        parsed = [shlex.split(command.replace("\\\n", "")) for command in commands]
+        self.assertEqual(["view", "resolve", "view"], [argv[3] for argv in parsed])
+        self.assertTrue(all(argv[:3] == ["python", "skills/zentao/scripts/zentao.py", "bug"] for argv in parsed))
+        resolve = parsed[1]
+        self.assertEqual(1, resolve.count("--resolved-build"))
+        self.assertEqual("trunk", resolve[resolve.index("--resolved-build") + 1])
+        self.assertEqual("fixed", resolve[resolve.index("--resolution") + 1])
+        self.assertNotIn("--assignee", resolve)
+        self.assertNotIn("--resolved-date", resolve)
+        self.assertIn("--comment-file", resolve)
+        self.assertIn("覆盖", human)
+
+    def test_human_state_queue_and_failure_contract(self) -> None:
+        human = self.human_workflow()
+        for anchor in (
+            "active", "resolved", "closed", "不重复写", "每个 active Bug 最多一次 resolve",
+            "严格串行", "当前消息明确列出", "不读取后续 Bug", "UNKNOWN_WRITE_RESULT",
+            "停止整个队列", "绝不重试原 resolve", "只读回读", "无法确认", "unknown",
+            "trunk", "真实错误", "不猜版本", "不自动重试", "不自动 close",
+            "edit/close/activate", "不是 CAS", "stderr", "status=success",
+        ):
+            with self.subTest(anchor=anchor):
+                self.assertIn(anchor, human)
+        self.assertNotIn("默认不传 `--resolved-build`", human)
+
+    def test_human_comment_template_has_no_synthetic_evidence(self) -> None:
+        self.assertIn("## Human-attested", TEMPLATES)
+        human = section(TEMPLATES, "## Human-attested", "## Fixed")
+        blocks = re.findall(r"```text\n(.*?)\n```", human, re.S)
+        self.assertEqual(1, len(blocks))
+        template = blocks[0]
+        self.assertTrue(template.startswith("[CODEX-HUMAN-ATTESTED-RESOLUTION]\n\n"))
+        self.assertIn("用户已明确确认 Bug #<id> 已解决。", template)
+        self.assertIn("resolution=fixed", template)
+        self.assertIn("trunk", template)
+        for fabricated in ("测试通过", "commit", "push", "merge", "SHA", "symbol", "diff", "<path>", "<command>"):
+            self.assertNotIn(fabricated, template)
+        for anchor in ("UTF-8", "用户提供", "原意", "覆盖", "不编造"):
+            self.assertIn(anchor, human)
+
+    def test_ui_prompt_routes_before_business_evidence(self) -> None:
+        metadata = (SKILL_DIR / "agents" / "openai.yaml").read_text(encoding="utf-8")
+        self.assertIn("$zentao-bug-resolver", metadata)
+        self.assertIn("HUMAN_ATTESTED_RESOLVE", metadata)
+        self.assertNotIn("先读取当前 Bug snapshot", metadata)
 
 
 if __name__ == "__main__":

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import shlex
 import stat
 import subprocess
 import sys
@@ -26,6 +28,94 @@ def env_for(base_url: str, *, cache_dir: str | None = None) -> dict[str, str]:
     else:
         env['ZENTAO_TOKEN_CACHE_DISABLED'] = '1'
     return env
+
+
+class HumanAttestedCLIExamplesTests(unittest.TestCase):
+    """Execute the published commands, not a second implementation of Agent routing."""
+
+    def setUp(self) -> None:
+        self.fake = self.enterContext(FakeZenTao())
+        self.directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        skill = ROOT / 'skills' / 'zentao-bug-resolver'
+        workflow = (skill / 'references' / 'workflow.md').read_text(encoding='utf-8')
+        human = workflow.split('## 0. HUMAN_ATTESTED_RESOLVE', 1)[1].split('## 1. 执行面', 1)[0]
+        self.commands = [shlex.split(block.replace('\\\n', '')) for block in re.findall(r'```bash\n(.*?)\n```', human, re.S)]
+        self.assertEqual(['view', 'resolve', 'view'], [cmd[3] for cmd in self.commands])
+        templates = (skill / 'references' / 'comment-templates.md').read_text(encoding='utf-8')
+        human_template = templates.split('## Human-attested', 1)[1].split('## Fixed', 1)[0]
+        self.comment = re.search(r'```text\n(.*?)\n```', human_template, re.S).group(1).replace('<id>', '1')
+        self.comment_file = self.directory / 'human attested.txt'
+        self.comment_file.write_text(self.comment, encoding='utf-8')
+
+    def command(self, index: int, *, build: str | None = None) -> subprocess.CompletedProcess[str]:
+        argv = [str(self.comment_file) if token == '<generated-human-attested-comment.txt>' else '1' if token == '<id>' else token for token in self.commands[index]]
+        if build is not None:
+            argv[argv.index('--resolved-build') + 1] = build
+        return subprocess.run([sys.executable, *argv[1:]], cwd=ROOT, env=env_for(self.fake.base_url), text=True, capture_output=True, timeout=20)
+
+    def business_requests(self) -> list[dict]:
+        return [r for r in self.fake.state.requests if r['endpoint_id'] != 'token.login']
+
+    def test_default_example_sends_only_fixed_trunk_and_utf8_comment_then_explicit_readback(self) -> None:
+        before = self.command(0)
+        self.assertEqual(0, before.returncode, before.stderr)
+        self.assertEqual('active', json.loads(before.stdout)['status'])
+        write = self.command(1)
+        self.assertEqual(0, write.returncode, write.stderr)
+        self.assertEqual(['bug.view', 'bug.resolve'], [r['endpoint_id'] for r in self.business_requests()])
+        self.assertEqual({'resolution': 'fixed', 'resolvedBuild': 'trunk', 'comment': self.comment}, self.business_requests()[-1]['body'])
+        after = self.command(2)
+        self.assertEqual(0, after.returncode, after.stderr)
+        self.assertEqual('resolved', json.loads(after.stdout)['status'])
+        self.assertEqual(['GET', 'PUT', 'GET'], [r['method'] for r in self.business_requests()])
+
+    def test_explicit_build_and_user_explanation_are_preserved(self) -> None:
+        comment = self.comment.replace('本次解决版本参数默认使用主干（trunk）。', '本次解决版本参数按用户指定使用 7。') + '\n用户说明：修正空列表判断。'
+        self.comment_file.write_text(comment, encoding='utf-8')
+        self.assertEqual(0, self.command(0).returncode)
+        write = self.command(1, build='7')
+        self.assertEqual(0, write.returncode, write.stderr)
+        self.assertEqual({'resolution': 'fixed', 'resolvedBuild': 7, 'comment': comment}, self.business_requests()[-1]['body'])
+        after = self.command(2)
+        self.assertEqual('resolved', json.loads(after.stdout)['status'])
+
+    def test_rejected_trunk_or_permission_reports_real_error_without_implicit_retry(self) -> None:
+        original_handle = self.fake.state.handle
+
+        def reject_build(route, path_params, query, body):
+            if route.endpoint_id == 'bug.resolve':
+                return 200, {'status': 'fail', 'message': {'resolvedBuild': ['trunk is not allowed']}}
+            return original_handle(route, path_params, query, body)
+
+        for fault in ('build', '403'):
+            with self.subTest(fault=fault):
+                self.fake.state.reset()
+                self.fake.state.handle = reject_build if fault == 'build' else original_handle
+                if fault == '403':
+                    self.fake.state.plan_faults('bug.resolve', '403')
+                self.assertEqual(0, self.command(0).returncode)
+                write = self.command(1)
+                self.assertEqual(1, write.returncode)
+                self.assertEqual('', write.stdout)
+                error = json.loads(write.stderr)['error']
+                self.assertTrue(error['code'])
+                self.assertIn('trunk is not allowed' if fault == 'build' else '403', write.stderr)
+                self.assertEqual(['bug.view', 'bug.resolve'], [r['endpoint_id'] for r in self.business_requests()])
+                self.assertEqual('active', json.loads(self.command(2).stdout)['status'])
+
+    def test_unknown_write_has_no_implicit_retry_or_readback(self) -> None:
+        for fault, status in (('drop', 'active'), ('commit_then_drop', 'resolved')):
+            with self.subTest(fault=fault):
+                self.fake.state.reset()
+                self.fake.state.plan_faults('bug.resolve', fault)
+                self.assertEqual(0, self.command(0).returncode)
+                write = self.command(1)
+                self.assertEqual(1, write.returncode)
+                self.assertEqual('UNKNOWN_WRITE_RESULT', json.loads(write.stderr)['error']['code'])
+                self.assertEqual(['bug.view', 'bug.resolve'], [r['endpoint_id'] for r in self.business_requests()])
+                after = self.command(2)
+                self.assertEqual(status, json.loads(after.stdout)['status'])
+                self.assertEqual(['bug.view', 'bug.resolve', 'bug.view'], [r['endpoint_id'] for r in self.business_requests()])
 
 
 class MultiSkillSmokeTests(unittest.TestCase):
