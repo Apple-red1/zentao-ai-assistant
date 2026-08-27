@@ -6,11 +6,10 @@ import unittest
 from pathlib import Path
 
 from ..fake_zentao.server import FakeZenTao
-from ..support import run_cli
-from zentao_skill.internal.config import project_root
+from ..support import TEST_HOME, run_cli
 
 
-RESOURCE_ROOT = project_root() / ".tmp" / "zentao-resources"
+RESOURCE_ROOT = (TEST_HOME / ".zentao-ai-assistant" / "tmp" / "zentao-resources").resolve()
 
 
 class ResourceFetchE2ETests(unittest.TestCase):
@@ -101,7 +100,7 @@ class ResourceFetchE2ETests(unittest.TestCase):
             ])
             self.assertEqual(0, result.returncode, result.stderr)
             self.assertIn("good.txt -> ", result.stdout)
-            self.assertIn(".tmp/zentao-resources/bug-907/good.txt", result.stdout)
+            self.assertIn(".zentao-ai-assistant/tmp/zentao-resources/bug-907/good.txt", result.stdout)
             self.assertIn("partial_failures:", result.stdout)
             self.assertIn("API_ERROR", result.stdout)
 

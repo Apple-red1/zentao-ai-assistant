@@ -22,7 +22,9 @@ python skills/zentao-project-management/scripts/zentao_project_management.py ris
 python skills/zentao-project-management/scripts/zentao_project_management.py workload --project 12 --json
 ```
 
-需要保留中间聚合数据时使用 `--cache-data`，文件位于 `.tmp/zentao/project-management/`。
+需要保留中间聚合数据时使用 `--cache-data`；文件位于当前 runtime scope：
+project 为 `<repo>/.tmp/zentao/project-management/`，user 为
+`~/.zentao-ai-assistant/tmp/zentao/project-management/`。
 
 ## 规则
 
@@ -31,3 +33,4 @@ python skills/zentao-project-management/scripts/zentao_project_management.py wor
 - workload 只表达事项分布，不自动推导人员绩效。
 - `complete=false` 或有 `partial_failures` 时必须明确数据边界。
 - 高层分析不直接访问 ZenTao HTTP/Internal；数据统一来自 `zentao` programmatic public facade。
+- `--cache-data` 生成的 JSON 只是临时运行材料，不是长期事实源或审计数据库。

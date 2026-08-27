@@ -15,6 +15,27 @@ FEATURES = REPO_ROOT / "docs" / "features.md"
 
 
 class CurrentContractDocumentationTest(unittest.TestCase):
+    def test_current_contract_documents_plugin_clone_and_runtime_contract(self) -> None:
+        current = CURRENT.read_text(encoding="utf-8")
+        for required in (
+            "5 Skills",
+            "CLAUDE.md / GEMINI.md",
+            "plugin.json / .claude-plugin / .codex-plugin",
+            "project/user scope",
+            "~/.zentao-ai-assistant/config.env",
+            "Claude Code verified gate",
+            "Codex verified gate",
+            "Gemini Plugin not v1",
+            "Cursor/Copilot/VS Code unverified",
+            "API v2",
+            "120/120",
+            "R0/R1/R2/R3",
+            "UNKNOWN_WRITE_RESULT",
+            "standard library only / no MCP",
+        ):
+            with self.subTest(anchor=required):
+                self.assertIn(required, current)
+
     def test_current_contract_is_the_only_current_authority_marker(self) -> None:
         current = CURRENT.read_text(encoding="utf-8")
         historical = HISTORICAL.read_text(encoding="utf-8")

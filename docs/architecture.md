@@ -2,6 +2,26 @@
 
 当前合同入口：[`docs/current-contract.md`](current-contract.md)。本仓库是面向 AI 的 ZenTao 项目管理 Skill 集合。
 
+## 双入口与 canonical source
+
+```text
+Project instructions / Host manifests
+        ↓
+canonical SKILL.md + scripts
+        ↓
+public facade / runtime bridge
+        ↓
+Services / RuntimePaths
+        ↓
+ZenTao API v2 / user data roots
+```
+
+根目录 `plugin.json` 是 portable manifest；`.claude-plugin/plugin.json`、
+`.claude-plugin/marketplace.json` 和 `.codex-plugin/plugin.json`、
+`.agents/plugins/marketplace.json` 只是宿主适配元数据。Plugin adapter 不进入
+业务层，也不复制 `skills/`；Clone 的 `AGENTS.md`、`CLAUDE.md`、`GEMINI.md` 只
+负责项目指令路由。
+
 ## API 基础层
 
 ```text
@@ -48,6 +68,11 @@ zentao-project-management -┘        |
 
 `zentao_skill.public` 是仓库内部稳定 programmatic facade，用于在一个 Python 进程内复用 Session 和完整分页。高层 Skill 禁止直接访问 `internal/zentao` / `internal/http`。
 
+`zentao_skill.public.runtime` 只暴露按 RuntimePaths 安全创建/取得临时根目录的
+runtime bridge，不是新的 ZenTao API，也不执行写入。RuntimePaths 统一决定
+config/cache/tmp 三类路径；高层 Skill 仍只能通过 public facade，不能 import
+`internal` 或直连 HTTP。
+
 ## Bug resolver 工作流链路
 
 ```text
@@ -70,18 +95,26 @@ Agent 普通流程读取 resolver JSON 与业务仓库
 
 人工确认默认 `--resolved-build trunk`，用户明确值覆盖；默认不传 assignee/resolved-date，自动生成 HUMAN-ATTESTED 备注。跳过业务审计与 select/snapshot/compare，不增加 Python 写入编排器，不扩展 facade、endpoint 或普通流程的 pending 授权。
 
-## 临时运行数据
+## RuntimePaths 与临时运行数据
 
 ```text
-.tmp/zentao/auth/               # 短期 Token cache
-.tmp/zentao/statistics/         # 可选统计中间数据
-.tmp/zentao/personal/           # 可选个人聚合中间数据
-.tmp/zentao/project-management/ # 可选项目聚合中间数据
-.tmp/zentao/bug-resolver/       # Agent 生成的逐 Bug 人工确认备注
-.tmp/zentao-resources/          # 对象附件/富文本资源
+project config: <repo>/.env
+project cache:  <repo>/.tmp/zentao/auth/
+project temp:   <repo>/.tmp/zentao/<skill>/, <repo>/.tmp/zentao-resources/
+
+user config:    ~/.zentao-ai-assistant/config.env
+user cache:     ~/.zentao-ai-assistant/cache/auth/
+user temp:      ~/.zentao-ai-assistant/tmp/zentao/<skill>/,
+                ~/.zentao-ai-assistant/tmp/zentao-resources/
 ```
 
-所有 `.tmp` 数据都被 Git 忽略。Token cache 是性能优化，不是新的凭据事实源；失效时回到 `/users/login`。
+高层临时材料中的 `<skill>` 包括 `statistics`、`personal`、`project-management`
+和 `bug-resolver`；后者可保存 Agent 生成的逐 Bug 人工确认备注。
+
+RuntimePaths 先按 `ZENTAO_CONFIG_FILE`、仓库根 `.env`、Home config 选择一个配置
+源；环境变量覆盖所选文件，不跨文件补字段。项目 `.tmp` 与用户 runtime `tmp`
+都只保存临时材料。Token cache 是性能优化，不是新的凭据事实源；失效时回到
+`/users/login`。所有目录及 Token/config 文件继续遵守 `0700` / `0600` 权限目标。
 
 ## 程序化 facade 安全边界
 

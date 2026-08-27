@@ -30,6 +30,112 @@ class RecordingHttp:
 
 
 class TokenCacheTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == "posix", "POSIX path alias contract")
+    def test_default_cache_allows_symlink_above_runtime_scope(self) -> None:
+        for scope in ("project", "user"):
+            with self.subTest(scope=scope), tempfile.TemporaryDirectory() as td:
+                base = Path(td).resolve()
+                actual = base / "actual"
+                actual.mkdir()
+                alias = base / "alias"
+                alias.symlink_to(actual, target_is_directory=True)
+                root, home = alias / "repo", alias / "home"
+                root.mkdir()
+                if scope == "project":
+                    (root / ".env").write_text("config\n", encoding="utf-8")
+                config = Config("https://zentao.example.com", scope, "secret")
+                with patch("zentao_skill.internal.config.project_root", return_value=root), patch("pathlib.Path.home", return_value=home), patch.dict(os.environ, {}, clear=True):
+                    cache = TokenCache()
+                    cache.store(config, "alias-token")
+                    self.assertEqual("alias-token", cache.load(config))
+                    cache.clear(config)
+                    self.assertFalse(cache.path_for(config).exists())
+
+    @unittest.skipUnless(os.name == "posix", "POSIX symlink boundary")
+    def test_default_cache_rejects_links_inside_runtime_scope(self) -> None:
+        for scope, component in (("project", ".tmp"), ("user", ".zentao-ai-assistant"), ("user", ".zentao-ai-assistant/cache")):
+            with self.subTest(scope=scope, component=component), tempfile.TemporaryDirectory() as td:
+                base = Path(td).resolve()
+                root, home, outside = base / "repo", base / "home", base / "outside"
+                root.mkdir()
+                outside.mkdir()
+                if scope == "project":
+                    (root / ".env").write_text("config\n", encoding="utf-8")
+                link = (root if scope == "project" else home) / component
+                link.parent.mkdir(parents=True, exist_ok=True)
+                link.symlink_to(outside, target_is_directory=True)
+                config = Config("https://zentao.example.com", scope, "secret")
+                with patch("zentao_skill.internal.config.project_root", return_value=root), patch("pathlib.Path.home", return_value=home), patch.dict(os.environ, {}, clear=True):
+                    cache = TokenCache()
+                    for action in (lambda: cache.store(config, "token"), lambda: cache.load(config), lambda: cache.clear(config)):
+                        with self.assertRaises(ConfigError):
+                            action()
+                self.assertEqual([], list(outside.iterdir()))
+
+    def test_default_cache_uses_project_runtime_when_project_config_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "repo"
+            home = Path(td) / "home"
+            root.mkdir()
+            (root / ".env").write_text("config\n", encoding="utf-8")
+            config = Config("https://zentao.example.com", "project", "secret")
+            with patch("zentao_skill.internal.config.project_root", return_value=root), patch("pathlib.Path.home", return_value=home), patch.dict(os.environ, {}, clear=True):
+                cache = TokenCache()
+                cache.store(config, "project-token")
+                self.assertEqual(root / ".tmp" / "zentao" / "auth", cache.root)
+                self.assertEqual("project-token", cache.load(config))
+
+    def test_default_cache_uses_private_user_scope_without_repo_config(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "repo"
+            home = Path(td) / "home"
+            root.mkdir()
+            config = Config("https://zentao.example.com", "user", "secret")
+            with patch("zentao_skill.internal.config.project_root", return_value=root), patch("pathlib.Path.home", return_value=home), patch.dict(os.environ, {}, clear=True):
+                cache = TokenCache()
+                cache.store(config, "user-token")
+                expected = home / ".zentao-ai-assistant" / "cache" / "auth"
+                self.assertEqual(expected, cache.root)
+                self.assertTrue(cache.path_for(config).is_file())
+                self.assertEqual("user-token", cache.load(config))
+                if os.name == "posix":
+                    self.assertEqual(0o700, stat.S_IMODE(expected.stat().st_mode))
+                    self.assertEqual(0o600, stat.S_IMODE(cache.path_for(config).stat().st_mode))
+            self.assertFalse((root / ".tmp" / "zentao" / "auth").exists())
+
+    def test_explicit_nonproject_config_keeps_token_data_in_user_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            root = base / "repo"
+            home = base / "home"
+            explicit = base / "ci" / "config.env"
+            root.mkdir()
+            explicit.parent.mkdir()
+            explicit.write_text("ZENTAO_BASE_URL=https://ci.zentao.example.com\n", encoding="utf-8")
+            config = Config("https://zentao.example.com", "ci", "secret")
+            with patch("zentao_skill.internal.config.project_root", return_value=root), patch("pathlib.Path.home", return_value=home), patch.dict(
+                os.environ, {"ZENTAO_CONFIG_FILE": str(explicit)}, clear=True
+            ):
+                cache = TokenCache()
+                cache.store(config, "ci-token")
+            self.assertEqual(home / ".zentao-ai-assistant" / "cache" / "auth", cache.root)
+
+    def test_explicit_token_cache_override_wins_in_user_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            root = base / "repo"
+            home = base / "home"
+            root.mkdir()
+            override = base / "override" / "auth"
+            config = Config("https://zentao.example.com", "ci", "secret")
+            with patch("zentao_skill.internal.config.project_root", return_value=root), patch("pathlib.Path.home", return_value=home), patch.dict(
+                os.environ, {"ZENTAO_TOKEN_CACHE_DIR": str(override)}, clear=True
+            ):
+                cache = TokenCache()
+                cache.store(config, "override-token")
+            self.assertEqual(override, cache.root)
+            self.assertEqual("override-token", cache.load(config))
+
     def test_cache_round_trip_is_private_scoped_and_contains_no_password(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)

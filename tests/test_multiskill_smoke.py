@@ -4,24 +4,58 @@ import json
 import os
 import re
 import shlex
+import atexit
 import stat
+import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 ZENTAO_ROOT = ROOT / 'skills' / 'zentao'
+SHARED_ROOT = ROOT / 'skills' / '_shared'
 if str(ZENTAO_ROOT) not in sys.path:
     sys.path.insert(0, str(ZENTAO_ROOT))
+if str(SHARED_ROOT) not in sys.path:
+    sys.path.insert(0, str(SHARED_ROOT))
 
 from tests.fake_zentao.server import FakeZenTao
+from zentao.runtime import store_temp_json
+
+
+TEST_HOME = Path(tempfile.mkdtemp(prefix="zentao-multiskill-test-home-"))
+
+
+@atexit.register
+def _remove_test_home() -> None:
+    shutil.rmtree(TEST_HOME, ignore_errors=True)
 
 
 def env_for(base_url: str, *, cache_dir: str | None = None) -> dict[str, str]:
     env = os.environ.copy()
-    env.update({'ZENTAO_BASE_URL': base_url, 'ZENTAO_ACCOUNT': 'admin', 'ZENTAO_PASSWORD': 'secret'})
+    env.pop('ZENTAO_TOKEN_CACHE_DIR', None)
+    env['HOME'] = str(TEST_HOME)
+    env['USERPROFILE'] = str(TEST_HOME)
+    config_path = TEST_HOME / '.zentao-ai-assistant' / 'config.env'
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(
+        f'ZENTAO_BASE_URL="{base_url}"\n'
+        'ZENTAO_ACCOUNT="admin"\n'
+        'ZENTAO_PASSWORD="secret"\n',
+        encoding='utf-8',
+    )
+    if os.name == 'posix':
+        config_path.chmod(0o600)
+        config_path.parent.chmod(0o700)
+    env.update({
+        'ZENTAO_CONFIG_FILE': str(config_path),
+        'ZENTAO_BASE_URL': base_url,
+        'ZENTAO_ACCOUNT': 'admin',
+        'ZENTAO_PASSWORD': 'secret',
+    })
     if cache_dir:
         env['ZENTAO_TOKEN_CACHE_DIR'] = cache_dir
         env.pop('ZENTAO_TOKEN_CACHE_DISABLED', None)
@@ -176,7 +210,7 @@ class MultiSkillSmokeTests(unittest.TestCase):
             self.assertFalse(any(request['endpoint_id'] == 'bug.resolve' for request in fake.state.requests))
 
 
-    def test_statistics_cache_data_is_private_and_under_project_tmp(self) -> None:
+    def test_statistics_cache_data_is_private_and_under_user_runtime_tmp(self) -> None:
         with FakeZenTao() as fake:
             result = subprocess.run(
                 [sys.executable, 'skills/zentao-statistics/scripts/zentao_statistics.py', 'summary', 'bug', '--product', '1', '--cache-data', '--json'],
@@ -186,13 +220,58 @@ class MultiSkillSmokeTests(unittest.TestCase):
             path = Path(json.loads(result.stdout)['temp_data'])
             try:
                 self.assertTrue(path.is_file())
-                self.assertTrue(path.resolve().is_relative_to((ROOT / '.tmp' / 'zentao' / 'statistics').resolve()))
+                self.assertTrue(path.resolve().is_relative_to((TEST_HOME / '.zentao-ai-assistant' / 'tmp' / 'zentao' / 'statistics').resolve()))
                 if os.name == 'posix':
                     self.assertEqual(0o600, stat.S_IMODE(path.stat().st_mode))
                     self.assertEqual(0o700, stat.S_IMODE(path.parent.stat().st_mode))
             finally:
                 import shutil
                 shutil.rmtree(path.parent, ignore_errors=True)
+
+    def test_shared_temp_bridge_keeps_project_scope_and_selects_user_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            root = base / 'repo'
+            home = base / 'home'
+            root.mkdir()
+            (root / '.env').write_text('project config\n', encoding='utf-8')
+            with patch('zentao.runtime.REPO_ROOT', root), patch('zentao_skill.internal.config.project_root', return_value=root), patch(
+                'pathlib.Path.home', return_value=home
+            ), patch.dict(os.environ, {}, clear=True):
+                project_path = Path(store_temp_json('statistics', {'scope': 'project'}))
+            self.assertTrue(project_path.resolve().is_relative_to((root / '.tmp' / 'zentao' / 'statistics').resolve()))
+
+            (root / '.env').unlink()
+            with patch('zentao.runtime.REPO_ROOT', root), patch('zentao_skill.internal.config.project_root', return_value=root), patch(
+                'pathlib.Path.home', return_value=home
+            ), patch.dict(os.environ, {}, clear=True):
+                user_path = Path(store_temp_json('statistics', {'scope': 'user'}))
+            self.assertTrue(user_path.resolve().is_relative_to((home / '.zentao-ai-assistant' / 'tmp' / 'zentao' / 'statistics').resolve()))
+            self.assertFalse(user_path.resolve().is_relative_to((root / '.tmp' / 'zentao').resolve()))
+            if os.name == 'posix':
+                self.assertEqual(0o600, stat.S_IMODE(user_path.stat().st_mode))
+                self.assertEqual(0o700, stat.S_IMODE(user_path.parent.stat().st_mode))
+
+    def test_all_existing_high_level_cache_data_commands_use_user_runtime_root(self) -> None:
+        commands = [
+            ('statistics', ['skills/zentao-statistics/scripts/zentao_statistics.py', 'summary', 'bug', '--product', '1', '--cache-data', '--json']),
+            ('personal', ['skills/zentao-personal/scripts/zentao_personal.py', 'overview', '--today', '2026-08-25', '--cache-data', '--json']),
+            ('project-management', ['skills/zentao-project-management/scripts/zentao_project_management.py', 'health', '--execution', '1', '--today', '2026-08-25', '--cache-data', '--json']),
+        ]
+        with FakeZenTao() as fake:
+            for kind, command in commands:
+                result = subprocess.run([sys.executable, *command], cwd=ROOT, env=env_for(fake.base_url), text=True, capture_output=True, timeout=20)
+                self.assertEqual(0, result.returncode, f'{command}\n{result.stderr}')
+                path = Path(json.loads(result.stdout)['temp_data'])
+                expected_root = TEST_HOME / '.zentao-ai-assistant' / 'tmp' / 'zentao' / kind
+                try:
+                    self.assertTrue(path.resolve().is_relative_to(expected_root.resolve()))
+                    self.assertFalse(path.resolve().is_relative_to((ROOT / '.tmp').resolve()))
+                    if os.name == 'posix':
+                        self.assertEqual(0o600, stat.S_IMODE(path.stat().st_mode))
+                        self.assertEqual(0o700, stat.S_IMODE(path.parent.stat().st_mode))
+                finally:
+                    shutil.rmtree(path.parent, ignore_errors=True)
 
     def test_token_cache_reuses_login_across_cli_processes(self) -> None:
         with FakeZenTao() as fake, tempfile.TemporaryDirectory() as td:

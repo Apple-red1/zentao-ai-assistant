@@ -77,6 +77,53 @@ class RepositoryContractTests(unittest.TestCase):
                 self.assertTrue((skill / "scripts").is_dir())
         self.assertFalse((SHARED_ROOT / "SKILL.md").exists())
 
+    def test_clone_instruction_routes_and_thin_bridges_preserve_canonical_rules(self) -> None:
+        agents = (REPOSITORY_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        for skill_name in (
+            "skills/zentao/",
+            "skills/zentao-statistics/",
+            "skills/zentao-personal/",
+            "skills/zentao-project-management/",
+            "skills/zentao-bug-resolver/",
+        ):
+            self.assertIn(skill_name, agents)
+        routes = {
+            "调查/修复/验证并可能 resolve Bug": "zentao-bug-resolver",
+            "Project/Execution 进度、健康、风险、工作量": "zentao-project-management",
+            "自己/某人的待办、风险、工作摘要": "zentao-personal",
+            "数量、分布、汇总、比较": "zentao-statistics",
+            "原子 ZenTao read/write/lifecycle/delete/resource": "zentao",
+        }
+        for goal, skill_name in routes.items():
+            with self.subTest(goal=goal):
+                self.assertIn(goal, agents)
+                self.assertIn(f"`{skill_name}`", agents)
+        self.assertIn("选中后必须读取对应 `skills/<name>/SKILL.md`", agents)
+        for contract in (
+            "ZenTao API v2",
+            "R0 Read",
+            "R1 Normal Write",
+            "R2 Lifecycle",
+            "R3 delete",
+            "UNKNOWN_WRITE_RESULT",
+            "Python 版本为 3.11+",
+            "Fake/真实 ZenTao",
+            "python tests/run_all.py",
+            "python skills/zentao/tests/run_all.py",
+        ):
+            self.assertIn(contract, agents)
+        self.assertNotIn("skills/_shared/zentao/SKILL.md", agents)
+
+        for bridge_name in ("CLAUDE.md", "GEMINI.md"):
+            bridge = REPOSITORY_ROOT / bridge_name
+            self.assertTrue(bridge.is_file())
+            bridge_text = bridge.read_text(encoding="utf-8").strip()
+            self.assertIn("@AGENTS.md", bridge_text)
+            self.assertLessEqual(len(bridge_text.splitlines()), 3)
+            self.assertNotIn("zentao-bug-resolver", bridge_text)
+            self.assertNotIn("R0 Read", bridge_text)
+
+
     def test_project_tmp_directory_is_git_ignored(self) -> None:
         gitignore = (REPOSITORY_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
         self.assertIn(".tmp/", gitignore)

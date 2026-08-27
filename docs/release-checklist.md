@@ -1,5 +1,21 @@
 # 发布检查清单
 
+## Plugin / Clone surface
+
+- [ ] 根目录 `plugin.json`、`.claude-plugin/plugin.json`、
+  `.claude-plugin/marketplace.json`、`.codex-plugin/plugin.json` 和
+  `.agents/plugins/marketplace.json` 与 `docs/current-contract.md` 同步。
+- [ ] 仓库根目录 `skills/` 精确包含五个正式 Skill；`skills/_shared/zentao/`
+  没有 `SKILL.md`，不成为公开 Skill；不存在第二份 Skills tree。
+- [ ] Clone 的 `AGENTS.md`、`CLAUDE.md`、`GEMINI.md` 路由不复制业务规则；Gemini
+  Plugin/Extension、Cursor/Copilot/VS Code Plugin 不写成 v1 已验证支持。
+- [ ] Claude real host gate 已真实执行 validate、load、install、discovery，且
+  宿主 cache 副本仍能运行共享 scripts/_shared；否则记录 `BLOCKED_ENVIRONMENT`。
+- [ ] Codex real host gate 已真实执行 marketplace add/install/discovery，且
+  宿主 cache 副本仍能运行共享 scripts/_shared；否则记录 `BLOCKED_ENVIRONMENT`。
+- [ ] Claude/Codex host cache 中没有 `.env`、password、Token 或持久运行数据；
+  user config/cache/tmp 全部位于 `~/.zentao-ai-assistant/`。
+
 ## 架构与安全
 
 - [ ] API 基础实现位于 `skills/zentao/`；高层能力位于各自 Skill / `skills/_shared/zentao/`，不存在 MCP Server、独立 `src/zentao_ai/` 主实现或系统级 `zentao-ai` 产品入口。
@@ -11,6 +27,9 @@
 - [ ] 写入网络不确定返回 `UNKNOWN_WRITE_RESULT`，不自动重试、不自动 GET。
 - [ ] `.tmp/` 已被 Git 忽略；`resource fetch` 只能从对象附件区/富文本发现资源，并拒绝跨源 URL/重定向。
 - [ ] 资源文件流式写入项目 `.tmp/zentao-resources/`，同名文件不覆盖，部分失败按 `partial_failures` 返回。
+- [ ] user scope 使用 `~/.zentao-ai-assistant/cache/auth/`、
+  `~/.zentao-ai-assistant/tmp/`，目录/文件权限目标仍为 `0700`/`0600`；config
+  选择不混用多个文件。
 
 ## 全量覆盖
 
@@ -25,6 +44,11 @@ python skills/zentao/tests/run_all.py
 
 必须同时得到：Catalog、Internal、CLI、Skill routes、Fake API、Contract tests、CLI E2E 均为 `120 / 120`，`Real API calls: 0`，最终 `Result: PASS`；同时 `resource fetch` 的资源发现、二进制下载、部分失败和同源安全 E2E 必须通过。
 
+完整回归还必须按 `docs/testing.md` 保留 L0-L5 证据；静态 manifest/JSON 或单元
+测试通过不能替代 Claude/Codex real host gate。宿主命令、安装 surface 或缓存
+检查不可用时，发布状态必须是 `BLOCKED_ENVIRONMENT`，不能标记 Plugin support
+为已验收。
+
 另外检查报告中的 `Official snapshot` 与 `Specific sources`。前者是 runtime
 catalog 与独立官方快照的比对，后者只统计有 endpoint-specific 官方 deep link 的
 条目；generic index URL 必须带明确的待核对说明，不能伪装成已逐项验证。
@@ -32,3 +56,6 @@ catalog 与独立官方快照的比对，后者只统计有 endpoint-specific �
 ## 兼容性
 
 自动化发布门槛使用完整本地 Fake ZenTao。真实 ZenTao 21.7.8 或其他版本的差异根据实际运行证据记录在独立的 `skills/zentao/references/compatibility/` evidence 文件中；必要时再同步 `endpoints.json` 的 compatibility 元数据，不用 Fake 结果冒充真实实例兼容性。
+
+所有自动化和 Fake 测试都不得连接真实 ZenTao；发布前审计还需确认无第三方
+Python runtime 依赖、无 MCP、无 secret 泄露、无调试输出和无遗留 `__pycache__`。

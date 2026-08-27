@@ -5,7 +5,7 @@ import getpass
 import sys
 from pathlib import Path
 
-from ..internal.config import encode_env_value, project_root, write_private_text_atomic
+from ..internal.config import encode_env_value, ensure_private_directory, paths_for_scope, project_root, write_private_text_atomic
 from ..internal.errors import ConfigError, UsageError, ZentaoError
 from ..services.container import Services
 from .common import Parser, add_json_flag
@@ -48,7 +48,8 @@ def build_parser() -> Parser:
     parser = Parser(prog="zentao.py", description="ZenTao API v2 Skill CLI")
     top = parser.add_subparsers(dest="resource", required=True)
 
-    setup = top.add_parser("setup", help="写入项目根目录 .env")
+    setup = top.add_parser("setup", help="写入 project 或 user scope 配置")
+    setup.add_argument("--scope", choices=("project", "user"), default="project")
     setup.add_argument("--base-url")
     setup.add_argument("--account")
     add_json_flag(setup)
@@ -146,7 +147,12 @@ def _run_setup(_: object, args: argparse.Namespace) -> object:
     password = getpass.getpass("ZenTao Password: ")
     if not base_url or not account or not password:
         raise UsageError("base URL、account、password 都不能为空")
-    env_path = project_root() / ".env"
+    scope = getattr(args, "scope", "project")
+    if scope == "project":
+        env_path = project_root() / ".env"
+    else:
+        env_path = paths_for_scope(scope).config_path
+        ensure_private_directory(env_path.parent)
     content = "ZENTAO_BASE_URL=" + encode_env_value(base_url.rstrip("/")) + "\n" + "ZENTAO_ACCOUNT=" + encode_env_value(account) + "\n" + "ZENTAO_PASSWORD=" + encode_env_value(password) + "\n"
     write_private_text_atomic(env_path, content)
     return {"status": "success", "path": str(env_path)}
