@@ -10,7 +10,7 @@ from typing import Any
 
 from ...internal.config import ensure_private_directory, resolve_runtime_paths
 from ...internal.errors import ResourceContentError, ResourceFetchError, ResourceSecurityError, ZentaoError
-from ...internal.zentao.resources import RESOURCE_OBJECT_TYPES, ResourceCandidate, ResourcesAPI, decode_data_uri, discover_resources, display_source, source_file_name
+from ...internal.zentao.resources import RESOURCE_OBJECT_TYPES, ResourceCandidate, ResourcesAPI, decode_data_uri, discover_resources, display_source, rewrite_legacy_file_read_url, source_file_name
 
 
 _HTML_CONTENT_TYPES = frozenset({"text/html", "application/xhtml+xml"})
@@ -79,7 +79,12 @@ class ResourcesService:
                         "size": len(raw),
                     }
                 else:
-                    metadata = self.api.download(source=candidate.source, destination=temp_path)
+                    download_source = (
+                        rewrite_legacy_file_read_url(candidate.source)
+                        if candidate.origin == "rich_text"
+                        else candidate.source
+                    )
+                    metadata = self.api.download(source=download_source, destination=temp_path)
                 self._validate_download(candidate, metadata, temp_path)
                 file_name = self._choose_file_name(candidate.file_name, metadata, index)
                 destination = self._unique_destination(output_dir, file_name)

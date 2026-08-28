@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 兼容 ZenTao 富文本旧式图片 URL：受限将 `file/read` 转为 `file/download`，同时保留原始 `source` 并继续执行资源安全校验。
 - 将仓库定位升级为面向 AI 的 ZenTao 项目管理多 Skill 集合。
 - 新增 `zentao-statistics`、`zentao-personal`、`zentao-project-management`。
 - 新增只读 `zentao_skill.public` programmatic facade、完整分页读取和分页停滞检测。

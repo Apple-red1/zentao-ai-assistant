@@ -39,6 +39,7 @@ _GENERIC_PAGE_NAMES = {"index.php", "index.html", "download.php", "file.php"}
 _RESOURCE_ID_QUERY_KEYS = {"fileid", "attachmentid", "resourceid"}
 _RESOURCE_TYPE_QUERY_KEYS = {"t", "type", "mimetype", "contenttype"}
 _IGNORED_RESOURCE_KEYS = {"actions", "history", "diff"}
+_IMAGE_TYPE_HINTS = frozenset({"avif", "bmp", "gif", "ico", "jpeg", "jpg", "png", "svg", "svg+xml", "tif", "tiff", "webp"})
 
 
 @dataclass(frozen=True)
@@ -198,13 +199,63 @@ def display_source(source: str) -> str:
     return urlunsplit((parsed.scheme, netloc, parsed.path, query, ""))
 
 
+def _normalized_query_key(value: str) -> str:
+    return value.lower().replace("-", "").replace("_", "")
+
+
 def _query_value(source: str, keys: set[str]) -> str | None:
-    normalized_keys = {key.lower().replace("-", "").replace("_", "") for key in keys}
+    normalized_keys = {_normalized_query_key(key) for key in keys}
     for key, value in parse_qsl(urlsplit(source).query, keep_blank_values=True):
-        normalized = key.lower().replace("-", "").replace("_", "")
+        normalized = _normalized_query_key(key)
         if normalized in normalized_keys and value.strip():
             return value.strip()
     return None
+
+
+def _is_image_type_hint(value: str) -> bool:
+    normalized = value.strip().lower()
+    return normalized.startswith("image/") or normalized.lstrip(".") in _IMAGE_TYPE_HINTS
+
+
+def rewrite_legacy_file_read_url(source: str) -> str:
+    """Use ZenTao's token-compatible download route for rich-text images."""
+    if source.startswith("data:"):
+        return source
+    parsed = urlsplit(source)
+    if parsed.path.rstrip("/").rsplit("/", 1)[-1].lower() != "index.php":
+        return source
+
+    pairs = parse_qsl(parsed.query, keep_blank_values=True)
+
+    def one_value(key: str) -> tuple[int, str] | None:
+        matches = [
+            (index, value)
+            for index, (name, value) in enumerate(pairs)
+            if _normalized_query_key(name) == key
+        ]
+        return matches[0] if len(matches) == 1 else None
+
+    module = one_value("m")
+    function = one_value("f")
+    resource_id = one_value("fileid")
+    resource_type = one_value("t")
+    if (
+        module is None
+        or module[1].strip().lower() != "file"
+        or function is None
+        or function[1].strip().lower() != "read"
+        or resource_id is None
+        or not re.fullmatch(r"[1-9][0-9]*", resource_id[1].strip())
+        or resource_type is None
+        or not _is_image_type_hint(resource_type[1])
+    ):
+        return source
+
+    rewritten = [
+        (name, "download" if index == function[0] else value)
+        for index, (name, value) in enumerate(pairs)
+    ]
+    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(rewritten, doseq=True), parsed.fragment))
 
 
 def _extension_hint(value: str | None) -> str | None:

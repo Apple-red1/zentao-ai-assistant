@@ -34,7 +34,8 @@ class FakeZenTao:
                 if self.command == "GET" and (split.path in state.binary_resources or split.path in state.redirects):
                     if self.headers.get("Token") != "fake-token":
                         self._send(401, {"error": "invalid token"}); return
-                    state.record({"endpoint_id": "resource.binary", "method": self.command, "path": split.path, "query": {}, "body": {}})
+                    query = {k: (v if len(v) > 1 else v[0]) for k, v in parse_qs(split.query).items()}
+                    state.record({"endpoint_id": "resource.binary", "method": self.command, "path": split.path, "query": query, "body": {}})
                     if split.path in state.redirects:
                         self.send_response(302)
                         self.send_header("Location", state.redirects[split.path])

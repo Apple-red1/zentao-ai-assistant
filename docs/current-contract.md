@@ -72,7 +72,7 @@ project/user scope：项目配置为 `<repo>/.env`，用户配置为
 - 批量导出不新增基础 API endpoint：每个对象调用现有 CLI `view` 与 `resource fetch`；`content.md` 保留完整 `view --json` 响应，资源进入 `objects/<type>/<id>/resources/`，根 `manifest.json` 只记录索引、完整性和完整失败信息。
 - `resource fetch` 的 HTTP 200 资源还必须通过非空、明显 HTML 登录/错误页和 MIME
   类型一致性校验；不通过时使用 `RESOURCE_CONTENT_INVALID` 保留在
-  `partial_failures`，旧式 `/index.php?...fileID=...` URL 按资源 ID/类型提示生成语义文件名。
+  `partial_failures`，旧式 `/index.php?...fileID=...` URL 按资源 ID/类型提示生成语义文件名。富文本旧式 `m=file&f=read` 图片请求仅将 `f` 改为同源 `download`，普通附件 URL 不改写，且输出保留原始 `source`。
 - 21.7.8 的 `file.upload` v2 endpoint 仍按真实证据标记为 unsupported；Bug 的基础 CLI
   上传在检测到 v2 空响应后，会先回读确认是否已经落库，未落库时才使用固定的
   `bug/edit` 页面 `files[]` 表单兼容写入，并通过 API 详情回读确认附件。该兼容路径不

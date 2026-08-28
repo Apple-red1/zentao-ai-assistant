@@ -36,6 +36,8 @@ python skills/zentao/scripts/zentao.py resource fetch \
   `partial_failures`，不会进入成功资源列表；
 - 旧式 `/index.php?...fileID=...` URL 的文件名优先使用资源 ID 和类型提示生成，
   不会直接落盘为无语义的 `index.php`；
+- 富文本中的旧式 ZenTao 图片 URL（`m=file&f=read&t=<image>&fileID=<id>`）仅将
+  `f=read` 改为同源 `f=download`；原始 `source` 保留用于审计，普通附件 URL 不改写；
 - 项目 `.tmp/` 与用户 runtime `tmp/` 均用于临时数据，资源默认不自动清理；
 - 同名文件自动生成 `-2`、`-3` 等唯一名称，不覆盖已有文件；
 - `data:` 内联资源直接从对象内容解码到同一临时目录。
