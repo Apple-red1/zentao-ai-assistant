@@ -12,7 +12,7 @@
 |---|---|
 | `skills/zentao/` | ZenTao 官方 API v2 原子读取/写入、认证、资源获取和安全合同 |
 | `skills/zentao-statistics/` | 确定性统计、聚合和同类范围对比 |
-| `skills/zentao-personal/` | 当前/指定用户的待办、风险、工作列表和工作摘要 |
+| `skills/zentao-personal/` | 当前/指定用户待办与摘要；个人默认团队名单、团队 Bug 与团队日报 |
 | `skills/zentao-project-management/` | Project / Execution 的进度事实、风险信号和工作量分布 |
 | `skills/zentao-bug-resolver/` | 证据驱动的 Bug 只读 `select` / `snapshot` / `compare` 与 Agent 编排 |
 | `skills/zentao-batch-export/` | 多个 ZenTao 对象的完整 `view` 字段、资源与 ZIP 批量资料导出 |
@@ -54,6 +54,7 @@ project/user scope：项目配置为 `<repo>/.env`，用户配置为
 |---|---|
 | API Skill 用户调用、风险和输出 | `skills/zentao/SKILL.md` |
 | 高层 Skill 调用 | 各自 `SKILL.md` |
+| 个人默认团队配置、查询与展示 | `skills/zentao-personal/references/team.md` |
 | 所有 Skill 的聊天 Bug ID 展示 | `skills/zentao/references/bug-display.md` |
 | Bug 证据驱动流程、授权和生命周期边界 | `skills/zentao-bug-resolver/SKILL.md` 与 `skills/zentao-bug-resolver/references/workflow.md` |
 | 高层 Skill → API 基础层程序化合同 | `skills/zentao/references/programmatic.md` |
@@ -67,6 +68,11 @@ project/user scope：项目配置为 `<repo>/.env`，用户配置为
 
 ## 当前实现事实
 
+- 插件版本 `1.6.0`，仍为六个正式 Skill。`zentao-personal` 增加 `team-view/add/remove/replace` 名单维护及 `team-bugs/team-brief` 查询入口；没有新增 API endpoint。
+- 团队配置始终保存于 `~/.zentao-ai-assistant/teams/<identity-sha256>.json`，以规范化 base URL + account 隔离，跨源码项目复用；只接受明确的名单维护请求，完整用户目录唯一解析后保存真实 account，本人自动纳入而不保存为配置成员。损坏配置、身份冲突、目录不完整和并发写入均阻止覆盖。
+- 团队 Bug 与日报共用 `assignedTo` 归属、完整分页、跨 Product/Project/Execution 扫描、ID 去重和两阶段分组；显式 scope 仅缩小查询。只纳入 `active/resolved`，排除 `closed`。输出按阶段→成员→优先级/严重程度/旧 Bug/数值 ID 排序，全部成员和符合条件的 Bug 都保留；日报只增加汇总。
+- 团队 `--markdown` 输出固定四列表格并调用基础 `bug web-url` 生成编号链接；机器 JSON 与默认终端 JSON 保持原始字段。失败、未知状态、日期异常、冲突和分页截断通过 `complete/partial_failures` 暴露，失败不能伪装为 0。独立查询不构成事务快照。
+- facade 新增只读 `connection_identity` 和可选 `list_all(preserve_partial=True)`；后者在页读取失败时保留已读页且不重试，默认调用行为不变。团队本地配置写入不扩展 facade 的 ZenTao 写入权限。
 - `zentao` API catalog 仍覆盖 20 个资源、**120 个 ZenTao API v2 endpoint**，API 实现、CLI、Skill 路由、Fake、合同和 CLI E2E 保持 `120/120`。
 - 高层 Skill 不改变 endpoint catalog，也不把 API 组合能力冒充官方 endpoint。
 - `zentao-batch-export` 是只读批量资料编排：首版支持 `bug / epic / execution / feedback / product / product-plan / program / requirement / story / task / test-case / ticket / user`；输入显式使用 `type:id`，脚本按 `type + id` 去重。

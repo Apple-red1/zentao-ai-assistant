@@ -65,3 +65,30 @@ user:    ~/.zentao-ai-assistant/cache/auth/
 CI 和自动化测试使用临时 HOME 或 `ZENTAO_CONFIG_FILE` 指向临时配置，并使用
 loopback Fake ZenTao；不得读取真实 `.env`、写入宿主 Plugin cache 或连接真实
 ZenTao。临时配置仍只包含测试值，测试结束后清理。
+
+## 个人默认团队
+
+`zentao-personal` 的长期团队名单独立于三项连接配置，不增加 `.env` 键。
+Clone/project 与 Plugin/user 都固定保存到：
+
+```text
+~/.zentao-ai-assistant/teams/<identity-sha256>.json
+```
+
+身份通过 public facade 的 `connection_identity` 读取当前实际选中的连接配置：
+URL scheme/host 小写、去默认端口、去路径末尾 `/`，保留安装路径和非默认端口；
+拒绝地址内的凭据、query、fragment。哈希输入为排序键、紧凑 JSON 编码的
+`{base_url, account}`；account 区分大小写。不同实例或账号互不混用名单。
+
+文件 schema 为 `{schema_version: 1, owner: {base_url, account}, members: [account, ...]}`，
+不保存密码、Token、姓名或本人账号副本。本人由查询时自动合并；文件不存在表示
+配置成员为空，查看不创建文件。只支持一个默认团队，不涉及旧数据迁移或云同步。
+
+目录 0700、文件 0600，原子替换；符号链接、非普通文件、超过 1 MiB、损坏 JSON、
+未知 schema 或归属冲突均阻止读取/覆盖，不自动清空。每身份的 `.lock` 目录保护
+本地读改写；竞争返回 `TEAM_CONFIG_BUSY`。异常退出遗留锁需人工确认进程已退出
+后处理，不自动删除/抢占。升级只替换插件代码，不删除 `teams/`。
+
+名单修改前完整解析真实用户目录，任一输入失败不写入；完整替换空名单须显式
+`team-replace --clear`。维护命令与结果详见
+[团队合同](../skills/zentao-personal/references/team.md)。

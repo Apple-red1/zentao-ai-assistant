@@ -1,4 +1,4 @@
 interface:
-  display_name: "禅道个人工作"
-  short_description: "整理个人待办、逾期风险和工作摘要"
-  default_prompt: "先运行 zentao-personal 获取个人工作事实，再基于真实优先级、严重程度和截止日期解释。"
+  display_name: "禅道个人与团队工作"
+  short_description: "整理个人待办、风险和摘要，维护我的团队并查询未关闭 Bug 与团队日报"
+  default_prompt: "使用 $zentao-personal 查询今日团队日报，按阶段和成员展示全部未关闭 Bug 与数据完整性。"

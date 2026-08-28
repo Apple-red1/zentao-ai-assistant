@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from ..internal.errors import ApiError, UsageError
 from ..services.container import Services
@@ -62,6 +63,24 @@ class ZentaoClient:
         config = getattr(session, "config", None)
         return str(getattr(config, "account", ""))
 
+    @property
+    def connection_identity(self) -> dict[str, str]:
+        """Non-secret, canonical site/account key for user-owned local settings."""
+        config = self.services.session.config
+        parsed = urlsplit(config.base_url)
+        if (parsed.scheme not in {"http", "https"} or not parsed.hostname
+                or parsed.username is not None or parsed.password is not None
+                or parsed.query or parsed.fragment or not self.account):
+            raise UsageError("团队配置需要不含凭据、查询或片段的站点地址和有效账号")
+        host = parsed.hostname.lower()
+        if ":" in host:
+            host = f"[{host}]"
+        port = parsed.port
+        if port is not None and port != {"http": 80, "https": 443}[parsed.scheme]:
+            host += f":{port}"
+        return {"base_url": urlunsplit((parsed.scheme, host, parsed.path.rstrip("/"), "", "")),
+                "account": self.account}
+
     def call(self, resource: str, action: str, **kwargs: object) -> object | None:
         allowed = _READ_ACTIONS.get(resource, frozenset())
         if action not in allowed:
@@ -90,7 +109,8 @@ class ZentaoClient:
         return payload
 
     def list_all(self, resource: str, *, scope: str | None = None, scope_id: int | None = None,
-                 per_page: int = 1000, browse: str | None = None, max_pages: int = 10000) -> ListResult:
+                 per_page: int = 1000, browse: str | None = None, max_pages: int = 10000,
+                 preserve_partial: bool = False) -> ListResult:
         if per_page < 1 or per_page > 1000:
             raise UsageError("per_page 必须在 1..1000")
         collection_key = _COLLECTION_KEYS.get(resource)
@@ -102,23 +122,56 @@ class ZentaoClient:
         seen_ids: set[str] = set()
         page = 1
         while page <= max_pages:
-            payload = self.list_page(resource, scope=scope, scope_id=scope_id, page=page, per_page=per_page, browse=browse)
-            rows = payload.get(collection_key)
-            if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
-                raise ApiError("ZenTao 列表响应缺少合法集合", {"resource": resource, "field": collection_key})
+            try:
+                payload = self.list_page(resource, scope=scope, scope_id=scope_id, page=page, per_page=per_page, browse=browse)
+                rows = payload.get(collection_key)
+                if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+                    raise ApiError("ZenTao 列表响应缺少合法集合", {"resource": resource, "field": collection_key})
+            except UsageError:
+                raise
+            except Exception as exc:
+                if not preserve_partial:
+                    raise
+                partial_failures.append({"code": getattr(exc, "code", "PAGE_READ_FAILED"),
+                                         "page": page, "message": "列表页读取失败"})
+                return ListResult(items=items, complete=False, pages=page - 1,
+                                  total=total, partial_failures=partial_failures)
             before_seen = len(seen_ids)
             page_has_only_ids = bool(rows) and all(row.get("id") is not None for row in rows)
             if page_has_only_ids:
                 seen_ids.update(str(row["id"]) for row in rows)
             items.extend(rows)
             pager = payload.get("pager")
+            previous_total = total
+            pager_error = None
             if isinstance(pager, dict):
                 raw_total = pager.get("total")
-                if isinstance(raw_total, int):
+                if preserve_partial and "total" in pager:
+                    try:
+                        if not (type(raw_total) is int or (isinstance(raw_total, str)
+                                and raw_total.isascii() and raw_total.isdigit())):
+                            raise ValueError("invalid total")
+                        total = int(raw_total)
+                        if total < 0:
+                            raise ValueError("negative total")
+                    except ValueError:
+                        pager_error = "PAGINATION_INVALID"
+                        total = previous_total
+                    if pager_error is None and previous_total is not None and total != previous_total:
+                        pager_error = "PAGINATION_TOTAL_CHANGED"
+                elif isinstance(raw_total, int):
                     total = raw_total
                 elif isinstance(raw_total, str) and raw_total.isdigit():
                     total = int(raw_total)
             received = len(seen_ids) if seen_ids and all(row.get("id") is not None for row in items) else len(items)
+            if preserve_partial:
+                if total is not None and received > total:
+                    pager_error = pager_error or "PAGINATION_INVALID"
+                if pager_error:
+                    partial_failures.append({"code": pager_error, "page": page,
+                                             "expected_total": previous_total, "received": received})
+                    return ListResult(items=items, complete=False, pages=page,
+                                      total=total, partial_failures=partial_failures)
             if total is not None and received >= total:
                 return ListResult(items=items, complete=True, pages=page, total=total, partial_failures=partial_failures)
             if not rows or (page_has_only_ids and len(seen_ids) == before_seen):

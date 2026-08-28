@@ -37,7 +37,7 @@ PORTABLE_MANIFEST_FIELDS = {
     "extensions",
 }
 PLUGIN_NAME = "zentao-ai-assistant"
-PLUGIN_VERSION = "1.5.0"
+PLUGIN_VERSION = "1.6.0"
 PLUGIN_DESCRIPTION = "ZenTao project management skills for AI coding agents."
 PLUGIN_REPOSITORY_PATH = "Apple-red1/zentao-ai-assistant"
 PLUGIN_SCHEMA = "https" + "://agent-" + "plugins.org/schemas/1.0.0/plugin.schema.json"

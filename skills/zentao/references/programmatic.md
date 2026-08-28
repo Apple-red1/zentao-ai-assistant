@@ -13,6 +13,15 @@ from zentao_skill.public import ZentaoClient
 - `ZentaoClient.list_all(...)`：按 pager 读取完整分页；重复页/无进展时返回 `PAGINATION_STALLED`，不误报完整；
 - `ZentaoClient.view(...)`：读取单对象；
 - `ZentaoClient.account`：当前配置账号。
+- `ZentaoClient.connection_identity`：当前连接的规范化 `{base_url, account}`，
+  不含密码/Token；供用户级团队配置隔离使用。拒绝 URL 内凭据、query/fragment。
+
+`list_all(..., preserve_partial=True)` 在页读取/响应校验失败时保留此前已读页，
+返回 `complete=false` 与包含失败页码的 `partial_failures`，不重试；用法
+错误仍抛出。该模式还把非法/矛盾的 pager total 标为 `PAGINATION_INVALID`，
+跨页 total 变化标为 `PAGINATION_TOTAL_CHANGED`，保留已读数据但不宣称完整。
+省略该参数保留原有异常行为。两种模式都保留重复页与最大页数门槛。
+高层调用不得忽略 `complete=false`，也不能把异常页之后的缺失数据计为 0。
 
 该 facade 只复用现有 Service/API adapter，不生成动态 HTTP endpoint。高层 Skill 禁止直接 import `internal/zentao` 或 `internal/http`。
 

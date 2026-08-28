@@ -281,6 +281,124 @@ class HumanAttestedCLIExamplesTests(unittest.TestCase):
         self.assertEqual(['creator', 'second'], [r['body']['assignedTo'] for r in writes])
 
 
+class TeamCLISmokeTests(unittest.TestCase):
+    def setUp(self):
+        self.fake = self.enterContext(FakeZenTao())
+        self.temp = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        self.env = env_for(self.fake.base_url)
+        self.script = ROOT / 'skills/zentao-personal/scripts/zentao_personal.py'
+        self.fake.state.resources['user'] = {
+            '1': {'id': 1, 'account': 'admin', 'realname': '本人'},
+            '2': {'id': 2, 'account': 'alice', 'realname': '张三'},
+            '3': {'id': 3, 'account': 'bob', 'realname': '李四'},
+        }
+        self.fake.state.resources['bug'] = {
+            str(i): {'id': i, 'assignedTo': account, 'status': status, 'title': f'事项 {i}',
+                     'pri': 2, 'severity': 2, 'openedDate': '2026-08-01 10:00:00',
+                     'product': 1, 'project': 1, 'execution': 1}
+            for i, account, status in [(1, 'admin', 'active'), (2, 'alice', 'active'),
+                                       (3, 'alice', 'resolved'), (4, 'bob', 'closed')]
+        }
+
+    def cli(self, *args, script=None):
+        return subprocess.run([sys.executable, str(script or self.script), *args], cwd=self.temp,
+                              env=self.env, text=True, capture_output=True, timeout=30)
+
+    def ok(self, *args, **kwargs):
+        result = self.cli(*args, '--json', **kwargs)
+        self.assertEqual(0, result.returncode, result.stderr)
+        return json.loads(result.stdout)
+
+    def test_config_maintenance_shared_snapshots_markdown_and_all_business_calls_read_only(self):
+        self.ok('team-replace', '--member', '张三', '--member', 'bob')
+        self.ok('team-remove', '--member', 'bob')
+        self.ok('team-add', '--member', 'bob')
+        detail = self.ok('team-bugs', '--per-page', '1')
+        brief = self.ok('team-brief', '--per-page', '1')
+        self.assertEqual(detail, brief)
+        self.assertEqual([1, 2, 3], detail['bug_ids'])
+        self.assertTrue(detail['complete'])
+        markdown = self.cli('team-brief', '--markdown')
+        self.assertEqual(0, markdown.returncode, markdown.stderr)
+        for ident in detail['bug_ids']:
+            self.assertIn(f'[{ident}]({self.fake.base_url}/index.php?m=bug&f=view&bugID={ident})', markdown.stdout)
+        self.assertIn('### 李四（0）', markdown.stdout)
+        self.assertNotIn('fake-token', markdown.stdout)
+        business = [r for r in self.fake.state.requests if r['endpoint_id'] != 'token.login']
+        self.assertTrue(all(r['method'] == 'GET' for r in business))
+        self.assertTrue(any(str(r['query'].get('pageID')) == '4' for r in business if r['endpoint_id'] == 'bug.list_product'))
+        self.ok('team-replace', '--clear')
+        self.assertEqual(['admin'], self.ok('team-view')['effective_accounts'])
+
+    def test_later_page_403_preserves_first_page_and_shows_incomplete(self):
+        self.ok('team-replace', '--member', 'alice', '--member', 'bob')
+        original = self.fake.state.handle
+        def denied(route, path_params, query, body):
+            if route.endpoint_id == 'bug.list_product' and str(query.get('pageID')) == '2':
+                return 403, {'error': 'denied'}
+            return original(route, path_params, query, body)
+        self.fake.state.handle = denied
+        result = self.ok('team-bugs', '--product', '1', '--per-page', '1')
+        self.assertEqual([1], result['bug_ids'])
+        self.assertFalse(result['complete'])
+        self.assertEqual(2, result['partial_failures'][0]['page'])
+        self.assertFalse(result['active'][1]['complete'])
+        markdown = self.cli('team-bugs', '--product', '1', '--per-page', '1', '--markdown')
+        self.assertEqual(0, markdown.returncode, markdown.stderr)
+        self.assertIn('### 张三（数据不完整）', markdown.stdout)
+
+    def test_incomplete_directory_does_not_replace_persisted_team(self):
+        self.ok('team-replace', '--member', 'alice')
+        original = self.fake.state.handle
+        def denied(route, path_params, query, body):
+            if route.endpoint_id == 'user.list' and query.get('browseType') == 'outside':
+                return 403, {'error': 'denied'}
+            return original(route, path_params, query, body)
+        self.fake.state.handle = denied
+        result = self.cli('team-replace', '--member', 'bob', '--json')
+        self.assertEqual(1, result.returncode)
+        self.assertEqual('', result.stdout)
+        self.assertEqual('TEAM_DIRECTORY_INCOMPLETE', json.loads(result.stderr)['error']['code'])
+        self.fake.state.handle = original
+        self.assertEqual(['alice'], self.ok('team-view')['configured_accounts'])
+
+    def test_copied_plugin_tree_reuses_team_and_caches_only_in_user_home(self):
+        self.ok('team-replace', '--member', 'alice')
+        plugin = self.temp / 'plugin-cache'
+        shutil.copytree(ROOT / 'skills', plugin / 'skills', ignore=shutil.ignore_patterns('tests', '__pycache__'))
+        script = plugin / 'skills/zentao-personal/scripts/zentao_personal.py'
+        self.assertEqual(['alice'], self.ok('team-view', script=script)['configured_accounts'])
+        result = self.ok('team-bugs', '--cache-data', script=script)
+        path = Path(result['temp_data'])
+        self.assertTrue(path.is_relative_to(TEST_HOME / '.zentao-ai-assistant/tmp/zentao/personal'))
+        self.assertFalse((plugin / '.tmp').exists())
+        self.assertFalse((plugin / '.env').exists())
+        self.assertFalse(list(plugin.rglob('teams')))
+        if os.name == 'posix':
+            self.assertEqual(0o600, stat.S_IMODE(path.stat().st_mode))
+
+    def test_readme_team_commands_run_against_fake(self):
+        readme = (ROOT / 'README.md').read_text(encoding='utf-8')
+        section = readme.split('## 团队配置、Bug 查询与日报\n', 1)[1].split('\n## ', 1)[0]
+        commands = [shlex.split(line)[2:] for block in re.findall(r'```bash\n(.*?)\n```', section, re.S)
+                    for line in block.splitlines() if line.startswith('python3 ')]
+        self.assertTrue(commands)
+        self.assertEqual({'team-view', 'team-add', 'team-remove', 'team-replace', 'team-bugs', 'team-brief'},
+                         {command[0] for command in commands})
+        self.ok('team-replace', '--clear')
+        for command in commands:
+            result = self.cli(*command)
+            self.assertEqual(0, result.returncode, f'{command}\n{result.stderr}')
+            if command[0] in ('team-bugs', 'team-brief'):
+                if '--json' in command:
+                    self.assertEqual([1, 2, 3], json.loads(result.stdout)['bug_ids'])
+                else:
+                    for ident in (1, 2, 3):
+                        self.assertIn(f'[{ident}]({self.fake.base_url}/index.php?m=bug&f=view&bugID={ident})', result.stdout)
+        self.assertEqual(['admin'], self.ok('team-view')['effective_accounts'])
+        self.assertTrue(all(r['method'] == 'GET' for r in self.fake.state.requests if r['endpoint_id'] != 'token.login'))
+
+
 class MultiSkillSmokeTests(unittest.TestCase):
     def test_statistics_personal_and_project_scripts_run_against_fake(self) -> None:
         with FakeZenTao() as fake:

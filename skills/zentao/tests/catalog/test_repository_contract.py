@@ -27,6 +27,7 @@ class RepositoryContractTests(unittest.TestCase):
         allowed_local = {
             "zentao_skill", "tests", "zentao", "resource_validation",
             "resolver_accounts", "content_markdown",
+            "team_config", "team_report", "team_presenter",
         }
         third_party: list[tuple[Path, str]] = []
         roots = [PRODUCTION_ROOT, SKILL_ROOT / "tests", SHARED_ROOT, REPOSITORY_ROOT / "tests"]

@@ -44,7 +44,7 @@ API endpoint 保持显式实现，`endpoints.json` 不参与运行时路由。
 |---|---|
 | `zentao` | 官方 API v2 的原子读取、写入、认证、资源获取和 CLI 安全合同；是所有 ZenTao 写入的唯一公开入口。 |
 | `zentao-statistics` | 对支持的资源做确定性统计、聚合和同类范围比较；只读。 |
-| `zentao-personal` | 聚合当前/指定用户的待办、风险、工作列表和摘要；只读，不把工作量当作绩效结论。 |
+| `zentao-personal` | 个人工作与摘要；用户默认团队名单、团队 Bug/日报。ZenTao 数据只读；明确维护请求只写本机名单，不把工作量当绩效结论。 |
 | `zentao-project-management` | 聚合 Project / Execution 的进度事实、风险信号和工作量分布；只读，不臆造健康分或绩效结论。 |
 | `zentao-bug-resolver` | 以 Bug 为单位执行证据驱动的选择、快照、代码证据、最小修复与验证编排；resolver script 只读，生命周期写入由 Agent 回到基础 CLI。 |
 | `zentao-batch-export` | 按显式 `type:id` 批量导出多个对象的完整字段与资源，生成 manifest 和动态 ZIP；只读，复用基础 CLI 的 `view/resource fetch`。 |
@@ -75,6 +75,15 @@ zentao-project-management -┘        |
 runtime bridge，不是新的 ZenTao API，也不执行写入。RuntimePaths 统一决定
 config/cache/tmp 三类路径；高层 Skill 仍只能通过 public facade，不能 import
 `internal` 或直连 HTTP。
+
+## 个人默认团队
+
+个人团队在 `zentao-personal/scripts/` 分工：`team_config.py` 管理用户级身份隔离、
+校验、锁和原子名单写入；`team_report.py` 复用共享身份解析与 public 完整分页，
+采集、过滤、去重、排序并生成统一结果；`team_presenter.py` 复用基础 CLI
+`bug web-url`，将同一结果呈现为四列表格。`team-bugs` 与 `team-brief` 不各自维护
+查询实现。名单属于个人业务配置，不进入 `_shared` 或连接 `.env`；只读 facade
+提供不含秘密的连接身份和显式保留部分页能力，不执行团队或 ZenTao 写入。
 
 ## Bug resolver 工作流链路
 

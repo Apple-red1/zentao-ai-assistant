@@ -63,6 +63,7 @@ Skill 或独立路由目标。
 | 多个 ZenTao 对象的完整资料、附件打包下载 | `zentao-batch-export` |
 | Project/Execution 进度、健康、风险、工作量 | `zentao-project-management` |
 | 自己/某人的待办、风险、工作摘要 | `zentao-personal` |
+| 我的默认团队名单、团队 Bug、今日团队日报 | `zentao-personal` |
 | 数量、分布、汇总、比较 | `zentao-statistics` |
 | 原子 ZenTao read/write/lifecycle/delete/resource | `zentao` |
 
@@ -172,6 +173,7 @@ API endpoint 覆盖率只描述 `zentao` 基础 Skill，不能当作整个多 Sk
 - 可复用的低层分页、身份、临时数据能力放 `skills/_shared/zentao/`；有业务含义的算法留在所属 Skill。
 - `partial_failures`、`complete`、截断或分页异常必须向上保留，不能把不完整数据展示成完整事实。
 - 高层 Skill 默认只读；需要写操作时转到 `zentao` 的明确 API 能力和风险授权规则。
+- `zentao-personal` 的默认团队名单维护仅在用户明确要求时写本机用户级 `teams/`，不属于 ZenTao 业务写入；团队 Bug/日报复用同一未关闭 Bug 数据、分组和排序。名单始终按实例与账号隔离，不能写入项目 `.env`、临时目录或 Plugin cache。
 - `zentao-batch-export` 的批量循环、去重、Markdown、manifest、失败汇总和 ZIP 由自身 `scripts/` 实现；单对象详情与资源获取继续调用基础 `zentao` CLI，禁止复制 `resource fetch` 的同源/路径安全逻辑。
 - `zentao-bug-resolver` 的脚本只通过 `zentao_skill.public` 读取；普通流程的 Agent 只有在证据、验证、diff、并发复查和授权门槛全部满足时，才可把一次 R2 resolve 回交基础 CLI。
 - resolver 的 `compare` 是写入前复查；`changed=true`、比较失败或关键事实不可安全比较都必须阻止写入，`changed=false` 也不提供 CAS/ETag/锁保证。

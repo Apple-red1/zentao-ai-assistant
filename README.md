@@ -12,7 +12,7 @@
 |---|---|---|
 | [`zentao`](skills/zentao/SKILL.md) | API 原子查询、明确授权的写入、对象附件与富文本资源获取 | “查看 Bug 123，获取它的附件” |
 | [`zentao-statistics`](skills/zentao-statistics/SKILL.md) | 确定性计数、状态分布、聚合、同类范围对比 | “统计产品 1 的 Bug 状态分布” |
-| [`zentao-personal`](skills/zentao-personal/SKILL.md) | 当前或指定用户的待办、风险、工作列表、日报/周报素材 | “看看我有哪些待办和逾期任务” |
+| [`zentao-personal`](skills/zentao-personal/SKILL.md) | 个人待办与摘要、我的团队名单、团队 Bug 与团队日报 | “把我的团队设置为张三、李四”；“查询今日团队日报” |
 | [`zentao-project-management`](skills/zentao-project-management/SKILL.md) | 项目/执行进度事实、风险信号和工作量分布 | “分析项目 12 的进展和阻塞” |
 | [`zentao-bug-resolver`](skills/zentao-bug-resolver/SKILL.md) | Bug 证据分析、本地修复编排，以及明确人工确认后的受控回写 | “分析 Bug 123 的根因”；“Bug 123 已解决，标记已解决” |
 | [`zentao-batch-export`](skills/zentao-batch-export/SKILL.md) | 多个 ZenTao 对象的完整字段、附件/富文本资源与 ZIP 打包 | “把 bug:123、story:78 的完整资料和附件打包下载” |
@@ -188,6 +188,92 @@ pending 项不继承授权；模糊的“处理 Bug”最多允许本地修复�
 “帮我解决/修复 Bug”“修复后标记已解决”“应该好了”不会直接触发人工确认写入。
 
 详细自然语言边界见各 Skill 的 `SKILL.md`。
+
+## 团队配置、Bug 查询与日报
+
+由 `zentao-personal` 提供，从 **1.6.0** 开始支持。先完成前面的禅道连接配置，
+再设置自己的团队成员；安装插件本身不会自动配置团队名单。插件用户需使用包含
+该功能的插件版本，仅更新源码工作区不会自动替换宿主已安装的插件副本。
+
+### 1. 设置和维护团队
+
+在使用本仓库 Skills 的会话中，可以直接说：
+
+```text
+查看我的团队
+把我的团队设置为 alice、bob
+给我的团队添加成员 张三
+从我的团队移除成员 bob
+```
+
+成员可以使用禅道账号或姓名；建议优先使用账号。系统会完整读取用户目录并校验，
+姓名重名、账号不存在或目录读取不完整时不会写入，需要先处理对应问题。
+**你本人始终自动包含，不必重复添加**；未配置成员时，查询范围只有本人。
+
+也可以直接运行 CLI。下面的 `alice`、`bob` 是示例账号，请替换为自己的实际成员；
+按需要选择命令执行，不必依次运行所有示例。
+
+```bash
+# 查看配置成员和实际查询范围
+python3 skills/zentao-personal/scripts/zentao_personal.py team-view --json
+
+# 增量添加；重复添加同一账号不会产生重复成员
+python3 skills/zentao-personal/scripts/zentao_personal.py team-add --member alice --member bob --json
+
+# 只移除指定成员，不影响其禅道用户或 Bug
+python3 skills/zentao-personal/scripts/zentao_personal.py team-remove --member bob --json
+
+# 整体替换配置名单；不在新名单中的原成员会被移除
+python3 skills/zentao-personal/scripts/zentao_personal.py team-replace --member alice --member bob --json
+```
+
+### 2. 查询团队 Bug 或日报
+
+设置一次后，可以直接说“查询团队的 Bug”或“查询今日团队日报”；需要缩小范围时，
+可以说“查询项目 1 的团队 Bug”。CLI 对应示例：
+
+```bash
+# 所有当前账号可见范围内的团队未关闭 Bug
+python3 skills/zentao-personal/scripts/zentao_personal.py team-bugs --markdown
+
+# 同一查询规则的全部明细，表格前增加团队汇总
+python3 skills/zentao-personal/scripts/zentao_personal.py team-brief --markdown
+
+# 只查询项目 1，不修改团队配置；也可改用 --product 或 --execution
+python3 skills/zentao-personal/scripts/zentao_personal.py team-brief --project 1 --markdown
+
+# 需要程序处理时使用 JSON，保留原始 ID、字段和完整性信息
+python3 skills/zentao-personal/scripts/zentao_personal.py team-bugs --json
+```
+
+`--product`、`--project`、`--execution` 三选一，省略时查询所有可见范围。
+“今日”指当前生成的快照，不是只查今天创建或更新的 Bug；团队日报和团队 Bug
+共用同一成员范围、过滤和排序，日报不会只挑重点而省略其它符合条件的 Bug。
+
+结果按“处理阶段 → 当前负责人”展示：
+
+- **需要马上行动**：`active` Bug。
+- **待测试验证**：`resolved` 但尚未关闭的 Bug，单独列出，不混入 active。
+- `closed` 不进入清单。每位成员下固定四列：**Bug ID / 标题 / 优先级 / 状态**，
+  Bug 编号可点击；成员名下按优先级、严重程度、创建时间由早到晚排序。
+- 成功查询但没有 Bug 的成员显示 0；读取失败或分页不完整会明确提示，不能解释为 0。
+  JSON 返回部分结果时可能仍为 exit 0，必须检查 `complete` 和 `partial_failures`。
+
+### 3. 保存位置与清空名单
+
+每个“禅道地址 + 登录账号”只有一个默认团队，保存在本机
+`~/.zentao-ai-assistant/teams/`。同一身份跨项目、跨工作区复用；切换地址或账号后
+使用另一份名单。名单不写入项目 `.env`、Git 仓库或插件缓存，也不随 Git 推送到远程。
+团队配置只影响自己的查询范围，不会修改禅道用户、Bug 指派或生命周期状态。
+
+只有确实需要清空配置成员时才执行下面的命令；清空后仍保留本人：
+
+```bash
+python3 skills/zentao-personal/scripts/zentao_personal.py team-replace --clear --json
+```
+
+完整参数、排序和异常规则见[团队合同](skills/zentao-personal/references/team.md)，
+连接配置与身份隔离规则见[配置说明](docs/configuration.md#个人默认团队)。
 
 ## 测试
 

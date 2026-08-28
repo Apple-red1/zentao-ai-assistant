@@ -12,10 +12,49 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 SHARED = REPO_ROOT / "skills" / "_shared"
 if str(SHARED) not in sys.path:
     sys.path.insert(0, str(SHARED))
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
 
 from zentao.records import assignee, deadline_state, dedupe_records, is_open, priority, severity, title  # noqa: E402
 from zentao.identity import AmbiguousMatchError, MatchNotFoundError, resolve_user  # noqa: E402
 from zentao.runtime import get_client, store_temp_json  # noqa: E402
+from team_config import TeamError, TeamStore  # noqa: E402
+from team_report import build_team_report, collect_bugs, read_directory, resolve_members, team_members  # noqa: E402
+from team_presenter import render_team_report  # noqa: E402
+
+
+TEAM_ACTIONS = ('team-view', 'team-add', 'team-remove', 'team-replace', 'team-bugs', 'team-brief')
+
+
+def _team_result(client, args):
+    store = TeamStore(client.connection_identity)
+    configured = store.read()
+    users, errors = read_directory(client, per_page=args.per_page or 1000)
+    if args.action in ('team-add', 'team-remove', 'team-replace'):
+        accounts = resolve_members(users, errors, args.member or [])
+        # Validate ownership in the same complete directory as requested members.
+        if not any(u['account'] == client.account for u in users):
+            raise TeamError('TEAM_OWNER_UNAVAILABLE', '完整用户目录中未找到当前账号；团队配置未修改')
+        configured = store.update(args.action.removeprefix('team-'), accounts)
+    members = team_members(client.account, configured, users, errors)
+    if args.action in ('team-bugs', 'team-brief'):
+        scope = next((k for k in ('product', 'project', 'execution') if getattr(args, k) is not None), None)
+        scope_id = getattr(args, scope) if scope else None
+        rows, failures = collect_bugs(client, scope=scope, scope_id=scope_id, per_page=args.per_page or 1000)
+        payload = build_team_report(members, rows, scope=scope, scope_id=scope_id,
+                                    failures=failures, today=args.today)
+        if args.cache_data:
+            payload['temp_data'] = store_temp_json('personal', payload)
+        return payload
+    failures = []
+    for member in members:
+        for failure in member['partial_failures']:
+            if failure not in failures:
+                failures.append(failure)
+    return {'owner': store.identity, 'configured_accounts': configured,
+            'effective_accounts': [m['account'] for m in members], 'members': members,
+            'complete': not failures, 'partial_failures': failures}
 
 
 def _risk_item(resource: str, row: dict[str, Any], *, today: str | date | None = None) -> dict[str, Any]:
@@ -129,14 +168,50 @@ def _collect(client) -> tuple[dict[str, list[dict[str, Any]]], list[dict[str, ob
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="ZenTao personal work assistant")
-    parser.add_argument("action", choices=("overview", "worklist", "brief"))
+    parser.add_argument("action", choices=("overview", "worklist", "brief", *TEAM_ACTIONS))
     parser.add_argument("--user")
     parser.add_argument("--today")
     parser.add_argument("--cache-data", action="store_true")
-    parser.add_argument("--json", action="store_true")
+    output = parser.add_mutually_exclusive_group()
+    output.add_argument("--json", action="store_true")
+    output.add_argument("--markdown", action="store_true", help="团队 Bug/日报四列表格")
+    parser.add_argument("--member", action="append", help="团队成员 account/唯一姓名，可重复")
+    parser.add_argument("--clear", action="store_true", help="显式清空配置成员，仍保留本人")
+    parser.add_argument("--per-page", type=int)
+    scope = parser.add_mutually_exclusive_group()
+    for name in ('product', 'project', 'execution'):
+        scope.add_argument('--' + name, type=int)
     args = parser.parse_args(argv)
+    team = args.action in TEAM_ACTIONS
+    query = args.action in ('team-bugs', 'team-brief')
+    editing = args.action in ('team-add', 'team-remove', 'team-replace')
+    if team and args.user is not None:
+        parser.error('团队归当前登录账号所有，不能使用 --user')
+    if not team and (args.member is not None or args.clear or args.per_page is not None):
+        parser.error('成员与分页参数仅用于团队命令')
+    if (args.member is not None or args.clear) and not editing:
+        parser.error('--member/--clear 仅用于团队名单维护')
+    if editing and not args.member and not args.clear:
+        parser.error('请明确提供 --member；清空名单使用 team-replace --clear')
+    if args.clear and (args.action != 'team-replace' or args.member):
+        parser.error('--clear 只能单独用于 team-replace')
+    if (args.markdown or any(getattr(args, k) is not None for k in ('product', 'project', 'execution'))) and not query:
+        parser.error('范围和 Markdown 参数仅用于 team-bugs/team-brief')
+    if team and not query and (args.today or args.cache_data):
+        parser.error('团队名单维护不接受 --today/--cache-data')
+    if args.per_page is not None and not 1 <= args.per_page <= 1000:
+        parser.error('--per-page 必须在 1..1000')
+    if any(getattr(args, k) is not None and getattr(args, k) <= 0 for k in ('product', 'project', 'execution')):
+        parser.error('范围 ID 必须为正整数')
     try:
+        if team and args.today:
+            date.fromisoformat(args.today)
         client = get_client()
+        if team:
+            payload = _team_result(client, args)
+            print(render_team_report(payload, brief=args.action == 'team-brief') if args.markdown else
+                  json.dumps(payload, ensure_ascii=False, separators=(",", ":") if args.json else None, indent=None if args.json else 2))
+            return 0
         account = client.account
         if args.user:
             users = []
@@ -162,6 +237,9 @@ def main(argv: list[str] | None = None) -> int:
             payload["temp_data"] = store_temp_json("personal", {"account": account, "resources": resources})
         print(json.dumps(payload, ensure_ascii=False, separators=(",", ":") if args.json else None, indent=None if args.json else 2))
         return 0
+    except TeamError as exc:
+        print(json.dumps({'error': {'code': exc.code, 'message': str(exc), 'details': exc.details}}, ensure_ascii=False), file=sys.stderr)
+        return 1
     except AmbiguousMatchError as exc:
         candidates = list(exc.candidates)
         message = f"用户姓名存在歧义: {', '.join(candidates)}"
