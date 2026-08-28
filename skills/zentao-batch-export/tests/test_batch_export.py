@@ -10,11 +10,15 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest.mock import call, patch
 
 ROOT = Path(__file__).resolve().parents[3]
 ZENTAO_ROOT = ROOT / "skills" / "zentao"
 if str(ZENTAO_ROOT) not in sys.path:
     sys.path.insert(0, str(ZENTAO_ROOT))
+ZENTAO_SCRIPTS = ZENTAO_ROOT / "scripts"
+if str(ZENTAO_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(ZENTAO_SCRIPTS))
 
 from tests.fake_zentao.server import FakeZenTao  # noqa: E402
 
@@ -142,8 +146,82 @@ class BatchExportUnitTests(unittest.TestCase):
             self.assertEqual(["RESOURCE_CONTENT_INVALID"], [item["code"] for item in failures])
             self.assertEqual([], list(destination.iterdir()))
 
+    def test_only_verified_comment_objects_request_comment_resources(self) -> None:
+        responses = {
+            ("bug", "view"): {"id": 1, "title": "bug"},
+            ("story", "view"): {"id": 2, "title": "story"},
+            ("product", "view"): {"id": 3, "title": "product"},
+        }
+
+        def fake_run_cli(argv: list[str]) -> tuple[object, None]:
+            if argv[0] == "resource":
+                object_type = argv[argv.index("--object-type") + 1]
+                return {"resources": [], "partial_failures": []}, None
+            return responses[(argv[0], argv[1])], None
+
+        with tempfile.TemporaryDirectory() as td, patch.object(
+            batch_export,
+            "prepare_runtime_temp_root",
+            return_value=Path(td) / "runtime",
+        ), patch.object(batch_export, "_run_cli", side_effect=fake_run_cli) as run_cli:
+            result = batch_export.export_objects(["bug:1", "story:2", "product:3"])
+
+        resource_calls = [
+            call.args[0]
+            for call in run_cli.call_args_list
+            if call.args[0][0] == "resource"
+        ]
+        self.assertEqual(3, len(resource_calls))
+        self.assertIn("--include-comments", resource_calls[0])
+        self.assertIn("--include-comments", resource_calls[1])
+        self.assertNotIn("--include-comments", resource_calls[2])
+        self.assertTrue(result["complete"])
+
 
 class BatchExportE2ETests(unittest.TestCase):
+    def test_bug_export_includes_verified_comment_file_and_inline_image_resources(self) -> None:
+        with FakeZenTao() as fake, tempfile.TemporaryDirectory() as td:
+            home = Path(td)
+            fake.state.resources["bug"]["901"] = {
+                "id": 901,
+                "title": "带评论的 Bug",
+                "status": "active",
+                "actions": [{
+                    "id": 1101,
+                    "action": "commented",
+                    "objectType": "bug",
+                    "objectID": 901,
+                    "actor": "admin",
+                    "comment": '<p>备注</p><p><img src="/index.php?m=file&f=read&t=png&fileID=2201"></p>',
+                    "files": [{
+                        "id": 2200,
+                        "objectType": "comment",
+                        "objectID": 1101,
+                        "title": "评论附件.txt",
+                        "size": 9,
+                        "url": "/comment-files/2200",
+                    }],
+                }],
+            }
+            fake.state.add_binary("/comment-files/2200", b"comment-9", content_type="text/plain", filename="评论附件.txt")
+            fake.state.add_binary("/index.php", b"comment-png", content_type="image/png", filename="comment.png")
+
+            result = run_export(fake.base_url, home, "bug:901")
+            self.assertEqual(0, result.returncode, result.stderr)
+            output = json.loads(result.stdout)
+
+            with zipfile.ZipFile(output["zip_path"]) as archive:
+                names = set(archive.namelist())
+                manifest = json.loads(archive.read("manifest.json"))
+                content = archive.read("objects/bug/901/content.md").decode("utf-8")
+
+            self.assertTrue(output["complete"])
+            self.assertEqual(2, manifest["objects"][0]["resource_count"])
+            self.assertIn("objects/bug/901/resources/评论附件.txt", names)
+            self.assertIn("objects/bug/901/resources/comment.png", names)
+            self.assertIn("resources/评论附件.txt", content)
+            self.assertIn("resources/comment.png", content)
+
     def test_mixed_objects_export_complete_fields_resources_and_dynamic_zip(self) -> None:
         with FakeZenTao() as fake, tempfile.TemporaryDirectory() as td:
             home = Path(td)

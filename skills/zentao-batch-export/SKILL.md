@@ -55,6 +55,10 @@ python skills/zentao-batch-export/scripts/zentao_batch_export.py \
 
 每个对象保留一个完整 `content.md`，其中以 Markdown 展示该对象 `view --json` 返回的全部字段，不挑选或裁剪字段；关联附件与富文本资源全部尝试归档到该对象的 `resources/`。富文本中已成功复制的图片和文件链接指向 `resources/<file>`，解压后可直接使用。
 
+对 `bug` 和 `story`，批量导出会在调用基础 `resource fetch` 时显式包含已验证的评论资源：
+Bug 包含评论普通附件和评论内嵌图片，Story 包含评论普通附件。其它对象只使用默认的
+对象附件区/正文资源范围，不扫描评论 action；这不会新增 API endpoint。
+
 ZIP 内部结构固定为：
 
 ```text

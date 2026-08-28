@@ -39,6 +39,23 @@ ID、文件名和大小。页面写入异常只允许一次只读回读；无法
 `UNKNOWN_WRITE_RESULT`，不自动重复提交。页面客户端只接受仓库内部构造的同源路径，不
 接受任意 URL，不把密码、Cookie 或页面响应写入日志/输出。
 
+## 独立评论与内嵌图片
+
+- 评论只注册在已验证的十种对象类型上；普通附件只在 Bug/Story 接受，内嵌图片只在 Bug
+  接受且每次最多一张。参数校验在建立页面会话前完成，拒绝空正文、非法路径、附件与图片
+  混用和不支持的对象能力。
+- 评论页面固定为同源 `/index.php?m=action&f=comment&objectType=...&objectID=...`；
+  页面会话复用 `LegacyWebClient` 的 Cookie/同源重定向保护。评论提交只允许一次，写前后
+  通过 action ID 差集和正文/对象/附件归属确认，0 或多个候选均返回
+  `UNKNOWN_WRITE_RESULT`，不重放。
+- Bug 内嵌图片固定 POST 到同源 `/index.php?m=file&f=ajaxUpload&uid=...`，字段名固定为
+  `imgFile`。响应必须包含有效 file ID 与同源 URL；跨源、带凭据或无法解析的 URL 不写入
+  评论。上传已发生但响应/后续评论结果无法确认时只读回读一次并标记
+  `possible_orphan`，不删除、不重传、不重发评论。
+- `resource fetch --include-comments` 只下载与匹配对象绑定的 Bug/Story comment action
+  资源，并继续执行现有的同源、重定向、Token、MIME、路径和临时目录保护；默认资源获取
+  不读取评论 action。
+
 ## 高层 Skill 数据
 
 统计/个人/项目管理在 `--cache-data` 时可以把大批量中间 JSON 放到当前 scope：

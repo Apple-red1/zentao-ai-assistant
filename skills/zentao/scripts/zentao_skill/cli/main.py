@@ -10,6 +10,7 @@ from ..internal.errors import ConfigError, UsageError, ZentaoError
 from ..services.container import Services
 from .common import Parser, add_json_flag
 from .output import emit_error, emit_success
+from . import comments as cmd_comments
 from .bugs import commands as cmd_bugs
 from .builds import commands as cmd_builds
 from .epics import commands as cmd_epics
@@ -62,10 +63,12 @@ def build_parser() -> Parser:
     r_bug = top.add_parser('bug', help='bug resource')
     r_bug_actions = r_bug.add_subparsers(dest="action", required=True)
     cmd_bugs.register(r_bug_actions)
+    cmd_comments.register_comment_action(r_bug_actions, resource="bug")
 
     r_build = top.add_parser('build', help='build resource')
     r_build_actions = r_build.add_subparsers(dest="action", required=True)
     cmd_builds.register(r_build_actions)
+    cmd_comments.register_comment_action(r_build_actions, resource="build")
 
     r_epic = top.add_parser('epic', help='epic resource')
     r_epic_actions = r_epic.add_subparsers(dest="action", required=True)
@@ -74,6 +77,7 @@ def build_parser() -> Parser:
     r_execution = top.add_parser('execution', help='execution resource')
     r_execution_actions = r_execution.add_subparsers(dest="action", required=True)
     cmd_executions.register(r_execution_actions)
+    cmd_comments.register_comment_action(r_execution_actions, resource="execution")
 
     r_feedback = top.add_parser('feedback', help='feedback resource')
     r_feedback_actions = r_feedback.add_subparsers(dest="action", required=True)
@@ -90,10 +94,12 @@ def build_parser() -> Parser:
     r_product = top.add_parser('product', help='product resource')
     r_product_actions = r_product.add_subparsers(dest="action", required=True)
     cmd_products.register(r_product_actions)
+    cmd_comments.register_comment_action(r_product_actions, resource="product")
 
     r_product_plan = top.add_parser('product-plan', help='product-plan resource')
     r_product_plan_actions = r_product_plan.add_subparsers(dest="action", required=True)
     cmd_product_plans.register(r_product_plan_actions)
+    cmd_comments.register_comment_action(r_product_plan_actions, resource="product-plan")
 
     r_program = top.add_parser('program', help='program resource')
     r_program_actions = r_program.add_subparsers(dest="action", required=True)
@@ -102,10 +108,12 @@ def build_parser() -> Parser:
     r_project = top.add_parser('project', help='project resource')
     r_project_actions = r_project.add_subparsers(dest="action", required=True)
     cmd_projects.register(r_project_actions)
+    cmd_comments.register_comment_action(r_project_actions, resource="project")
 
     r_release = top.add_parser('release', help='release resource')
     r_release_actions = r_release.add_subparsers(dest="action", required=True)
     cmd_releases.register(r_release_actions)
+    cmd_comments.register_comment_action(r_release_actions, resource="release")
 
     r_requirement = top.add_parser('requirement', help='requirement resource')
     r_requirement_actions = r_requirement.add_subparsers(dest="action", required=True)
@@ -114,6 +122,7 @@ def build_parser() -> Parser:
     r_story = top.add_parser('story', help='story resource')
     r_story_actions = r_story.add_subparsers(dest="action", required=True)
     cmd_stories.register(r_story_actions)
+    cmd_comments.register_comment_action(r_story_actions, resource="story")
 
     r_system = top.add_parser('system', help='system resource')
     r_system_actions = r_system.add_subparsers(dest="action", required=True)
@@ -122,6 +131,7 @@ def build_parser() -> Parser:
     r_task = top.add_parser('task', help='task resource')
     r_task_actions = r_task.add_subparsers(dest="action", required=True)
     cmd_tasks.register(r_task_actions)
+    cmd_comments.register_comment_action(r_task_actions, resource="task")
 
     r_test_case = top.add_parser('test-case', help='test-case resource')
     r_test_case_actions = r_test_case.add_subparsers(dest="action", required=True)
@@ -130,6 +140,7 @@ def build_parser() -> Parser:
     r_test_task = top.add_parser('test-task', help='test-task resource')
     r_test_task_actions = r_test_task.add_subparsers(dest="action", required=True)
     cmd_test_tasks.register(r_test_task_actions)
+    cmd_comments.register_comment_action(r_test_task_actions, resource="test-task")
 
     r_ticket = top.add_parser('ticket', help='ticket resource')
     r_ticket_actions = r_ticket.add_subparsers(dest="action", required=True)

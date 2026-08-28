@@ -10,7 +10,7 @@
 
 | Skill | 能做什么 | 自然语言示例 |
 |---|---|---|
-| [`zentao`](skills/zentao/SKILL.md) | API 原子查询、明确授权的写入、对象附件与富文本资源获取 | “查看 Bug 123，获取它的附件” |
+| [`zentao`](skills/zentao/SKILL.md) | API 原子查询、固定同源独立评论、明确授权的写入、对象附件与富文本资源获取 | “查看 Bug 123，获取它的附件”；“给 Bug 123 添加评论” |
 | [`zentao-statistics`](skills/zentao-statistics/SKILL.md) | 确定性计数、状态分布、聚合、同类范围对比 | “统计产品 1 的 Bug 状态分布” |
 | [`zentao-personal`](skills/zentao-personal/SKILL.md) | 当前或指定用户的待办、风险、工作列表、日报/周报素材 | “看看我有哪些待办和逾期任务” |
 | [`zentao-project-management`](skills/zentao-project-management/SKILL.md) | 项目/执行进度事实、风险信号和工作量分布 | “分析项目 12 的进展和阻塞” |
@@ -141,6 +141,8 @@ Token 不写回配置文件、不保存密码，默认缓存 TTL 为 8 小时；
 python3 skills/zentao/scripts/zentao.py doctor --json
 python3 skills/zentao/scripts/zentao.py bug list --product 1 --json
 python3 skills/zentao/scripts/zentao.py resource fetch --object-type bug --object-id 123 --json
+python3 skills/zentao/scripts/zentao.py bug comment 123 --comment "已补充验证结果" --json
+python3 skills/zentao/scripts/zentao.py bug comment 123 --comment "附图" --inline-image ./screenshot.png --json
 ```
 
 删除属于 R3，必须有明确删除意图并传 `--yes`。
@@ -155,6 +157,10 @@ python3 skills/zentao-batch-export/scripts/zentao_batch_export.py bug:123 story:
 ```
 
 `zentao-batch-export` 只读复用基础 `view` 与 `resource fetch`，把每个对象的完整字段格式化写入 `content.md`，把附件/富文本资源归档到对象目录，并将已成功归档的正文资源引用改为 `resources/<file>`，再在当前 runtime scope 下生成动态命名的 ZIP。单项失败继续导出并完整保留到 `manifest.json` 的 `complete/failures`。
+
+独立评论使用固定同源 Legacy Web 兼容路径，不计入官方 API endpoint；`bug` 支持普通附件和一张
+内嵌图片，`story` 支持普通附件，其它已验证对象只支持评论正文。写入会在单次 POST 前后做
+action snapshot/readback，结果不确定时返回 `UNKNOWN_WRITE_RESULT` 且不重放。
 
 Bug 详情链接使用固定禅道路由直接生成，不打开浏览器：
 `python3 skills/zentao/scripts/zentao.py bug web-url 3641 --json`。

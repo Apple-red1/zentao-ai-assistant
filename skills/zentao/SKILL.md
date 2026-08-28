@@ -5,9 +5,7 @@ description: Use when users ask to read or explicitly change ZenTao through the 
 
 # 禅道（zentao）
 
-仓库当前合同索引见 [`docs/current-contract.md`](../../docs/current-contract.md)。本文件
-负责 Skill 的用户调用、安全授权和输出语义；endpoint 机器合同及真实兼容性按该索引
-分别读取，不以历史 `RULES.md` 为依据。
+仓库当前合同索引见 [`docs/current-contract.md`](../../docs/current-contract.md)。本文件负责 Skill 的用户调用、安全授权和输出语义；endpoint 机器合同及真实兼容性按该索引分别读取，不以历史 `RULES.md` 为依据。
 
 ## 调用入口
 
@@ -43,17 +41,23 @@ python skills/zentao/scripts/zentao.py <resource> <action> [scope] [parameters] 
 - `user` → `references/api-v2/users.md`
 Bug 链接固定使用 `ZENTAO_BASE_URL/index.php?m=bug&f=view&bugID=<id>`，直接执行 `zentao.py bug web-url <id> [<id> ...] --json`；此路径不打开浏览器、不访问页面。
 Token 登录由内部 `token.login` 认证适配自动完成，不建立业务 `token` 命令域；`doctor` 可验证配置和登录。仓库内其他高层 Skill 通过 `references/programmatic.md` 说明的 public facade 复用该基础能力。
+## 独立评论
 
+独立评论走现有 `LegacyWebClient` 的固定同源页面协议，不是官方 API v2 endpoint，也不改变对象状态或生命周期。命令格式为：
+
+```bash
+python skills/zentao/scripts/zentao.py bug comment 123 --comment "复现结果已补充" --json
+python skills/zentao/scripts/zentao.py story comment 78 --comment-file comment.txt --file ./trace.log --json
+```
+
+能力边界固定为：`bug` 支持重复 `--file` 和单张 `--inline-image`，`story` 支持重复 `--file`；`product`、`task`、`execution`、`project`、`test-task`、`product-plan`、`release`、`build` 只支持评论正文。`--comment` 与 `--comment-file` 互斥，正文不能为空；普通附件和内嵌图片不能混用，非 Bug 不接受 `--inline-image`。
+
+每次写入都先读取评论表单和 action snapshot，再只提交一次评论 POST，并通过写后 action ID 差集、对象类型/ID、正文、当前用户和附件归属回读确认。无法得到唯一候选或网络结果不确定时返回 `UNKNOWN_WRITE_RESULT`，不自动重放；关键对象字段发生变化时返回并发变化信息，不执行第二次写入。内嵌图片只允许一次固定同源 `file/ajaxUpload`，响应无法确认时停止评论并提示可能存在孤儿文件。
 ## 配置与运行 scope
 
-直接 clone 使用 project scope：`setup` 或 `setup --scope project`；Plugin/用户级配置使用
-`setup --scope user`。`setup` 通过交互式提示读取密码，不接受 `--password`；写入后执行
-`doctor --json` 验证，命令输出、错误和文档示例都不显示密码或 Token。
+直接 clone 使用 project scope：`setup` 或 `setup --scope project`；Plugin/用户级配置使用 `setup --scope user`。`setup` 通过交互式提示读取密码，不接受 `--password`；写入后执行 `doctor --json` 验证，命令输出、错误和文档示例都不显示密码或 Token。
 
-配置文件严格按 `ZENTAO_CONFIG_FILE` → 仓库根目录 `.env`（存在时）→
-`~/.zentao-ai-assistant/config.env` 选择一个文件；不跨文件补字段，环境变量
-覆盖所选文件同名键。显式指定的配置文件不存在时直接报错；显式指定非仓库根目录
-配置时，连接使用该文件，Token/cache/resource 等运行数据使用 user scope。
+配置文件严格按 `ZENTAO_CONFIG_FILE` → 仓库根目录 `.env`（存在时）→ `~/.zentao-ai-assistant/config.env` 选择一个文件；不跨文件补字段，环境变量覆盖所选文件同名键。显式指定的配置文件不存在时直接报错；显式指定非仓库根目录配置时，连接使用该文件，Token/cache/resource 等运行数据使用 user scope。
 
 运行数据随 scope 隔离：
 
@@ -66,8 +70,7 @@ user:    ~/.zentao-ai-assistant/cache/auth/
          ~/.zentao-ai-assistant/tmp/zentao/<skill>/
 ```
 
-Token cache 只保存短期 Token，不保存密码；临时资源和高层聚合材料不是长期
-事实源。
+Token cache 只保存短期 Token，不保存密码；临时资源和高层聚合材料不是长期事实源。
 
 ## 风险与授权
 
@@ -84,10 +87,7 @@ Token cache 只保存短期 Token，不保存密码；临时资源和高层聚�
 
 `view` 只读取对象详情，不自动下载附件。用户明确要求获取、查看或分析对象资源时，先用对应 `view` 获取文本事实，再执行 `resource fetch --object-type <type> --object-id <id> --json`。
 
-`resource fetch` 只从对象附件区和富文本发现资源，尝试获取全部文件并保存到
-当前 runtime scope 的资源临时目录；不接受任意 URL。富文本旧式图片 `file/read`
-请求仅改为同源 `file/download`，结果保留原始 source；普通附件 URL 不改写。
-空响应、疑似登录/错误 HTML 或 MIME 类型冲突会以 `RESOURCE_CONTENT_INVALID` 记录，全部失败才返回 `RESOURCE_FETCH_FAILED`。
+`resource fetch` 只从对象附件区和富文本发现资源，尝试获取全部文件并保存到当前 runtime scope 的资源临时目录；不接受任意 URL。富文本旧式图片 `file/read` 请求仅改为同源 `file/download`，结果保留原始 source；普通附件 URL 不改写。空响应、疑似登录/错误 HTML 或 MIME 类型冲突会以 `RESOURCE_CONTENT_INVALID` 记录，全部失败才返回 `RESOURCE_FETCH_FAILED`。
 下载后的图片/文档/日志等由宿主按可用能力继续理解。
 
 ## 输出与错误

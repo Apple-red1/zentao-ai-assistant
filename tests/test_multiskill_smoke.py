@@ -19,6 +19,9 @@ ZENTAO_ROOT = ROOT / 'skills' / 'zentao'
 SHARED_ROOT = ROOT / 'skills' / '_shared'
 if str(ZENTAO_ROOT) not in sys.path:
     sys.path.insert(0, str(ZENTAO_ROOT))
+ZENTAO_SCRIPTS = ZENTAO_ROOT / 'scripts'
+if str(ZENTAO_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(ZENTAO_SCRIPTS))
 if str(SHARED_ROOT) not in sys.path:
     sys.path.insert(0, str(SHARED_ROOT))
 

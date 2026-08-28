@@ -52,10 +52,17 @@ cache。
 - `zentao-project-management`：事实型 health signals、无数值健康分、开放事项 workload。
 - `zentao-bug-resolver`：只读 `select`、Bug snapshot、写前 `compare` 及证据完整性边界。
 - `zentao-batch-export`：混合类型去重、完整字段 Markdown、资源归档、部分失败继续、动态 ZIP、runtime scope 与路径安全。
+- `zentao` 独立评论：十种对象能力矩阵、正文来源互斥、重复 Unicode `files[]`、Bug 单张
+  内嵌图片、固定同源页面路由、action 差集唯一确认、未知结果不重放、并发字段变化和
+  `--include-comments` 的 Bug/Story 资源追溯范围。
 
 resolver 的多 Skill smoke 使用本地 FakeZenTao 服务器，由独立子进程实际运行 `select`、`snapshot`、`compare`；断言业务请求均为 GET、没有 `bug.resolve`，因此不代表真实 ZenTao 调用。全仓库和 API 专项结果中的 `Real API calls: 0` 仍是硬边界：测试只验证本地 Fake/桩合同，不验证真实环境兼容性。
 
 批量导出还应覆盖 Markdown 字段格式化、富文本资源引用替换为 ZIP 相对路径、重复文件名、部分失败继续和失败详情保留。后续增加场景时优先覆盖多页、空集、部分失败、重复数据、日期边界和真实用户表达。
+
+评论的本地 Fake/E2E 不连接真实 ZenTao；真实 21.7.8 验收另记录在
+`docs/acceptance/zentao-21.7.8.md`，包括十种对象的评论回读、Bug/Story 附件、Bug
+内嵌图片和评论资源下载结果。
 
 ## Bug ID 聊天展示
 

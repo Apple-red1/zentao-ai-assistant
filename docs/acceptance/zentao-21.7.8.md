@@ -1,6 +1,6 @@
 # ZenTao 21.7.8 兼容性状态
 
-官方 API v2 合同与目标实例兼容性是两个独立维度。本文件记录 2026-08-25 在全新 ZenTao 21.7.8 实例上的真实验收结果；凭证仍只从本地 `.env` 读取，不写入仓库。
+官方 API v2 合同与目标实例兼容性是两个独立维度。本文件记录 2026-08-25 起在全新 ZenTao 21.7.8 实例上的真实验收结果；凭证仍只从本地 `.env` 读取，不写入仓库。
 
 ## 已验证
 
@@ -97,3 +97,22 @@
 上述真实观察不改变官方 120 endpoint catalog：`file.upload` 的 v2 endpoint 仍记录为
 unsupported，页面兼容路径是基础 CLI 的内部实现，不是新增 endpoint。为保留真实验证
 证据，本轮创建的测试 Bug `79`、`80` 未执行删除，需用户明确指定具体 ID 后再按 R3 合同清理。
+
+## 独立评论功能（Issue #52，2026-08-28）
+
+本次使用项目 `.env` 中配置的专用 ZenTao 21.7.8 实例完成真实写入和只读回读；自动化
+Fake 不参与以下结果。评论页面和内嵌图片均通过现有 `LegacyWebClient`，没有新增 API
+endpoint，也没有执行删除清理这些专用验收数据。
+
+| 能力 | 真实对象 | 写后 action / 文件证据 | 结果 |
+|---|---:|---|---|
+| 十种对象评论正文 | Bug 79、Story 5、Product 2、Task 3、Execution 10、Project 8、Test-task 16、Product-plan 7、Release 1、Build 55 | action `4843`、`4864`、`4867`、`4870`、`4873`、`4875`、`4889`、`4892`、`4894`、`4896`（按对象顺序） | 均成功，回读确认 `action=commented`、对象类型/ID和正文 |
+| Bug/Story 重复普通附件 | Bug 79、Story 5 | Bug action `4899`，file `8/9`；Story action `4902`，file `10/11` | 均成功，中文文件名、大小和 comment action 归属回读确认 |
+| Bug 单张内嵌图片 | Bug 79 | action `4941`，inline file `17` | `ajaxUpload` 单次成功，评论回读确认同源图片 URL |
+| 评论资源显式回读 | Bug 79、Story 5 | `resource fetch --include-comments`；Bug 评论资源含 action `4899`/inline `4941` 等，Story 含 action `4902` 的 file `10/11` | 两个命令均 exit `0`，`partial_failures=[]`，下载文件字节可读 |
+
+用于资源字节核对的验收文件 SHA-256：内嵌 PNG（Bug file `17`）为
+`65d3e2eafcc403c84f500dc83d8e774e240eae611fd76cf15f4515784b8643d3`；Story `附件-A.txt`
+（file `10`）为 `990c40f4024db3d59454f4a43a030667d04d613b54ad46fd13354e64a987ed`，
+`附件-B.txt`（file `11`）为 `4797c36988bf0024ee4b1d974c760018c021ee03507d7543019bcef47a46e42e`。
+资源落盘仍位于当前 scope 的 `.tmp/zentao-resources/`，验收输出未写入仓库。

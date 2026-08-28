@@ -10,7 +10,9 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, unquote, unquote_to_bytes, urlencode, urlsplit, urlunsplit
 
+from ...comment_contract import VERIFIED_COMMENT_RESOURCE_TYPES
 from ..errors import ApiError, UsageError
+from .comment_resources import discover_comment_resources
 from .session import ZentaoSession
 
 
@@ -48,6 +50,8 @@ class ResourceCandidate:
     origin: str
     file_name: str | None = None
     field: str | None = None
+    action_id: int | None = None
+    file_id: int | None = None
 
 
 class _RichTextParser(HTMLParser):
@@ -89,19 +93,42 @@ def _parse_srcset(value: str) -> list[str]:
     return sources
 
 
-def discover_resources(detail: object) -> tuple[list[ResourceCandidate], list[dict[str, object]]]:
+def discover_resources(
+    detail: object,
+    *,
+    include_comments: bool = False,
+    object_type: str | None = None,
+    object_id: int | None = None,
+) -> tuple[list[ResourceCandidate], list[dict[str, object]]]:
     candidates: list[ResourceCandidate] = []
     failures: list[dict[str, object]] = []
     seen: set[str] = set()
 
-    def add(source: object, *, origin: str, file_name: str | None = None, field: str | None = None) -> None:
+    def add(
+        source: object,
+        *,
+        origin: str,
+        file_name: str | None = None,
+        field: str | None = None,
+        action_id: int | None = None,
+        file_id: int | None = None,
+    ) -> None:
         if not isinstance(source, str) or not source.strip():
             return
         normalized = source.strip()
         if normalized in seen:
             return
         seen.add(normalized)
-        candidates.append(ResourceCandidate(normalized, origin, file_name=file_name, field=field))
+        candidates.append(
+            ResourceCandidate(
+                normalized,
+                origin,
+                file_name=file_name,
+                field=field,
+                action_id=action_id,
+                file_id=file_id,
+            )
+        )
 
     def attachment_entries(value: object) -> list[object]:
         if isinstance(value, list):
@@ -165,6 +192,14 @@ def discover_resources(detail: object) -> tuple[list[ResourceCandidate], list[di
 
     walk_attachments(detail)
     walk_rich_text(detail)
+    if include_comments and object_type in VERIFIED_COMMENT_RESOURCE_TYPES:
+        discover_comment_resources(
+            detail,
+            object_type=object_type,
+            object_id=object_id,
+            add=add,
+            failures=failures,
+        )
     return candidates, failures
 
 

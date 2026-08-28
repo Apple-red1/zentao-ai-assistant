@@ -38,6 +38,21 @@ ZenTao API v2 / user data roots
 
 API endpoint 保持显式实现，`endpoints.json` 不参与运行时路由。
 
+独立评论是基础 Skill 内的兼容分支，不进入 API endpoint catalog：
+
+```text
+zentao.py <resource> comment <id>
+  -> CommentService
+  -> CommentAPI
+  -> existing LegacyWebClient（固定同源 action/comment 页面）
+  -> action snapshot/readback（API 详情或固定对象详情页）
+```
+
+Bug 的单张内嵌图片先经同一 `LegacyWebClient` 的固定
+`/index.php?m=file&f=ajaxUpload&uid=...`，再把服务端返回的同源图片地址写入唯一评论；
+普通附件使用评论页面的重复 `files[]` multipart 字段。该分支不引入第二套 transport、
+数据库、MCP 或生命周期旁路。
+
 ## Skill 职责
 
 | Skill | 职责与边界 |

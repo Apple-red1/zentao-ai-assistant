@@ -13,10 +13,15 @@ def register(resource_subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     parser = resource_subparsers.add_parser("fetch", help="获取对象附件区和富文本中的全部资源文件")
     parser.add_argument("--object-type", required=True, choices=sorted(ResourcesService.OBJECT_TYPES), dest="object_type")
     parser.add_argument("--object-id", required=True, type=positive_int, dest="object_id")
+    parser.add_argument("--include-comments", action="store_true", help="显式获取已验证评论附件和评论内嵌图片")
     add_json_flag(parser)
     parser.set_defaults(_handler=_run_fetch)
 
 
 def _run_fetch(services: object, args: argparse.Namespace) -> object:
     service: ResourcesService = getattr(services, "resource")
-    return service.fetch(object_type=args.object_type, object_id=args.object_id)
+    return service.fetch(
+        object_type=args.object_type,
+        object_id=args.object_id,
+        include_comments=args.include_comments,
+    )

@@ -107,6 +107,119 @@ class ResourceDiscoveryTests(unittest.TestCase):
         self.assertEqual([], failures)
         self.assertEqual(["/assets/current.png"], [item.source for item in candidates])
 
+    def test_include_comments_is_opt_in_and_keeps_default_action_exclusion(self) -> None:
+        detail = {
+            "id": 7,
+            "files": {"1": {"id": 1, "title": "object.txt", "url": "/assets/object.txt"}},
+            "actions": [
+                {
+                    "id": 11,
+                    "action": "commented",
+                    "objectType": "bug",
+                    "objectID": 7,
+                    "comment": '<p><img src="/assets/comment.png"></p>',
+                    "files": [{
+                        "id": 21,
+                        "objectType": "comment",
+                        "objectID": 11,
+                        "title": "comment.txt",
+                        "size": 7,
+                        "url": "/assets/comment.txt",
+                    }],
+                },
+                {
+                    "id": 12,
+                    "action": "closed",
+                    "objectType": "bug",
+                    "objectID": 7,
+                    "comment": '<img src="/assets/old.png">',
+                    "files": [{"id": 22, "url": "/assets/old.txt"}],
+                },
+            ],
+        }
+        default_candidates, default_failures = discover_resources(detail)
+        self.assertEqual([], default_failures)
+        self.assertEqual(["/assets/object.txt"], [item.source for item in default_candidates])
+
+        candidates, failures = discover_resources(detail, include_comments=True, object_type="bug")
+        self.assertEqual([], failures)
+        self.assertEqual(
+            ["/assets/object.txt", "/assets/comment.txt", "/assets/comment.png"],
+            [item.source for item in candidates],
+        )
+        comment_file = candidates[1]
+        self.assertEqual("comment", comment_file.origin)
+        self.assertEqual(11, comment_file.action_id)
+        self.assertEqual(21, comment_file.file_id)
+        self.assertEqual("actions.files", comment_file.field)
+        self.assertEqual("comment", candidates[2].origin)
+        self.assertEqual("actions.comment", candidates[2].field)
+
+    def test_include_comments_only_accepts_verified_object_resource_types(self) -> None:
+        detail = {
+            "actions": [{
+                "id": 11,
+                "action": "commented",
+                "objectType": "product",
+                "objectID": 7,
+                "comment": '<img src="/assets/not-verified.png">',
+                "files": [{"id": 21, "objectType": "comment", "objectID": 11, "url": "/assets/not-verified.txt"}],
+            }],
+        }
+        candidates, failures = discover_resources(detail, include_comments=True, object_type="product")
+        self.assertEqual([], failures)
+        self.assertEqual([], candidates)
+
+    def test_comment_duplicate_source_preserves_first_comment_metadata(self) -> None:
+        detail = {
+            "actions": [{
+                "id": 11,
+                "action": "commented",
+                "objectType": "story",
+                "objectID": 7,
+                "comment": '<img src="/assets/shared.png">',
+                "files": [{"id": 21, "objectType": "comment", "objectID": 11, "url": "/assets/shared.png"}],
+            }, {
+                "id": 12,
+                "action": "commented",
+                "objectType": "story",
+                "objectID": 7,
+                "comment": '<img src="/assets/shared.png">',
+            }],
+        }
+        candidates, failures = discover_resources(detail, include_comments=True, object_type="story")
+        self.assertEqual([], failures)
+        self.assertEqual(1, len(candidates))
+        self.assertEqual(11, candidates[0].action_id)
+        self.assertEqual(21, candidates[0].file_id)
+
+    def test_comment_resources_ignore_files_owned_by_another_action(self) -> None:
+        detail = {
+            "actions": [{
+                "id": 11,
+                "action": "commented",
+                "objectType": "bug",
+                "objectID": 7,
+                "files": [{
+                    "id": 21,
+                    "objectType": "comment",
+                    "objectID": 12,
+                    "name": "foreign.txt",
+                    "url": "/assets/foreign.txt",
+                }],
+            }],
+        }
+
+        candidates, failures = discover_resources(
+            detail,
+            include_comments=True,
+            object_type="bug",
+            object_id=7,
+        )
+
+        self.assertEqual([], candidates)
+        self.assertEqual("COMMENT_RESOURCE_METADATA_INVALID", failures[0]["code"])
+
     def test_source_file_name_uses_file_page_query_hints(self) -> None:
         source = "/index.php?m=file&f=read&t=png&fileID=7395"
         self.assertEqual("file-7395.png", source_file_name(source))
