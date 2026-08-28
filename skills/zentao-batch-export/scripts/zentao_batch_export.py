@@ -24,6 +24,7 @@ if str(BATCH_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(BATCH_SCRIPTS))
 
 from zentao_skill.public import prepare_runtime_temp_root  # noqa: E402
+from content_markdown import render_content_markdown, render_failed_content_markdown  # noqa: E402
 from resource_validation import resource_content_failure  # noqa: E402
 
 
@@ -122,40 +123,6 @@ def _write_private_text(path: Path, text: str) -> None:
     finally:
         if fd >= 0:
             os.close(fd)
-
-
-def _longest_backtick_run(text: str) -> int:
-    longest = current = 0
-    for char in text:
-        if char == "`":
-            current += 1
-            longest = max(longest, current)
-        else:
-            current = 0
-    return longest
-
-
-def render_content_markdown(object_type: str, object_id: int, payload: object) -> str:
-    serialized = json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=False)
-    fence = "`" * max(3, _longest_backtick_run(serialized) + 1)
-    return (
-        f"# ZenTao {object_type}:{object_id}\n\n"
-        f"> 数据来源：`zentao {object_type} view {object_id} --json`。"
-        "以下 JSON 为该 `view` 当前实际返回的完整对象数据，不裁剪字段。\n\n"
-        "## 完整字段\n\n"
-        f"{fence}json\n{serialized}\n{fence}\n"
-    )
-
-
-def render_failed_content_markdown(object_type: str, object_id: int, failure: dict[str, Any]) -> str:
-    serialized = json.dumps(failure, ensure_ascii=False, indent=2, sort_keys=False)
-    fence = "`" * max(3, _longest_backtick_run(serialized) + 1)
-    return (
-        f"# ZenTao {object_type}:{object_id}\n\n"
-        "> 对象详情读取失败，本文件只记录本次导出失败信息；完整失败清单同时保存在根目录 `manifest.json`。\n\n"
-        "## 失败信息\n\n"
-        f"{fence}json\n{serialized}\n{fence}\n"
-    )
 
 
 def _decode_cli_error(process: subprocess.CompletedProcess[str], fallback_code: str) -> dict[str, Any]:
@@ -293,6 +260,7 @@ def _copy_resources(
     payload: object,
     destination: Path,
     resource_root: Path,
+    resource_paths: dict[str, str] | None = None,
 ) -> tuple[int, list[dict[str, Any]]]:
     failures: list[dict[str, Any]] = []
     if not isinstance(payload, dict):
@@ -324,6 +292,8 @@ def _copy_resources(
             shutil.copyfile(source, target)
             if os.name == "posix":
                 target.chmod(0o600)
+            if resource_paths is not None and isinstance(item.get("source"), str) and item["source"]:
+                resource_paths.setdefault(item["source"], f"resources/{target.name}")
             copied += 1
         except (BatchExportError, OSError) as exc:
             if isinstance(exc, BatchExportError):
@@ -399,10 +369,10 @@ def export_objects(specs: list[str]) -> dict[str, Any]:
             failure = _failure("view", view_error)
             failures.append(failure)
             _write_private_text(object_dir / "content.md", render_failed_content_markdown(object_type, object_id, failure))
+            resource_count = 0
         else:
             exported_count += 1
-            _write_private_text(object_dir / "content.md", render_content_markdown(object_type, object_id, view_payload))
-
+            resource_paths: dict[str, str] = {}
             resource_payload, resource_error = _run_cli(
                 ["resource", "fetch", "--object-type", object_type, "--object-id", str(object_id)]
             )
@@ -415,10 +385,17 @@ def export_objects(specs: list[str]) -> dict[str, Any]:
                 else:
                     failures.append(_failure("resource_fetch", resource_error))
             else:
-                resource_count, resource_failures = _copy_resources(resource_payload, resources_dir, resource_root)
+                resource_count, resource_failures = _copy_resources(
+                    resource_payload,
+                    resources_dir,
+                    resource_root,
+                    resource_paths,
+                )
                 failures.extend(resource_failures)
-        if view_error is not None:
-            resource_count = 0
+            _write_private_text(
+                object_dir / "content.md",
+                render_content_markdown(object_type, object_id, view_payload, resource_paths),
+            )
 
         manifest_objects.append(
             {

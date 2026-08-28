@@ -51,9 +51,9 @@ python skills/zentao-batch-export/scripts/zentao_batch_export.py \
 
 ## 输出合同
 
-聊天回复中展示 Bug ID 时，编号本身必须可点击；回复前读取并遵守[共享 Bug 展示规则](../zentao/references/bug-display.md)。ZIP 内 `content.md` 与下面的机器输出合同保持不变。
+聊天回复中展示 Bug ID 时，编号本身必须可点击；回复前读取并遵守[共享 Bug 展示规则](../zentao/references/bug-display.md)。ZIP 内 `content.md` 使用可读 Markdown 展示完整字段；已成功归档的资源引用改为对象目录下的相对路径，下面的机器输出合同仍保持不变。
 
-每个对象保留一个完整 `content.md`，其中包含该对象 `view --json` 的完整响应，不挑选或裁剪字段；关联附件与富文本资源全部尝试归档到该对象的 `resources/`。
+每个对象保留一个完整 `content.md`，其中以 Markdown 展示该对象 `view --json` 返回的全部字段，不挑选或裁剪字段；关联附件与富文本资源全部尝试归档到该对象的 `resources/`。富文本中已成功复制的图片和文件链接指向 `resources/<file>`，解压后可直接使用。
 
 ZIP 内部结构固定为：
 
@@ -66,7 +66,7 @@ objects/
       resources/
 ```
 
-不额外生成与 `content.md` 重复的 `data.json`。只有未来出现 Markdown 无法无损承载的真实结构化数据时，才基于证据扩展格式。
+`manifest.json` 和 CLI 的 `--json` 输出继续使用机器可读 JSON；不额外生成与 `content.md` 重复的 `data.json`。只有未来出现 Markdown 无法无损承载的真实结构化数据时，才基于证据扩展格式。
 
 `manifest.json` 只承担索引、完整性和失败记录，不复制标题、状态、负责人等业务字段：
 

@@ -22,7 +22,7 @@ python skills/zentao/scripts/zentao.py bug web-url <id> [<id> ...] --json
 - 查询、筛选、分页、去重、排序、标题、状态、负责人、统计口径及 `complete/partial_failures` 原样保留。
 - resolver 的目标、候选、`pending_queue` 或回读状态若在聊天中展示编号，同样使用链接。仅格式化已知 ID 不表示开始处理该 Bug，不预读 pending 对象、不继续队列、不继承授权；普通证据门槛及 `HUMAN_ATTESTED_RESOLVE` 的最小流程保持不变。
 - CLI `--json`、Python 原始 ID、缓存、快照、manifest、命令参数和代码示例不写入 Markdown 链接。用户要求原始机器数据时按其格式交付。
-- 本规则不修改 CLI 不带 `--json` 的终端输出，也不修改 ZIP 内 `content.md`（包括 Bug 标题和完整 JSON）。向用户说明导出结果的**聊天回复**仍适用。
+- 本规则不修改 CLI 不带 `--json` 的终端输出，也不修改 ZIP 内 `content.md` 的字段内容或批量导出格式（包括 Bug 标题和完整字段）。向用户说明导出结果的**聊天回复**仍适用。
 - 本规则只管聊天展示，不改变发送到 ZenTao 的生命周期备注及任何写入合同。
 
 新增 Skill 如会在聊天中展示 Bug ID，应从自己的 `SKILL.md` 引用本规则，继续使用同一个基础链接命令。
