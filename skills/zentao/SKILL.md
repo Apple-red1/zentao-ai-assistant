@@ -85,9 +85,9 @@ Token cache 只保存短期 Token，不保存密码；临时资源和高层聚�
 `view` 只读取对象详情，不自动下载附件。用户明确要求获取、查看或分析对象资源时，先用对应 `view` 获取文本事实，再执行 `resource fetch --object-type <type> --object-id <id> --json`。
 
 `resource fetch` 只从对象附件区和富文本发现资源，尝试获取全部文件并保存到
-当前 runtime scope 的资源临时目录；不接受任意 URL。至少一个资源成功时保留
-成功结果并报告 `partial_failures`；空响应、疑似登录/错误 HTML 或 MIME 类型冲突
-会以 `RESOURCE_CONTENT_INVALID` 记录，全部失败才返回 `RESOURCE_FETCH_FAILED`。
+当前 runtime scope 的资源临时目录；不接受任意 URL。富文本旧式图片 `file/read`
+请求仅改为同源 `file/download`，结果保留原始 source；普通附件 URL 不改写。
+空响应、疑似登录/错误 HTML 或 MIME 类型冲突会以 `RESOURCE_CONTENT_INVALID` 记录，全部失败才返回 `RESOURCE_FETCH_FAILED`。
 下载后的图片/文档/日志等由宿主按可用能力继续理解。
 
 ## 输出与错误

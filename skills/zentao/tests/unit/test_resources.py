@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from zentao_skill.internal.config import RuntimePaths
 from zentao_skill.internal.errors import ResourceSecurityError
-from zentao_skill.internal.zentao.resources import discover_resources, display_source, source_file_name
+from zentao_skill.internal.zentao.resources import discover_resources, display_source, rewrite_legacy_file_read_url, source_file_name
 from zentao_skill.services.resources.service import ResourcesService
 
 
@@ -111,6 +111,27 @@ class ResourceDiscoveryTests(unittest.TestCase):
         source = "/index.php?m=file&f=read&t=png&fileID=7395"
         self.assertEqual("file-7395.png", source_file_name(source))
         self.assertIsNone(source_file_name("/index.php?m=file&f=read"))
+
+    def test_rewrites_legacy_image_read_url_to_download_and_preserves_source_shape(self) -> None:
+        source = "http://localhost/index.php?m=file&f=read&t=png&fileID=7395&foo=bar"
+        self.assertEqual(
+            "http://localhost/index.php?m=file&f=download&t=png&fileID=7395&foo=bar",
+            rewrite_legacy_file_read_url(source),
+        )
+
+    def test_does_not_rewrite_non_legacy_or_non_image_urls(self) -> None:
+        sources = (
+            "/assets/image.png",
+            "/index.php?m=file&f=download&t=png&fileID=7395",
+            "/index.php?m=file&f=read&t=txt&fileID=7395",
+            "/index.php?m=file&f=read&t=png",
+            "/index.php?m=file&f=read&t=png&fileID=0",
+            "/index.php?m=file&f=read&t=png&fileID=7395&fileID=7396",
+            "data:image/png;base64,aGVsbG8=",
+        )
+        for source in sources:
+            with self.subTest(source=source):
+                self.assertEqual(source, rewrite_legacy_file_read_url(source))
 
     def test_output_source_redacts_embedded_data_and_sensitive_query_values(self) -> None:
         self.assertEqual("data:image/png;base64,...", display_source("data:image/png;base64,aGVsbG8="))

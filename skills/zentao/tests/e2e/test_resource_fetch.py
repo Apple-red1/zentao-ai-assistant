@@ -110,6 +110,14 @@ class ResourceFetchE2ETests(unittest.TestCase):
             self.assertEqual(["good.txt"], [item["file_name"] for item in payload["resources"]])
             self.assertEqual(["RESOURCE_CONTENT_INVALID"], [item["code"] for item in payload["partial_failures"]])
             self.assertNotIn("index.php", [item["file_name"] for item in payload["resources"]])
+            index_requests = [
+                item for item in fake.state.requests
+                if item["endpoint_id"] == "resource.binary" and item["path"] == "/index.php"
+            ]
+            self.assertEqual(
+                {"m": "file", "f": "read", "t": "png", "fileID": "7395"},
+                index_requests[0]["query"],
+            )
 
     def test_fetch_rejects_empty_and_mismatched_mime_responses(self) -> None:
         with FakeZenTao() as fake:
@@ -137,11 +145,11 @@ class ResourceFetchE2ETests(unittest.TestCase):
                 [item["code"] for item in payload["partial_failures"]],
             )
 
-    def test_fetch_names_successful_legacy_file_page_from_query_hints(self) -> None:
+    def test_fetch_rewrites_legacy_rich_text_file_page_and_uses_query_hints(self) -> None:
         with FakeZenTao() as fake:
             fake.state.resources["bug"]["910"] = {
                 "id": 910,
-                "files": [{"url": "/index.php?m=file&f=read&t=png&fileID=7395"}],
+                "steps": '<img src="/index.php?m=file&f=read&t=png&fileID=7395">',
             }
             fake.state.add_binary("/index.php", b"png", content_type="image/png")
 
@@ -153,6 +161,18 @@ class ResourceFetchE2ETests(unittest.TestCase):
             payload = json.loads(result.stdout)
             self.assertEqual(["file-7395.png"], [item["file_name"] for item in payload["resources"]])
             self.assertEqual([], payload["partial_failures"])
+            self.assertEqual(
+                "/index.php?m=file&f=read&t=png&fileID=7395",
+                payload["resources"][0]["source"],
+            )
+            index_requests = [
+                item for item in fake.state.requests
+                if item["endpoint_id"] == "resource.binary" and item["path"] == "/index.php"
+            ]
+            self.assertEqual(
+                {"m": "file", "f": "download", "t": "png", "fileID": "7395"},
+                index_requests[0]["query"],
+            )
 
     def test_human_output_keeps_local_paths_and_partial_failures_visible(self) -> None:
         with FakeZenTao() as fake:
