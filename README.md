@@ -159,6 +159,8 @@ python3 skills/zentao-batch-export/scripts/zentao_batch_export.py bug:123 story:
 Bug 详情链接使用固定禅道路由直接生成，不打开浏览器：
 `python3 skills/zentao/scripts/zentao.py bug web-url 3641 --json`。
 
+六个 Skill 的聊天回复中，Bug 编号本身统一显示为可点击链接，规则见[Bug 展示说明](skills/zentao/references/bug-display.md)。原始 ID、JSON、查询和写入行为不变；CLI 终端输出及 ZIP 内 `content.md` 不变。
+
 Bug 证据驱动流程的确定性脚本入口为：
 
 ```bash

@@ -28,6 +28,7 @@ project 为 `<repo>/.tmp/zentao/project-management/`，user 为
 
 ## 规则
 
+- 聊天回复中展示 Bug ID 时，编号本身必须可点击；回复前读取并遵守[共享 Bug 展示规则](../zentao/references/bug-display.md)。
 - 默认只读。
 - 默认不生成数值“健康分”；没有明确规则时只报告事实和风险信号。
 - workload 只表达事项分布，不自动推导人员绩效。

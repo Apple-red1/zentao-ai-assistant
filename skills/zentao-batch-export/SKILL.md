@@ -51,6 +51,8 @@ python skills/zentao-batch-export/scripts/zentao_batch_export.py \
 
 ## 输出合同
 
+聊天回复中展示 Bug ID 时，编号本身必须可点击；回复前读取并遵守[共享 Bug 展示规则](../zentao/references/bug-display.md)。ZIP 内 `content.md` 与下面的机器输出合同保持不变。
+
 每个对象保留一个完整 `content.md`，其中包含该对象 `view --json` 的完整响应，不挑选或裁剪字段；关联附件与富文本资源全部尝试归档到该对象的 `resources/`。
 
 ZIP 内部结构固定为：

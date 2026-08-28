@@ -26,6 +26,7 @@ python skills/zentao-personal/scripts/zentao_personal.py brief --json
 
 ## 规则
 
+- 聊天回复中展示 Bug ID 时，编号本身必须可点击；回复前读取并遵守[共享 Bug 展示规则](../zentao/references/bug-display.md)。
 - 默认只读。
 - 个人报告是事实整理，不把工作量直接解释成绩效评价。
 - 优先级建议必须能追溯到 ZenTao 的 priority、severity、deadline、status 等字段。

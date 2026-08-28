@@ -28,6 +28,7 @@ project 为 `<repo>/.tmp/zentao/statistics/`，user 为
 
 ## 规则
 
+- 聊天回复中展示 Bug ID 时，编号本身必须可点击；回复前读取并遵守[共享 Bug 展示规则](../zentao/references/bug-display.md)。
 - 只读，不执行 create/edit/lifecycle/delete。
 - 不直接拼 ZenTao URL；底层通过 `zentao` 的 programmatic public facade。
 - 不根据当前快照伪造历史趋势。

@@ -54,6 +54,7 @@ project/user scope：项目配置为 `<repo>/.env`，用户配置为
 |---|---|
 | API Skill 用户调用、风险和输出 | `skills/zentao/SKILL.md` |
 | 高层 Skill 调用 | 各自 `SKILL.md` |
+| 所有 Skill 的聊天 Bug ID 展示 | `skills/zentao/references/bug-display.md` |
 | Bug 证据驱动流程、授权和生命周期边界 | `skills/zentao-bug-resolver/SKILL.md` 与 `skills/zentao-bug-resolver/references/workflow.md` |
 | 高层 Skill → API 基础层程序化合同 | `skills/zentao/references/programmatic.md` |
 | endpoint method/path/参数/兼容元数据 | `skills/zentao/references/api-v2/endpoints.json` |
@@ -81,6 +82,7 @@ project/user scope：项目配置为 `<repo>/.env`，用户配置为
 - 信息不足的 `UNCLEAR` / `NO_CODE_EVIDENCE` 不修改业务代码；`will-not-fix` 仅表示按门槛退回补充信息，不是技术修复结论。
 - 当前不宣称 module 名称映射、Bug 历史、ETag 或其它未经真实证据验证的字段/接口。
 - `bug web-url` 按固定禅道路由本地生成链接，不是新的 API endpoint，不访问页面或打开浏览器。
+- 所有六个 Skill 的聊天回复只要展示 Bug ID，编号本身就是可点击链接；统一消费 `bug web-url` 返回的 `id → url`，不按数组位置配对。不改变原始 ID、JSON、查询和写入合同；CLI 终端输出与 ZIP 内 `content.md` 不在本次展示范围。新 Skill 继承共享展示规则。
 - `HUMAN_ATTESTED_RESOLVE`：当前消息明确确认已解决且目标唯一，即人工结论与对应 Bug 的 R2 授权；最小 bug view → active 时一次 fixed resolve → 显式 bug view 回读。不读取业务仓库/源码/提交/测试/diff/附件/patch，不运行 select/snapshot/compare，不套用普通证据门槛。
 - 人工确认默认显式 `--resolved-build trunk`，用户明确指定其它值时覆盖；默认不传 assignee/resolved-date，自动生成 `[CODEX-HUMAN-ATTESTED-RESOLUTION]` 备注，不伪造代码或测试事实。resolved/closed 不重复写；当前消息明确列出的多个 Bug 按输入顺序去重并严格串行；真实阻塞停止，`UNKNOWN_WRITE_RESULT` 停止整个队列、只读回读且绝不重试。仅在真实阻塞时提问，不自动 close 或切换 endpoint。
 - “帮我解决/修复”与不确定表达不触发人工确认；人工确认是 Agent 指令分支，没有新增 Python lifecycle 编排器，不改变 120 endpoint 或只读 facade。

@@ -92,6 +92,7 @@ Token cache 只保存短期 Token，不保存密码；临时资源和高层聚�
 
 ## 输出与错误
 
+- 聊天回复中展示 Bug ID 时，编号本身必须可点击；回复前读取并遵守[共享 Bug 展示规则](references/bug-display.md)，不改变 CLI 输出合同。
 - 默认输出面向终端阅读；`--json` 输出机器结果。
 - `--json` 成功：stdout 只包含领域 JSON；DELETE 等空响应返回最小 `{"status":"success"}`（已知 ID 时包含 `id`）。
 - `--json` 失败：stdout 为空，stderr 输出 `{"error":{"code","message","details"}}`。
