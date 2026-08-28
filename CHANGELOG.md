@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 批量导出的对象详情改为可读 Markdown，并把已归档的富文本图片/文件引用改为 ZIP 内 `resources/` 相对路径。
 - 兼容 ZenTao 富文本旧式图片 URL：受限将 `file/read` 转为 `file/download`，同时保留原始 `source` 并继续执行资源安全校验。
 - 将仓库定位升级为面向 AI 的 ZenTao 项目管理多 Skill 集合。
 - 新增 `zentao-statistics`、`zentao-personal`、`zentao-project-management`。

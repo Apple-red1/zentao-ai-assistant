@@ -37,6 +37,9 @@ class BatchExportSkillContractTests(unittest.TestCase):
             "complete",
             "failures",
             "不额外生成与 `content.md` 重复的 `data.json`",
+            "可读 Markdown",
+            "相对路径",
+            "机器可读 JSON",
         ):
             self.assertIn(anchor, SKILL)
 

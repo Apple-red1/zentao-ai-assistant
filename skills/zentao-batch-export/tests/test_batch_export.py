@@ -80,10 +80,38 @@ class BatchExportUnitTests(unittest.TestCase):
             batch_export.normalize_object_specs(["bug:0"])
         self.assertEqual("INVALID_OBJECT_ID", invalid_id.exception.code)
 
-    def test_markdown_uses_longer_fence_when_payload_contains_backticks(self) -> None:
+    def test_markdown_formats_fields_and_uses_longer_fence_for_multiline_text(self) -> None:
         content = batch_export.render_content_markdown("bug", 7, {"steps": "```nested```", "id": 7})
-        self.assertIn("````json", content)
-        self.assertIn('"steps": "```nested```"', content)
+        self.assertIn("## steps", content)
+        self.assertIn("````text", content)
+        self.assertIn("```nested```", content)
+        self.assertIn("## id", content)
+        self.assertNotIn("```json", content)
+
+    def test_markdown_rewrites_a_downloaded_rich_text_resource(self) -> None:
+        content = batch_export.render_content_markdown(
+            "bug",
+            7,
+            {"steps": '<p><img src="/assets/inline.png" alt="inline"></p>'},
+            {"/assets/inline.png": "resources/inline.png"},
+        )
+        self.assertIn("![inline](<resources/inline.png>)", content)
+        self.assertNotIn("/assets/inline.png", content)
+        self.assertNotIn('"steps":', content)
+        srcset_content = batch_export.render_content_markdown(
+            "bug",
+            7,
+            {"steps": '<img srcset="/assets/inline.png 1x">'},
+            {"/assets/inline.png": "resources/inline.png"},
+        )
+        self.assertIn("![inline.png](<resources/inline.png>)", srcset_content)
+        unarchived_content = batch_export.render_content_markdown(
+            "bug",
+            7,
+            {"steps": '<img src="/assets/missing.png" alt="missing">'},
+        )
+        self.assertIn("图片未归档", unarchived_content)
+        self.assertNotIn("![missing]", unarchived_content)
 
     def test_copy_rejects_html_error_payload_even_if_base_result_says_success(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -159,12 +187,38 @@ class BatchExportE2ETests(unittest.TestCase):
             self.assertTrue(manifest["complete"])
             self.assertEqual(1, manifest["objects"][0]["resource_count"])
             self.assertEqual([], manifest["objects"][0]["failures"])
-            self.assertIn('"customNested": {', content)
-            self.assertIn('"deep": true', content)
-            self.assertIn('"files": [', content)
+            self.assertIn("## customNested", content)
+            self.assertIn("**deep**: `true`", content)
+            self.assertIn("## files", content)
+            self.assertNotIn('"customNested":', content)
             business = [request for request in fake.state.requests if request["endpoint_id"] != "token.login"]
             self.assertTrue(business)
             self.assertTrue(all(request["method"] == "GET" for request in business))
+
+    def test_rich_text_image_reference_points_to_the_copied_zip_resource(self) -> None:
+        with FakeZenTao() as fake, tempfile.TemporaryDirectory() as td:
+            home = Path(td)
+            fake.state.resources["bug"]["904"] = {
+                "id": 904,
+                "title": "格式化详情",
+                "steps": '<p>截图：</p><p><img src="/assets/inline.png" alt="inline"></p>',
+            }
+            fake.state.add_binary("/assets/inline.png", b"png", content_type="image/png")
+
+            result = run_export(fake.base_url, home, "bug:904")
+            self.assertEqual(0, result.returncode, result.stderr)
+            output = json.loads(result.stdout)
+
+            with zipfile.ZipFile(output["zip_path"]) as archive:
+                content = archive.read("objects/bug/904/content.md").decode("utf-8")
+                names = set(archive.namelist())
+
+            self.assertIn("objects/bug/904/resources/inline.png", names)
+            self.assertIn("## steps", content)
+            self.assertIn("![inline](<resources/inline.png>)", content)
+            self.assertNotIn("/assets/inline.png", content)
+            self.assertNotIn("```json", content)
+            self.assertNotIn('"steps":', content)
 
     def test_partial_resource_failure_keeps_zip_and_full_failure_details(self) -> None:
         with FakeZenTao() as fake, tempfile.TemporaryDirectory() as td:
@@ -255,7 +309,7 @@ class BatchExportE2ETests(unittest.TestCase):
             self.assertEqual("view", failed["failures"][0]["stage"])
             self.assertTrue(failed["failures"][0]["reason"])
             self.assertIn("对象详情读取失败", failed_md)
-            self.assertIn('"id": 702', success_md)
+            self.assertIn("## id\n\n`702`", success_md)
 
     def test_invalid_input_returns_error_without_creating_run_directory(self) -> None:
         with FakeZenTao() as fake, tempfile.TemporaryDirectory() as td:
