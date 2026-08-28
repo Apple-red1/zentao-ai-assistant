@@ -2,6 +2,7 @@
 
 ## Plugin / Clone surface
 
+- [ ] 本次项目修改已按 SemVer minor（次版本）递增插件版本；`plugin.json`、`.claude-plugin/plugin.json`、`.codex-plugin/plugin.json` 的 `version` 完全一致。
 - [ ] 根目录 `plugin.json`、`.claude-plugin/plugin.json`、
   `.claude-plugin/marketplace.json`、`.codex-plugin/plugin.json` 和
   `.agents/plugins/marketplace.json` 与 `docs/current-contract.md` 同步。
