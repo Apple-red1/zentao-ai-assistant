@@ -54,15 +54,15 @@ class CommentServiceTests(unittest.TestCase):
     def test_capability_matrix_matches_issue_51(self) -> None:
         expected = {
             "bug": {"comment", "attachments", "inline_image"},
-            "story": {"comment", "attachments"},
-            "product": {"comment"},
-            "task": {"comment"},
-            "execution": {"comment"},
-            "project": {"comment"},
-            "test-task": {"comment"},
-            "product-plan": {"comment"},
-            "release": {"comment"},
-            "build": {"comment"},
+            "story": {"comment", "attachments", "inline_image"},
+            "product": {"comment", "attachments", "inline_image"},
+            "task": {"comment", "attachments", "inline_image"},
+            "execution": {"comment", "attachments", "inline_image"},
+            "project": {"comment", "attachments", "inline_image"},
+            "test-task": {"comment", "attachments", "inline_image"},
+            "product-plan": {"comment", "attachments", "inline_image"},
+            "release": {"comment", "attachments", "inline_image"},
+            "build": {"comment", "attachments", "inline_image"},
         }
         for resource, capabilities in expected.items():
             for capability in ("comment", "attachments", "inline_image"):
@@ -74,7 +74,7 @@ class CommentServiceTests(unittest.TestCase):
             file_path = Path(td) / "attachment.txt"
             file_path.write_bytes(b"attachment")
             with self.assertRaises(UsageError):
-                self.service.add(resource="product", object_id=7, comment="hello", files=(file_path,))
+                self.service.add(resource="program", object_id=7, comment="hello", files=(file_path,))
         self.api.snapshot.assert_not_called()
         self.api.get_comment_form.assert_not_called()
         self.api.post_comment.assert_not_called()
@@ -92,6 +92,110 @@ class CommentServiceTests(unittest.TestCase):
         self.assertEqual(11, result["action_id"])
         self.assertEqual(1, self.api.post_comment.call_count)
         self.assertEqual("hello", self.api.post_comment.call_args.kwargs["actioncomment"])
+
+    def test_plain_comment_text_is_escaped_before_page_write(self) -> None:
+        raw = '[BT-HTML-TEXT] <angle> & ampersand "quoted"'
+        self.api.snapshot.side_effect = [snapshot([]), snapshot([action(11, body=escape(raw, quote=False))])]
+        self.api.get_comment_form.return_value = "uid-1"
+
+        result = self.service.add(resource="bug", object_id=7, comment=raw)
+
+        self.assertEqual(11, result["action_id"])
+        self.assertEqual(escape(raw, quote=False), self.api.post_comment.call_args.kwargs["actioncomment"])
+
+    def test_multiple_inline_images_upload_in_order_and_share_one_comment(self) -> None:
+        self.api.snapshot.side_effect = [
+            snapshot([]),
+            snapshot([action(11, body='hello<p><img src="/one.png"></p><p><img src="/two.png"></p>')]),
+        ]
+        self.api.get_comment_form.return_value = "uid-1"
+        self.api.upload_inline_image.side_effect = [
+            LegacyPageResponse(200, "http://localhost/upload", "application/json", b'{"fileID":21,"url":"/one.png"}'),
+            LegacyPageResponse(200, "http://localhost/upload", "application/json", b'{"fileID":22,"url":"/two.png"}'),
+        ]
+        with tempfile.TemporaryDirectory() as td:
+            first = Path(td) / "one.png"
+            second = Path(td) / "two.png"
+            first.write_bytes(b"one")
+            second.write_bytes(b"two")
+            result = self.service.add(resource="bug", object_id=7, comment="hello", inline_images=(first, second))
+
+        self.assertEqual(11, result["action_id"])
+        self.assertEqual([21, 22], result["inline_file_ids"])
+        self.assertEqual(2, self.api.upload_inline_image.call_count)
+        self.assertEqual(
+            'hello<p><img src="/one.png"></p><p><img src="/two.png"></p>',
+            self.api.post_comment.call_args.kwargs["actioncomment"],
+        )
+
+    def test_repeated_inline_image_reuses_one_remote_identity_and_two_references(self) -> None:
+        self.api.snapshot.side_effect = [
+            snapshot([]),
+            snapshot([action(11, body='hello<p><img src="/same.png"></p><p><img src="/same.png"></p>')]),
+        ]
+        self.api.get_comment_form.return_value = "uid-1"
+        self.api.upload_inline_image.return_value = LegacyPageResponse(
+            200, "http://localhost/upload", "application/json", b'{"fileID":21,"url":"/same.png"}'
+        )
+        with tempfile.TemporaryDirectory() as td:
+            image = Path(td) / "same.png"
+            image.write_bytes(b"same")
+            result = self.service.add(resource="bug", object_id=7, comment="hello", inline_images=(image, image))
+
+        self.assertEqual(11, result["action_id"])
+        self.assertEqual([21, 21], result["inline_file_ids"])
+        self.assertEqual(1, self.api.upload_inline_image.call_count)
+        self.assertEqual(2, self.api.post_comment.call_args.kwargs["actioncomment"].count("/same.png"))
+
+    def test_story_can_use_repeatable_inline_images(self) -> None:
+        self.api.snapshot.side_effect = [
+            snapshot([]),
+            snapshot([action(11, resource="story", body='hello<p><img src="/one.png"></p><p><img src="/two.png"></p>')]),
+        ]
+        self.api.get_comment_form.return_value = "uid-1"
+        self.api.upload_inline_image.side_effect = [
+            LegacyPageResponse(200, "http://localhost/upload", "application/json", b'{"fileID":21,"url":"/one.png"}'),
+            LegacyPageResponse(200, "http://localhost/upload", "application/json", b'{"fileID":22,"url":"/two.png"}'),
+        ]
+        with tempfile.TemporaryDirectory() as td:
+            first = Path(td) / "one.png"
+            second = Path(td) / "two.png"
+            first.write_bytes(b"one")
+            second.write_bytes(b"two")
+            result = self.service.add(resource="story", object_id=7, comment="hello", inline_images=(first, second))
+
+        self.assertEqual(11, result["action_id"])
+        self.assertEqual([21, 22], result["inline_file_ids"])
+        self.assertEqual(2, self.api.upload_inline_image.call_count)
+
+    def test_files_and_inline_images_share_one_comment(self) -> None:
+        files = [{"id": 31, "objectType": "comment", "objectID": 11, "name": "attachment.txt", "size": 10}]
+        self.api.snapshot.side_effect = [
+            snapshot([]),
+            snapshot([action(11, body='hello<p><img src="/image.png"></p>', files=files)]),
+        ]
+        self.api.get_comment_form.return_value = "uid-1"
+        self.api.upload_inline_image.return_value = LegacyPageResponse(
+            200, "http://localhost/upload", "application/json", b'{"fileID":21,"url":"/image.png"}'
+        )
+        with tempfile.TemporaryDirectory() as td:
+            attachment = Path(td) / "attachment.txt"
+            image = Path(td) / "image.png"
+            attachment.write_bytes(b"attachment")
+            image.write_bytes(b"image")
+            result = self.service.add(
+                resource="bug",
+                object_id=7,
+                comment="hello",
+                files=(attachment,),
+                inline_images=(image,),
+            )
+
+        self.assertEqual(11, result["action_id"])
+        self.assertEqual([31], result["file_ids"])
+        self.assertEqual(21, result["inline_file_id"])
+        self.assertEqual((attachment,), self.api.post_comment.call_args.kwargs["files"])
+        self.assertEqual('hello<p><img src="/image.png"></p>', self.api.post_comment.call_args.kwargs["actioncomment"])
 
     def test_no_candidate_returns_unknown_without_replaying_post(self) -> None:
         self.api.snapshot.side_effect = [snapshot([action(10, body="old")]), snapshot([action(10, body="old")])]
@@ -143,6 +247,18 @@ class CommentServiceTests(unittest.TestCase):
         self.api.get_comment_form.return_value = "uid-1"
         with self.assertRaises(UnknownWriteResult):
             self.service.add(resource="bug", object_id=7, comment="hello")
+
+    def test_different_concurrent_action_does_not_block_unique_candidate(self) -> None:
+        self.api.snapshot.side_effect = [
+            snapshot([action(10, body="old")]),
+            snapshot([action(10, body="old"), action(11, body="hello"), action(12, body="other")]),
+        ]
+        self.api.get_comment_form.return_value = "uid-1"
+
+        result = self.service.add(resource="bug", object_id=7, comment="hello")
+
+        self.assertEqual(11, result["action_id"])
+        self.assertEqual(1, self.api.post_comment.call_count)
 
     def test_unknown_post_can_be_confirmed_by_one_readback_candidate(self) -> None:
         self.api.snapshot.side_effect = [snapshot([]), snapshot([action(11)])]
@@ -283,12 +399,10 @@ class CommentServiceTests(unittest.TestCase):
 
         self.assertEqual(11, result["action_id"])
 
-    def test_files_and_inline_image_are_rejected_before_form_read(self) -> None:
+    def test_invalid_file_and_inline_paths_are_rejected_before_form_read(self) -> None:
         with tempfile.TemporaryDirectory() as td:
-            file_path = Path(td) / "attachment.txt"
-            image_path = Path(td) / "image.png"
-            file_path.write_bytes(b"attachment")
-            image_path.write_bytes(b"png")
+            file_path = Path(td) / "missing-attachment.txt"
+            image_path = Path(td) / "missing-image.png"
             with self.assertRaises(UsageError):
                 self.service.add(
                     resource="bug",

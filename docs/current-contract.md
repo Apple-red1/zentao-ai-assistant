@@ -74,10 +74,11 @@ project/user scope：项目配置为 `<repo>/.env`，用户配置为
 - `resource fetch` 的 HTTP 200 资源还必须通过非空、明显 HTML 登录/错误页和 MIME
   类型一致性校验；不通过时使用 `RESOURCE_CONTENT_INVALID` 保留在
   `partial_failures`，旧式 `/index.php?...fileID=...` URL 按资源 ID/类型提示生成语义文件名。富文本旧式 `m=file&f=read` 图片请求仅将 `f` 改为同源 `download`，普通附件 URL 不改写，且输出保留原始 `source`。
-- 独立评论是固定同源 Legacy Web 兼容能力，不新增官方 API endpoint：`bug` 支持评论、重复
-  `--file` 和单张 `--inline-image`，`story` 支持评论和重复 `--file`，
-  `product / task / execution / project / test-task / product-plan / release / build`
-  仅支持评论；其它对象不注册该命令。
+- 独立评论是固定同源 Legacy Web 兼容能力，不新增官方 API endpoint；当前十种对象
+  `bug / story / product / task / execution / project / test-task / product-plan / release / build`
+  均支持评论、重复 `--file` 和重复 `--inline-image`。普通附件与内嵌图片可以在同一条评论中
+  提交；同一调用内重复的本地图片复用远端 file identity，同时保留重复引用。用户正文先按
+  HTML 实体编码，受控图片片段再追加为 markup。
 - 独立评论写入严格执行写前 action snapshot、一次页面 POST、写后 action ID 差集和唯一候选
   回读确认；0 个或多个候选、关键对象字段变化或无法安全解析时不重放，并如实返回
   `UNKNOWN_WRITE_RESULT`/并发变化信息。Bug 内联图片先通过固定
@@ -89,7 +90,8 @@ project/user scope：项目配置为 `<repo>/.env`，用户配置为
   上传在检测到 v2 空响应后，会先回读确认是否已经落库，未落库时才使用固定的
   `bug/edit` 页面 `files[]` 表单兼容写入，并通过 API 详情回读确认附件。该兼容路径不
   接受任意页面 URL、不使用浏览器自动化，页面写入异常只回读一次且不盲目重试。
-- 资源发现只处理当前附件区和业务富文本，不递归扫描 `actions`、`history`、`diff` 审计历史字段。
+- 资源发现只处理当前附件区和业务富文本，不递归扫描 `actions`、`dynamics`、`history`、`diff`
+  审计历史字段；`dynamics` 是 21.7.8 部分对象详情中的动态历史容器，不属于当前资源范围。
 - 统计 `by_assignee` 将空值和 ZenTao 特殊值 `closed` 显式归入 `unassigned`，不作为真实负责人统计。
 - 单对象/单资源失败不阻断后续导出；最终 ZIP 位于当前 scope 的 `.tmp/zentao/zentao-batch-export/<run-id>/` 或 `~/.zentao-ai-assistant/tmp/zentao/zentao-batch-export/<run-id>/`，文件名为动态 `zentao-export-<timestamp>-<short-id>.zip`，不接受调用方任意输出路径。
 - 统计、个人、项目管理和 Bug resolver 的读取脚本通过 `zentao_skill.public` 复用现有 Services/Session；`zentao-batch-export` 通过 public runtime bridge 取得 scope 路径并组合基础 `zentao` CLI。所有高层 Skill 都禁止直接访问 `internal/http` 或拼接 API URL。

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from html import escape
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -34,13 +35,19 @@ class CommentService:
         comment: str,
         files: Iterable[str | Path] = (),
         inline_image: str | Path | None = None,
+        inline_images: Iterable[str | Path] = (),
     ) -> dict[str, object]:
+        requested_inline_images = tuple(inline_images)
+        if inline_image is not None:
+            if requested_inline_images:
+                raise UsageError("inline_image 与 inline_images 不能同时使用")
+            requested_inline_images = (inline_image,)
         normalized_files, file_sizes = self._validate_input(
             resource=resource,
             object_id=object_id,
             comment=comment,
             files=files,
-            inline_image=inline_image,
+            inline_images=requested_inline_images,
         )
         try:
             uid = self.api.get_comment_form(object_type=resource, object_id=object_id)
@@ -61,8 +68,23 @@ class CommentService:
             )
 
         before = self._read_snapshot(resource, object_id, stage="before_readback")
-        inline = self._upload_inline_image(resource, object_id, uid, inline_image) if inline_image is not None else None
-        action_comment = append_inline_image(comment, inline.url) if inline is not None else comment
+        uploaded_by_path: dict[Path, InlineUpload] = {}
+        inline_values: list[InlineUpload] = []
+        for image in requested_inline_images:
+            path = Path(image).resolve()
+            if path not in uploaded_by_path:
+                uploaded_by_path[path] = self._upload_inline_image(resource, object_id, uid, path)
+            # Keep one reference per user argument while reusing the same
+            # remote identity when the same local image is repeated.
+            inline_values.append(uploaded_by_path[path])
+        inlines = tuple(inline_values)
+        # The page endpoint consumes HTML. User-supplied comment text must be
+        # encoded first so angle characters remain text; only the controlled
+        # inline-image fragment is appended as markup below.
+        safe_comment = escape(comment, quote=False)
+        action_comment = safe_comment
+        for inline in inlines:
+            action_comment = append_inline_image(action_comment, inline.url)
         post_error: LegacyPageFailure | None = None
         try:
             # This is the only action/comment POST for this invocation.
@@ -87,7 +109,7 @@ class CommentService:
                     "object_id": object_id,
                     "stage": "after_readback",
                     "error_code": error_code,
-                    **({"possible_orphan": True} if inline is not None else {}),
+                    **({"possible_orphan": True} if inlines else {}),
                 },
             ) from exc
 
@@ -99,7 +121,7 @@ class CommentService:
             after=after,
             files=normalized_files,
             file_sizes=file_sizes,
-            inline=inline,
+            inlines=inlines,
         )
         if result is None:
             details: dict[str, object] = {
@@ -108,7 +130,7 @@ class CommentService:
                 "stage": "after_readback",
                 "post_transport_uncertain": bool(post_error and post_error.transport_uncertain),
             }
-            if inline is not None:
+            if inlines:
                 details["possible_orphan"] = True
             raise UnknownWriteResult("无法在新增 action 中唯一确认本次评论，未重放页面写入", details)
         if post_error is not None and not post_error.transport_uncertain:
@@ -180,7 +202,7 @@ class CommentService:
         object_id: int,
         comment: str,
         files: Iterable[str | Path],
-        inline_image: str | Path | None,
+        inline_images: tuple[str | Path, ...],
     ) -> tuple[tuple[Path, ...], tuple[int, ...]]:
         if not is_allowed(resource, "comment"):
             raise UsageError("当前对象不支持 standalone comment", {"object_type": resource, "capability": "comment"})
@@ -194,11 +216,8 @@ class CommentService:
             raise UsageError("--file 参数必须是文件路径列表") from exc
         if file_values and not is_allowed(resource, "attachments"):
             raise UsageError("当前对象不支持评论普通附件", {"object_type": resource, "capability": "attachments"})
-        if inline_image is not None and not is_allowed(resource, "inline_image"):
+        if inline_images and not is_allowed(resource, "inline_image"):
             raise UsageError("当前对象不支持评论内嵌图片", {"object_type": resource, "capability": "inline_image"})
-        if file_values and inline_image is not None:
-            raise UsageError("--file 与 --inline-image 不能同时使用")
-
         paths: list[Path] = []
         sizes: list[int] = []
         for value in file_values:
@@ -207,8 +226,9 @@ class CommentService:
                 raise UsageError(f"评论附件不存在: {path}")
             paths.append(path)
             sizes.append(path.stat().st_size)
-        if inline_image is not None and not Path(inline_image).is_file():
-            raise UsageError(f"内嵌图片不存在: {inline_image}")
+        for inline_image in inline_images:
+            if not Path(inline_image).is_file():
+                raise UsageError(f"内嵌图片不存在: {inline_image}")
         return tuple(paths), tuple(sizes)
 
     def _confirm(
@@ -221,7 +241,7 @@ class CommentService:
         after: CommentSnapshot,
         files: tuple[Path, ...],
         file_sizes: tuple[int, ...],
-        inline: InlineUpload | None,
+        inlines: tuple[InlineUpload, ...],
     ) -> dict[str, object] | None:
         before_ids = {_action_id(item) for item in before.actions}
         before_ids.discard(None)
@@ -250,9 +270,12 @@ class CommentService:
         }
         if files:
             result["file_ids"] = file_ids
-        if inline is not None:
-            result["inline_file_id"] = inline.file_id
-            result["inline_image_url"] = inline.url
+        if len(inlines) == 1:
+            result["inline_file_id"] = inlines[0].file_id
+            result["inline_image_url"] = inlines[0].url
+        elif inlines:
+            result["inline_file_ids"] = [inline.file_id for inline in inlines]
+            result["inline_image_urls"] = [inline.url for inline in inlines]
         changes = critical_changes(before.critical_fields, after.critical_fields)
         if changes:
             result["concurrent_changes"] = changes

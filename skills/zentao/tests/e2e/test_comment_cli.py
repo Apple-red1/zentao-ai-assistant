@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from html import escape
 from pathlib import Path
 
 from ..fake_zentao.server import FakeZenTao
@@ -35,17 +36,40 @@ class CommentCliTests(unittest.TestCase):
                     self.assertIn("comment", result.stdout)
             self.assertEqual([], fake.state.requests)
 
-    def test_unsupported_file_and_inline_combinations_fail_before_web_request(self) -> None:
+    def test_invalid_file_and_inline_paths_fail_before_web_request(self) -> None:
         with FakeZenTao() as fake:
             cases = (
-                ["product", "comment", "1", "--comment", "hello", "--file", "${FIXTURE_FILE}", "--json"],
-                ["story", "comment", "1", "--comment", "hello", "--inline-image", "${FIXTURE_FILE}", "--json"],
+                ["bug", "comment", "1", "--comment", "hello", "--file", "missing.txt", "--inline-image", "missing.png", "--json"],
             )
             for argv in cases:
                 result = run_cli(fake.base_url, argv)
                 self.assertNotEqual(0, result.returncode, result.stdout)
                 self.assertEqual("", result.stdout)
             self.assertEqual([], fake.state.requests)
+
+    def test_bug_accepts_file_and_inline_image_in_one_comment(self) -> None:
+        with FakeZenTao() as fake, tempfile.TemporaryDirectory() as td:
+            attachment = Path(td) / "attachment.txt"
+            image = Path(td) / "image.png"
+            attachment.write_bytes(b"ATTACHMENT")
+            image.write_bytes(b"IMAGE")
+            result = run_cli(
+                fake.base_url,
+                [
+                    "bug", "comment", "1", "--comment", "mixed",
+                    "--file", str(attachment), "--inline-image", str(image), "--json",
+                ],
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual("success", payload["status"])
+            self.assertEqual(1, len(payload["file_ids"]))
+            self.assertIn("inline_file_id", payload)
+            self.assertEqual(1, len([item for item in fake.state.requests if item["endpoint_id"] == "web.comment"]))
+            self.assertEqual(1, len([item for item in fake.state.requests if item["endpoint_id"] == "web.inline_upload"]))
+            action = fake.state.resources["bug"]["1"]["actions"][-1]
+            self.assertEqual(1, len(action["files"]))
+            self.assertEqual(1, str(action["comment"]).count("<img"))
 
     def test_comment_body_is_required_and_comment_sources_are_mutually_exclusive(self) -> None:
         with FakeZenTao() as fake:
@@ -61,6 +85,17 @@ class CommentCliTests(unittest.TestCase):
                     self.assertEqual("", result.stdout)
                     self.assertEqual("USAGE_ERROR", json.loads(result.stderr)["error"]["code"])
             self.assertEqual([], fake.state.requests)
+
+    def test_html_like_comment_text_is_escaped_before_web_write(self) -> None:
+        with FakeZenTao() as fake:
+            body = '[BT-HTML-TEXT] <angle> & ampersand "quoted"'
+            result = run_cli(fake.base_url, ["bug", "comment", "1", "--comment", body, "--json"])
+            self.assertEqual(0, result.returncode, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual("success", payload["status"])
+            writes = [item for item in fake.state.requests if item["endpoint_id"] == "web.comment"]
+            self.assertEqual(1, len(writes))
+            self.assertEqual(escape(body, quote=False), writes[0]["body"]["actioncomment"])
 
     def test_comment_is_not_an_official_api_endpoint(self) -> None:
         self.assertFalse(any(item.endswith(".comment") for item in CLI_ENDPOINT_IDS))
@@ -136,6 +171,76 @@ class CommentCliTests(unittest.TestCase):
             downloads = [item for item in fake.state.requests if item["endpoint_id"] == "resource.binary"]
             self.assertEqual({"m": "file", "f": "download", "t": "png", "fileID": str(comment["inline_file_id"])}, downloads[0]["query"])
 
+    def test_bug_accepts_repeatable_inline_images_in_one_comment(self) -> None:
+        with FakeZenTao() as fake, tempfile.TemporaryDirectory() as td:
+            first = Path(td) / "one.png"
+            second = Path(td) / "two.png"
+            first.write_bytes(b"ONE")
+            second.write_bytes(b"TWO")
+            result = run_cli(
+                fake.base_url,
+                ["bug", "comment", "1", "--comment", "multi", "--inline-image", str(first), "--inline-image", str(second), "--json"],
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual([5000, 5001], payload["inline_file_ids"])
+            self.assertEqual(2, len([item for item in fake.state.requests if item["endpoint_id"] == "web.inline_upload"]))
+            action = fake.state.resources["bug"]["1"]["actions"][-1]
+            self.assertEqual(2, str(action["comment"]).count("<img"))
+
+    def test_bug_reuses_repeated_inline_image_identity_in_one_comment(self) -> None:
+        with FakeZenTao() as fake, tempfile.TemporaryDirectory() as td:
+            image = Path(td) / "same.png"
+            image.write_bytes(b"SAME")
+            result = run_cli(
+                fake.base_url,
+                ["bug", "comment", "1", "--comment", "same", "--inline-image", str(image), "--inline-image", str(image), "--json"],
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual([5000, 5000], payload["inline_file_ids"])
+            self.assertEqual(1, len([item for item in fake.state.requests if item["endpoint_id"] == "web.inline_upload"]))
+            action = fake.state.resources["bug"]["1"]["actions"][-1]
+            self.assertEqual(2, str(action["comment"]).count("<img"))
+
+    def test_story_accepts_repeatable_inline_images_in_one_comment(self) -> None:
+        with FakeZenTao() as fake, tempfile.TemporaryDirectory() as td:
+            first = Path(td) / "one.png"
+            second = Path(td) / "two.png"
+            first.write_bytes(b"ONE")
+            second.write_bytes(b"TWO")
+            result = run_cli(
+                fake.base_url,
+                ["story", "comment", "1", "--comment", "story multi", "--inline-image", str(first), "--inline-image", str(second), "--json"],
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual([5000, 5001], payload["inline_file_ids"])
+            action = fake.state.resources["story"]["1"]["actions"][-1]
+            self.assertEqual(2, str(action["comment"]).count("<img"))
+
+    def test_all_current_comment_objects_accept_inline_images(self) -> None:
+        with FakeZenTao() as fake, tempfile.TemporaryDirectory() as td:
+            image = Path(td) / "one.png"
+            image.write_bytes(b"ONE")
+            for resource in COMMENT_RESOURCES:
+                with self.subTest(resource=resource):
+                    result = run_cli(fake.base_url, [resource, "comment", "1", "--comment", f"image-{resource}", "--inline-image", str(image), "--json"])
+                    self.assertEqual(0, result.returncode, result.stderr)
+                    self.assertEqual("success", json.loads(result.stdout)["status"])
+            self.assertEqual(10, len([item for item in fake.state.requests if item["endpoint_id"] == "web.inline_upload"]))
+
+    def test_all_current_comment_objects_accept_attachments(self) -> None:
+        with FakeZenTao() as fake, tempfile.TemporaryDirectory() as td:
+            attachment = Path(td) / "attachment.txt"
+            attachment.write_bytes(b"ATTACHMENT")
+            for resource in COMMENT_RESOURCES:
+                with self.subTest(resource=resource):
+                    result = run_cli(fake.base_url, [resource, "comment", "1", "--comment", f"file-{resource}", "--file", str(attachment), "--json"])
+                    self.assertEqual(0, result.returncode, result.stderr)
+                    self.assertEqual("success", json.loads(result.stdout)["status"])
+            self.assertEqual(10, len([item for item in fake.state.requests if item["endpoint_id"] == "web.comment"]))
+
     def test_unknown_comment_write_is_read_back_once_without_repost(self) -> None:
         with FakeZenTao() as fake:
             fake.state.plan_web_faults("comment", "200_no_persist")
@@ -145,6 +250,16 @@ class CommentCliTests(unittest.TestCase):
             self.assertEqual("UNKNOWN_WRITE_RESULT", error["code"])
             self.assertEqual(1, len([item for item in fake.state.requests if item["endpoint_id"] == "web.comment"]))
             self.assertEqual([], fake.state.resources["bug"]["1"].get("actions", []))
+
+    def test_commit_then_drop_comment_is_confirmed_by_readback_without_repost(self) -> None:
+        with FakeZenTao() as fake:
+            fake.state.plan_web_faults("comment", "commit_then_drop")
+            result = run_cli(fake.base_url, ["bug", "comment", "1", "--comment", "committed", "--json"])
+            self.assertEqual(0, result.returncode, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual("success", payload["status"])
+            self.assertEqual(1, len(fake.state.resources["bug"]["1"]["actions"]))
+            self.assertEqual(1, len([item for item in fake.state.requests if item["endpoint_id"] == "web.comment"]))
 
     def test_unknown_inline_upload_stops_before_comment_and_definite_failure_does_too(self) -> None:
         with FakeZenTao() as fake, tempfile.TemporaryDirectory() as td:

@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from ..comment_contract import VERIFIED_COMMENT_RESOURCE_TYPES
+from ..comment_contract import COMMENT_CAPABILITIES
 from ..internal.errors import UsageError
 from .common import add_json_flag, non_empty_text, positive_int, resolve_text
 
@@ -21,10 +21,10 @@ def register_comment_action(
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--comment", type=non_empty_text, dest="comment", help="评论正文")
     group.add_argument("--comment-file", dest="comment_file", help="从 UTF-8 文件读取评论正文")
-    if resource in VERIFIED_COMMENT_RESOURCE_TYPES:
+    if "attachments" in COMMENT_CAPABILITIES.get(resource, frozenset()):
         parser.add_argument("--file", action="append", dest="files", help="评论普通附件（可重复）")
-    if resource == "bug":
-        parser.add_argument("--inline-image", dest="inline_image", help="评论内嵌图片（单张）")
+    if "inline_image" in COMMENT_CAPABILITIES.get(resource, frozenset()):
+        parser.add_argument("--inline-image", action="append", dest="inline_images", help="评论内嵌图片（可重复）")
     add_json_flag(parser)
     parser.set_defaults(_handler=_run_comment, _comment_resource=resource)
 
@@ -39,5 +39,5 @@ def _run_comment(services: object, args: argparse.Namespace) -> object:
         object_id=args.id,
         comment=comment,
         files=tuple(Path(value) for value in (getattr(args, "files", None) or ())),
-        inline_image=getattr(args, "inline_image", None),
+        inline_images=tuple(Path(value) for value in (getattr(args, "inline_images", None) or ())),
     )

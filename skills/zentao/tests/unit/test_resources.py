@@ -107,6 +107,19 @@ class ResourceDiscoveryTests(unittest.TestCase):
         self.assertEqual([], failures)
         self.assertEqual(["/assets/current.png"], [item.source for item in candidates])
 
+    def test_does_not_scan_dynamics_history_as_current_resources(self) -> None:
+        detail = {
+            "dynamics": [{
+                "comment": '<p><img src="/assets/history.png"></p>',
+                "files": [{"url": "/assets/history.txt"}],
+            }],
+        }
+
+        candidates, failures = discover_resources(detail)
+
+        self.assertEqual([], failures)
+        self.assertEqual([], candidates)
+
     def test_include_comments_is_opt_in_and_keeps_default_action_exclusion(self) -> None:
         detail = {
             "id": 7,

@@ -5,15 +5,15 @@ from __future__ import annotations
 
 COMMENT_CAPABILITIES: dict[str, frozenset[str]] = {
     "bug": frozenset({"comment", "attachments", "inline_image"}),
-    "story": frozenset({"comment", "attachments"}),
-    "product": frozenset({"comment"}),
-    "task": frozenset({"comment"}),
-    "execution": frozenset({"comment"}),
-    "project": frozenset({"comment"}),
-    "test-task": frozenset({"comment"}),
-    "product-plan": frozenset({"comment"}),
-    "release": frozenset({"comment"}),
-    "build": frozenset({"comment"}),
+    "story": frozenset({"comment", "attachments", "inline_image"}),
+    "product": frozenset({"comment", "attachments", "inline_image"}),
+    "task": frozenset({"comment", "attachments", "inline_image"}),
+    "execution": frozenset({"comment", "attachments", "inline_image"}),
+    "project": frozenset({"comment", "attachments", "inline_image"}),
+    "test-task": frozenset({"comment", "attachments", "inline_image"}),
+    "product-plan": frozenset({"comment", "attachments", "inline_image"}),
+    "release": frozenset({"comment", "attachments", "inline_image"}),
+    "build": frozenset({"comment", "attachments", "inline_image"}),
 }
 
 VERIFIED_COMMENT_RESOURCE_TYPES = frozenset({"bug", "story"})

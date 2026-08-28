@@ -40,7 +40,7 @@ _PAGE_SUFFIXES = {".html", ".htm", ".php", ".asp", ".aspx", ".jsp"}
 _GENERIC_PAGE_NAMES = {"index.php", "index.html", "download.php", "file.php"}
 _RESOURCE_ID_QUERY_KEYS = {"fileid", "attachmentid", "resourceid"}
 _RESOURCE_TYPE_QUERY_KEYS = {"t", "type", "mimetype", "contenttype"}
-_IGNORED_RESOURCE_KEYS = {"actions", "history", "diff"}
+_IGNORED_RESOURCE_KEYS = {"actions", "dynamics", "history", "diff"}
 _IMAGE_TYPE_HINTS = frozenset({"avif", "bmp", "gif", "ico", "jpeg", "jpg", "png", "svg", "svg+xml", "tif", "tiff", "webp"})
 
 

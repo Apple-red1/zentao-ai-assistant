@@ -158,9 +158,9 @@ python3 skills/zentao-batch-export/scripts/zentao_batch_export.py bug:123 story:
 
 `zentao-batch-export` 只读复用基础 `view` 与 `resource fetch`，把每个对象的完整字段格式化写入 `content.md`，把附件/富文本资源归档到对象目录，并将已成功归档的正文资源引用改为 `resources/<file>`，再在当前 runtime scope 下生成动态命名的 ZIP。单项失败继续导出并完整保留到 `manifest.json` 的 `complete/failures`。
 
-独立评论使用固定同源 Legacy Web 兼容路径，不计入官方 API endpoint；`bug` 支持普通附件和一张
-内嵌图片，`story` 支持普通附件，其它已验证对象只支持评论正文。写入会在单次 POST 前后做
-action snapshot/readback，结果不确定时返回 `UNKNOWN_WRITE_RESULT` 且不重放。
+独立评论使用固定同源 Legacy Web 兼容路径，不计入官方 API endpoint；当前十种对象均支持评论、
+重复普通附件和重复内嵌图片，普通附件与内嵌图片也可在同一条评论中提交。写入会在单次 POST
+前后做 action snapshot/readback，结果不确定时返回 `UNKNOWN_WRITE_RESULT` 且不重放。
 
 Bug 详情链接使用固定禅道路由直接生成，不打开浏览器：
 `python3 skills/zentao/scripts/zentao.py bug web-url 3641 --json`。

@@ -50,9 +50,9 @@ python skills/zentao/scripts/zentao.py bug comment 123 --comment "复现结果�
 python skills/zentao/scripts/zentao.py story comment 78 --comment-file comment.txt --file ./trace.log --json
 ```
 
-能力边界固定为：`bug` 支持重复 `--file` 和单张 `--inline-image`，`story` 支持重复 `--file`；`product`、`task`、`execution`、`project`、`test-task`、`product-plan`、`release`、`build` 只支持评论正文。`--comment` 与 `--comment-file` 互斥，正文不能为空；普通附件和内嵌图片不能混用，非 Bug 不接受 `--inline-image`。
+当前十种对象（`bug`、`story`、`product`、`task`、`execution`、`project`、`test-task`、`product-plan`、`release`、`build`）均支持评论正文、可重复 `--file` 和可重复 `--inline-image`。普通附件与内嵌图片可以在同一条评论中混用；相同本地内嵌图片在一次调用中复用远端 file identity，但保留每个引用。`--comment` 与 `--comment-file` 互斥，正文不能为空；用户正文会先按 HTML 实体编码，受控图片片段才作为 markup 追加。
 
-每次写入都先读取评论表单和 action snapshot，再只提交一次评论 POST，并通过写后 action ID 差集、对象类型/ID、正文、当前用户和附件归属回读确认。无法得到唯一候选或网络结果不确定时返回 `UNKNOWN_WRITE_RESULT`，不自动重放；关键对象字段发生变化时返回并发变化信息，不执行第二次写入。内嵌图片只允许一次固定同源 `file/ajaxUpload`，响应无法确认时停止评论并提示可能存在孤儿文件。
+每次写入都先读取评论表单和 action snapshot，再只提交一次评论 POST，并通过写后 action ID 差集、对象类型/ID、正文、当前用户和附件归属回读确认。无法得到唯一候选或网络结果不确定时返回 `UNKNOWN_WRITE_RESULT`，不自动重放；关键对象字段发生变化时返回并发变化信息，不执行第二次写入。每张内嵌图通过固定同源 `file/ajaxUpload` 上传，响应无法确认时停止评论并提示可能存在孤儿文件。
 ## 配置与运行 scope
 
 直接 clone 使用 project scope：`setup` 或 `setup --scope project`；Plugin/用户级配置使用 `setup --scope user`。`setup` 通过交互式提示读取密码，不接受 `--password`；写入后执行 `doctor --json` 验证，命令输出、错误和文档示例都不显示密码或 Token。
@@ -87,7 +87,7 @@ Token cache 只保存短期 Token，不保存密码；临时资源和高层聚�
 
 `view` 只读取对象详情，不自动下载附件。用户明确要求获取、查看或分析对象资源时，先用对应 `view` 获取文本事实，再执行 `resource fetch --object-type <type> --object-id <id> --json`。
 
-`resource fetch` 只从对象附件区和富文本发现资源，尝试获取全部文件并保存到当前 runtime scope 的资源临时目录；不接受任意 URL。富文本旧式图片 `file/read` 请求仅改为同源 `file/download`，结果保留原始 source；普通附件 URL 不改写。空响应、疑似登录/错误 HTML 或 MIME 类型冲突会以 `RESOURCE_CONTENT_INVALID` 记录，全部失败才返回 `RESOURCE_FETCH_FAILED`。
+`resource fetch` 只从对象附件区和富文本发现资源，尝试获取全部文件并保存到当前 runtime scope 的资源临时目录；不接受任意 URL。富文本旧式图片 `file/read` 请求仅改为同源 `file/download`，结果保留原始 source；普通附件 URL 不改写。资源发现不递归扫描 `actions`、`dynamics`、`history`、`diff` 审计历史字段；其中 `dynamics` 是 21.7.8 部分对象详情中的动态历史容器，不属于当前资源范围。空响应、疑似登录/错误 HTML 或 MIME 类型冲突会以 `RESOURCE_CONTENT_INVALID` 记录，全部失败才返回 `RESOURCE_FETCH_FAILED`。
 下载后的图片/文档/日志等由宿主按可用能力继续理解。
 
 ## 输出与错误

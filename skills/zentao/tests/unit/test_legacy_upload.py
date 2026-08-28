@@ -13,11 +13,25 @@ from urllib.parse import parse_qs, urlsplit
 
 from zentao_skill.internal.config import Config
 from zentao_skill.internal.errors import ApiError, UnknownWriteResult
-from zentao_skill.internal.http.legacy import LegacyPageFailure, LegacyWebClient
+from zentao_skill.internal.http.legacy import LegacyPageFailure, LegacyPageResponse, LegacyWebClient
 from zentao_skill.internal.zentao.files import FilesAPI
 
 
 class LegacyUploadPageTests(unittest.TestCase):
+    def test_login_html_after_login_is_a_failure_without_comment_request(self) -> None:
+        client = LegacyWebClient(base_url="http://127.0.0.1:1", account="admin", password="secret")
+        client._request = Mock(side_effect=[
+            LegacyPageResponse(200, "http://127.0.0.1:1/index.php?m=user&f=login", "text/html", b'<form><input name="account"><input name="password"></form>'),
+            LegacyPageResponse(200, "http://127.0.0.1:1/index.php?m=user&f=login", "text/html", b'<form><input name="account"><input name="password"></form>'),
+        ])
+
+        with self.assertRaises(LegacyPageFailure) as raised:
+            client.get_comment_form(object_type="bug", object_id=7)
+
+        self.assertEqual("login", raised.exception.stage)
+        self.assertNotIn("secret", str(raised.exception))
+        self.assertEqual(2, client._request.call_count)
+
     def test_page_client_logs_in_and_submits_files_array_to_bug_edit_form(self) -> None:
         state: dict[str, object] = {"login_fields": {}, "upload_fields": {}, "file_name": None, "file_bytes": b""}
 
