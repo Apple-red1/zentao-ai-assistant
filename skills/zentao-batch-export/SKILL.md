@@ -51,8 +51,6 @@ python skills/zentao-batch-export/scripts/zentao_batch_export.py \
 
 ## 输出合同
 
-导出报告中的对象详情链接遵守[对象 Web URL 证据合同](../zentao/references/web-urls.md)：不得仅凭 ID、base URL 或历史示例拼接链接。无可靠来源时返回对象 ID 及“页面 URL：当前能力无法可靠生成/尚未验证”。此规则不裁剪原始 `view` 数据，也不影响已生成 ZIP 的本地下载链接。
-
 每个对象保留一个完整 `content.md`，其中包含该对象 `view --json` 的完整响应，不挑选或裁剪字段；关联附件与富文本资源全部尝试归档到该对象的 `resources/`。
 
 ZIP 内部结构固定为：

@@ -15,55 +15,6 @@ FEATURES = REPO_ROOT / "docs" / "features.md"
 
 
 class CurrentContractDocumentationTest(unittest.TestCase):
-    def test_navigation_evidence_gate_is_reachable_from_every_skill(self) -> None:
-        reference = SKILL_ROOT / "references" / "web-urls.md"
-        entrypoints = [
-            *sorted((REPO_ROOT / "skills").glob("*/SKILL.md")),
-            REPO_ROOT / "AGENTS.md",
-            README,
-            CURRENT,
-            REPO_ROOT / "skills/zentao-bug-resolver/references/workflow.md",
-            SKILL_ROOT / "references/api-v2/bugs.md",
-        ]
-        for path in entrypoints:
-            with self.subTest(entrypoint=path.relative_to(REPO_ROOT).as_posix()):
-                document = path.read_text(encoding="utf-8")
-                links = re.findall(r"\[[^\]]+\]\(([^)]+web-urls\.md)\)", document)
-                self.assertTrue(links, "对象链接输出必须引用统一证据合同")
-                for link in links:
-                    self.assertEqual(reference.resolve(), (path.parent / link).resolve())
-                self.assertIn("不得仅凭 ID", document)
-                self.assertIn("页面 URL：当前能力无法可靠生成/尚未验证", document)
-
-    def test_navigation_contract_covers_issue_45_evidence_and_failure_scenarios(self) -> None:
-        reference = SKILL_ROOT / "references" / "web-urls.md"
-        self.assertTrue(reference.is_file(), "缺少对象 Web URL 证据合同")
-        document = reference.read_text(encoding="utf-8")
-        # These are Agent instruction checks, not a simulated URL verifier.
-        sections = {
-            "只有 ID": ("不生成", "bug-view", "bugID"),
-            "历史示例": ("不是当前实例证据", "不改猜另一种路由"),
-            "传统 query route": ("当前实例", "目标对象", "已验证"),
-            "伪静态 rewrite route": ("当前实例", "目标对象", "已验证"),
-            "HTTP 200 假成功": ("登录页", "首页", "404", "不能", "verified=true"),
-            "子路径部署": ("/zentao/", "不得丢失", "部署前缀"),
-            "无法验证": ("页面 URL：当前能力无法可靠生成/尚未验证", "候选格式（未验证）"),
-            "用户已验证模板": ("当前实例", "当前请求", "不得", "跨实例", "逐页验证"),
-        }
-        for heading, anchors in sections.items():
-            with self.subTest(scenario=heading):
-                match = re.search(rf"^### {re.escape(heading)}\n(.*?)(?=^### |^## |\Z)", document, re.M | re.S)
-                self.assertIsNotNone(match, f"缺少场景：{heading}")
-                for anchor in anchors:
-                    self.assertIn(anchor, match.group(1))
-        for anchor in (
-            "API / CLI", "URL/link", "来源", "富文本", "附件",
-            "instance/base_url", "resource=bug", "id=<ID>",
-            "bug view <id> --json", "resource fetch", "没有", "web-url",
-        ):
-            with self.subTest(boundary=anchor):
-                self.assertIn(anchor, document)
-
     def test_current_contract_documents_plugin_clone_and_runtime_contract(self) -> None:
         current = CURRENT.read_text(encoding="utf-8")
         for required in (

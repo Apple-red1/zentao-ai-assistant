@@ -75,27 +75,6 @@ python -m unittest discover -s tests -p 'test_multiskill_smoke.py'
 
 全仓入口包含上述检查。所有自动化只访问本地 Fake/桩，Real API calls: 0；真实用户验收应另行记录。
 
-## 对象 Web URL 输出规则（Issue #45）
-
-本轮修复的是 Agent 指令，未新增页面生成器或验证器。测试范围必须分别说明：
-
-- `test_current_contract.py` 静态检查六个 Skill、Clone 入口、Bug reference/workflow
-  均引用统一的[链接证据合同](../skills/zentao/references/web-urls.md)，并检查只有 ID、
-  历史示例、query/rewrite、HTTP 200 登录页/首页/软 404、子路径、不可验证、用户模板
-  八类场景的指令门槛。它不运行模型或网页识别器。
-- `test_skill_scenarios.py` 通过本地 Fake 执行真实 `bug view` CLI：只有 ID 或富文本
-  示例时不生成详情 URL；API 明确返回 URL/link 时保留路径、部署前缀及查询参数，
-  不添加已验证声明，不发送页面探测请求。Fake URL 不是实际实例兼容性证据。
-- 模型回答需按上述八类场景在宿主中人工验收：尤其是“给我五个 Bug 的 URL”后，
-  在无证据或收到“链接不对”时是否停止猜测；HTTP 200 登录页不得被当作对象页。
-  自动化通过不代表模型任意表达均通过，也不代表真实页面路由已验证。
-
-专项命令（在 `skills/zentao` 目录执行）：
-
-```bash
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=scripts python3 -m unittest -v tests.catalog.test_current_contract tests.scenarios.test_skill_scenarios
-```
-
 ## Release gate 入口
 
 发布前必须依次保留 L3/L4 的真实宿主证据，再完整执行：

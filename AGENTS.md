@@ -92,7 +92,6 @@ Skill 或独立路由目标。
 - 计划中的修改、未运行的测试、未验证的兼容性不得写成已完成。
 - 任何会合入本项目的修改都必须同步更新插件版本；默认按 SemVer minor（次版本）递增，例如 `1.1.0 -> 1.2.0`，不以 patch 版本代替本项目约定的次版本升级。
 - `plugin.json`、`.claude-plugin/plugin.json`、`.codex-plugin/plugin.json` 的 `version` 必须始终完全一致；版本更新与对应源码/文档修改必须出现在同一次交付中。
-- 对象详情链接遵守[对象 Web URL 证据合同](skills/zentao/references/web-urls.md)：不得仅凭 ID、base URL 或历史示例拼接并确认页面链接；没有当前实例可靠证据时返回对象 ID 及“页面 URL：当前能力无法可靠生成/尚未验证”。API 成功或 HTTP 200 不等于页面已验证。
 
 ## 4. 架构与依赖边界
 

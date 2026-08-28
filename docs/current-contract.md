@@ -66,7 +66,6 @@ project/user scope：项目配置为 `<repo>/.env`，用户配置为
 
 ## 当前实现事实
 
-- 对象详情链接遵守[对象 Web URL 证据合同](../skills/zentao/references/web-urls.md)：不得仅凭 ID、base URL 或历史示例拼接并确认链接；无当前实例可靠证据时返回对象 ID 及“页面 URL：当前能力无法可靠生成/尚未验证”。API 对象、页面链接来源、页面访问验证是不同事实；HTTP 200 登录页/首页不算验证成功。当前没有 Web URL 生成/探测命令，120 endpoint 和原始 CLI JSON 合同不变。
 - `zentao` API catalog 仍覆盖 20 个资源、**120 个 ZenTao API v2 endpoint**，API 实现、CLI、Skill 路由、Fake、合同和 CLI E2E 保持 `120/120`。
 - 高层 Skill 不改变 endpoint catalog，也不把 API 组合能力冒充官方 endpoint。
 - `zentao-batch-export` 是只读批量资料编排：首版支持 `bug / epic / execution / feedback / product / product-plan / program / requirement / story / task / test-case / ticket / user`；输入显式使用 `type:id`，脚本按 `type + id` 去重。
