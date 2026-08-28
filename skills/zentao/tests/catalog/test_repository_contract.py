@@ -24,7 +24,7 @@ SHARED_ROOT = REPOSITORY_ROOT / "skills" / "_shared" / "zentao"
 
 class RepositoryContractTests(unittest.TestCase):
     def test_runtime_and_tests_use_only_python_standard_library(self) -> None:
-        allowed_local = {"zentao_skill", "tests", "zentao"}
+        allowed_local = {"zentao_skill", "tests", "zentao", "resource_validation"}
         third_party: list[tuple[Path, str]] = []
         roots = [PRODUCTION_ROOT, SKILL_ROOT / "tests", SHARED_ROOT, REPOSITORY_ROOT / "tests"]
         for skill in HIGH_LEVEL_SKILLS:

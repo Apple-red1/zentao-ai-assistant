@@ -85,6 +85,35 @@ class BatchExportUnitTests(unittest.TestCase):
         self.assertIn("````json", content)
         self.assertIn('"steps": "```nested```"', content)
 
+    def test_copy_rejects_html_error_payload_even_if_base_result_says_success(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            resource_root = root / "zentao-resources"
+            source_dir = resource_root / "bug-1"
+            destination = root / "staging" / "resources"
+            source_dir.mkdir(parents=True)
+            destination.mkdir(parents=True)
+            source = source_dir / "index.php"
+            source.write_bytes(b"<html><body>login redirect</body></html>")
+
+            copied, failures = batch_export._copy_resources(
+                {
+                    "resources": [{
+                        "local_path": str(source),
+                        "file_name": "index.php",
+                        "content_type": "text/html",
+                        "size": source.stat().st_size,
+                    }],
+                    "partial_failures": [],
+                },
+                destination,
+                resource_root,
+            )
+
+            self.assertEqual(0, copied)
+            self.assertEqual(["RESOURCE_CONTENT_INVALID"], [item["code"] for item in failures])
+            self.assertEqual([], list(destination.iterdir()))
+
 
 class BatchExportE2ETests(unittest.TestCase):
     def test_mixed_objects_export_complete_fields_resources_and_dynamic_zip(self) -> None:
@@ -170,6 +199,39 @@ class BatchExportE2ETests(unittest.TestCase):
             self.assertEqual("API_ERROR", failure["code"])
             self.assertIn("details", failure)
             self.assertEqual("/assets/missing.txt", failure["details"]["source"])
+
+    def test_html_resource_failure_keeps_zip_but_marks_object_and_package_incomplete(self) -> None:
+        with FakeZenTao() as fake, tempfile.TemporaryDirectory() as td:
+            home = Path(td)
+            fake.state.resources["bug"]["903"] = {
+                "id": 903,
+                "files": [
+                    {"url": "/index.php?m=file&f=read&t=png&fileID=7395"},
+                    {"title": "good.txt", "url": "/assets/good-903.txt"},
+                ],
+            }
+            fake.state.add_binary(
+                "/index.php",
+                b"<html><body>login redirect</body></html>",
+                content_type="text/html",
+            )
+            fake.state.add_binary("/assets/good-903.txt", b"good", content_type="text/plain")
+
+            result = run_export(fake.base_url, home, "bug:903")
+            self.assertEqual(0, result.returncode, result.stderr)
+            output = json.loads(result.stdout)
+            self.assertFalse(output["complete"])
+
+            with zipfile.ZipFile(output["zip_path"]) as archive:
+                manifest = json.loads(archive.read("manifest.json"))
+                names = set(archive.namelist())
+
+            item = manifest["objects"][0]
+            self.assertFalse(item["complete"])
+            self.assertEqual(1, item["resource_count"])
+            self.assertEqual(["RESOURCE_CONTENT_INVALID"], [failure["code"] for failure in item["failures"]])
+            self.assertIn("objects/bug/903/resources/good.txt", names)
+            self.assertNotIn("objects/bug/903/resources/index.php", names)
 
     def test_view_failure_does_not_block_later_object_and_failure_stub_is_packaged(self) -> None:
         with FakeZenTao() as fake, tempfile.TemporaryDirectory() as td:

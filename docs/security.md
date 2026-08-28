@@ -30,6 +30,15 @@ user:    ~/.zentao-ai-assistant/cache/auth/token-<scope>.json
 - 明确 HTTP 401 表示当前 Token 被服务器拒绝：清理旧缓存、重新登录，并重放该次被认证层拒绝的请求一次。
 - 网络超时、连接中断或 5xx 不得借 Token cache 扩大写操作重试。
 
+## 21.7.8 Bug 附件页面兼容上传
+
+目标实例的 v2 文件上传空响应只能视为结果不确定。基础层先用 Bug 详情回读；只有未
+找到同名同大小附件时，才使用同一配置源的账号密码建立内存 Cookie 会话，并向固定的
+Bug 编辑页面提交 `files[]`。页面响应本身不作为成功依据，必须再用 API 详情确认附件
+ID、文件名和大小。页面写入异常只允许一次只读回读；无法确认时返回
+`UNKNOWN_WRITE_RESULT`，不自动重复提交。页面客户端只接受仓库内部构造的同源路径，不
+接受任意 URL，不把密码、Cookie 或页面响应写入日志/输出。
+
 ## 高层 Skill 数据
 
 统计/个人/项目管理在 `--cache-data` 时可以把大批量中间 JSON 放到当前 scope：
@@ -47,7 +56,8 @@ project 为 `.tmp/zentao/<skill>/`，user 为
 scope 的 trusted temp root：project 为 `.tmp/zentao-resources/`，user 为
 `~/.zentao-ai-assistant/tmp/zentao-resources/`，并保持逐跳同源校验、文件名清洗、
 符号链接/路径逃逸拒绝和 `.part` 清理。trusted temp root 随 scope 变化，但安全
-强度不变。
+强度不变。下载完成后还会拒绝空响应、明显的登录/错误 HTML 和资源提示 MIME
+冲突；旧式文件页 URL 不直接使用 `index.php` 作为落盘名。
 
 ## Plugin cache 边界
 

@@ -71,6 +71,15 @@ project/user scope：项目配置为 `<repo>/.env`，用户配置为
 - 高层 Skill 不改变 endpoint catalog，也不把 API 组合能力冒充官方 endpoint。
 - `zentao-batch-export` 是只读批量资料编排：首版支持 `bug / epic / execution / feedback / product / product-plan / program / requirement / story / task / test-case / ticket / user`；输入显式使用 `type:id`，脚本按 `type + id` 去重。
 - 批量导出不新增基础 API endpoint：每个对象调用现有 CLI `view` 与 `resource fetch`；`content.md` 保留完整 `view --json` 响应，资源进入 `objects/<type>/<id>/resources/`，根 `manifest.json` 只记录索引、完整性和完整失败信息。
+- `resource fetch` 的 HTTP 200 资源还必须通过非空、明显 HTML 登录/错误页和 MIME
+  类型一致性校验；不通过时使用 `RESOURCE_CONTENT_INVALID` 保留在
+  `partial_failures`，旧式 `/index.php?...fileID=...` URL 按资源 ID/类型提示生成语义文件名。
+- 21.7.8 的 `file.upload` v2 endpoint 仍按真实证据标记为 unsupported；Bug 的基础 CLI
+  上传在检测到 v2 空响应后，会先回读确认是否已经落库，未落库时才使用固定的
+  `bug/edit` 页面 `files[]` 表单兼容写入，并通过 API 详情回读确认附件。该兼容路径不
+  接受任意页面 URL、不使用浏览器自动化，页面写入异常只回读一次且不盲目重试。
+- 资源发现只处理当前附件区和业务富文本，不递归扫描 `actions`、`history`、`diff` 审计历史字段。
+- 统计 `by_assignee` 将空值和 ZenTao 特殊值 `closed` 显式归入 `unassigned`，不作为真实负责人统计。
 - 单对象/单资源失败不阻断后续导出；最终 ZIP 位于当前 scope 的 `.tmp/zentao/zentao-batch-export/<run-id>/` 或 `~/.zentao-ai-assistant/tmp/zentao/zentao-batch-export/<run-id>/`，文件名为动态 `zentao-export-<timestamp>-<short-id>.zip`，不接受调用方任意输出路径。
 - 统计、个人、项目管理和 Bug resolver 的读取脚本通过 `zentao_skill.public` 复用现有 Services/Session；`zentao-batch-export` 通过 public runtime bridge 取得 scope 路径并组合基础 `zentao` CLI。所有高层 Skill 都禁止直接访问 `internal/http` 或拼接 API URL。
 - `zentao-bug-resolver` 是第四个高层 Skill：其脚本只做证据驱动的只读 `select`、`snapshot`、`compare`，通过 `zentao_skill.public` 的只读 facade 取数；Agent 负责基于结果编排业务仓库证据、最小修改、验证和写前复查。这些脚本操作不是新的 API endpoint，不新增、不计入基础 `zentao` 的 120 个 API endpoint。

@@ -11,11 +11,16 @@ python skills/zentao/scripts/zentao.py doctor --json
 | `CONFIG_ERROR` | 当前选中的配置源缺少字段或 URL 无效 | 按 [configuration.md](configuration.md) 检查 `ZENTAO_CONFIG_FILE` → repo `.env` → Home config 的选择顺序；只报告缺少的键名，不打印配置内容。 |
 | `USAGE_ERROR` | 参数、scope、枚举或删除确认不符合 CLI 合同 | 执行对应 `<resource> <action> --help`。 |
 | `RESOURCE_SECURITY_ERROR` | 对象资源地址或重定向超出当前 ZenTao 同源可信范围 | 检查对象富文本/附件 URL；不要绕过同源校验。 |
+| `RESOURCE_CONTENT_INVALID` | HTTP 传输成功但内容为空、疑似登录/错误 HTML 或 MIME 类型冲突 | 检查 ZenTao 资源 URL、附件类型和登录会话；查看对应 `partial_failures`，不要把本地文件当作有效资源。 |
 | `RESOURCE_FETCH_FAILED` | 已发现对象资源，但全部获取失败 | 查看 `details.partial_failures`，按各资源错误处理。 |
 | `API_ERROR` | ZenTao 明确返回 HTTP/业务失败 | 根据 `details.status` 与最小必要响应信息检查权限、ID 和字段。 |
 | `NETWORK_ERROR` | 请求确定未送达或 GET 重试耗尽 | 检查地址、DNS、TLS、网络和反向代理。 |
 | `MALFORMED_RESPONSE` | API 返回无法解析的 JSON | 记录目标实例版本和 endpoint，作为兼容性差异处理。 |
 | `UNKNOWN_WRITE_RESULT` | 写请求可能已经执行但响应不可确认 | 不要直接重放；先显式使用对应 view/list 读取当前状态，再决定后续动作。 |
+
+如果 `file upload --object-type bug` 在 ZenTao 21.7.8 上遇到 v2 空响应，基础层会自动
+回读并按固定 `bug/edit` 页面表单兼容上传；最终仍以 Bug 详情中的附件 ID、文件名和大小
+为准。其它对象类型不会走该页面兼容路径。
 
 自动化测试问题请运行：
 

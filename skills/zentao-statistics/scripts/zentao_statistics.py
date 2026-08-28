@@ -49,7 +49,7 @@ def summarize_records(resource: str, records: list[dict[str, Any]], *, complete:
         "resource": resource,
         "total": len(unique),
         "by_status": group_count(unique, status),
-        "by_assignee": group_count(unique, assignee),
+        "by_assignee": group_count(unique, assignee, empty_label="unassigned"),
         "complete": bool(complete),
         "partial_failures": list(partial_failures or []),
         "duplicates_removed": duplicates,
