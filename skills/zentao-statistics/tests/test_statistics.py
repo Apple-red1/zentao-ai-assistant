@@ -38,6 +38,18 @@ class StatisticsTests(unittest.TestCase):
         mod._load_summary(Client(), 'story', 'product', 1, browse=None, per_page=1000, today=None, cache_data=False)
         self.assertEqual('all-story', calls[0][1]['browse'])
 
+    def test_assignee_summary_explicitly_groups_empty_and_closed_values_as_unassigned(self) -> None:
+        result = mod.summarize_records(
+            'bug',
+            [
+                {'id': 1, 'assignedTo': 'alice'},
+                {'id': 2, 'assignedTo': ''},
+                {'id': 3},
+                {'id': 4, 'assignedTo': 'closed'},
+            ],
+        )
+        self.assertEqual({'alice': 1, 'unassigned': 3}, result['by_assignee'])
+
     def test_task_summary_marks_overdue_only_for_open_work(self) -> None:
         records = [
             {'id': 1, 'status': 'doing', 'deadline': '2026-08-24'},

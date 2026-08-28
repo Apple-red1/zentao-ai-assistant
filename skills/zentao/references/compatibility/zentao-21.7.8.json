@@ -42,11 +42,18 @@
       "notes": "On the real 21.7.8 instance, activate without openedBuild returned a business validation error (『影响版本』不能为空). The same lifecycle action succeeds when the current affected/resolved build is explicitly supplied. The endpoint only accepts resolved or closed Bugs; activating an active Bug for an assignment-only handoff returned 状态不是已解决或已关闭的Bug不能激活, and no standalone active-Bug reassignment endpoint was available."
     },
     {
-      "endpoint_ids": ["feedback.create", "feedback.edit", "feedback.list_product", "feedback.view", "feedback.close", "feedback.activate", "feedback.delete", "file.upload", "file.edit", "ticket.create", "ticket.edit", "ticket.list_product", "ticket.view", "ticket.close", "ticket.activate", "ticket.delete"],
+      "endpoint_ids": ["feedback.create", "feedback.edit", "feedback.list_product", "feedback.view", "feedback.close", "feedback.activate", "feedback.delete", "ticket.create", "ticket.edit", "ticket.list_product", "ticket.view", "ticket.close", "ticket.activate", "ticket.delete"],
       "status": "unsupported",
       "observed_at": "2026-08-25",
       "evidence_id": "acceptance-21.7.8-module-limits",
-      "notes": "The target returned empty responses or reported an unavailable feedback/ticket module; file upload/edit returned empty responses and the official upload page marks the capability v22+."
+      "notes": "The target returned empty responses or reported an unavailable feedback/ticket module."
+    },
+    {
+      "endpoint_ids": ["file.upload", "file.edit"],
+      "status": "unsupported",
+      "observed_at": "2026-08-28",
+      "evidence_id": "issue-44-file-upload-page-fallback",
+      "notes": "On the real 21.7.8 instance, POST /api.php/v2/files and PUT /api.php/v2/files/{fileID} returned empty responses; a v2 upload readback showed no attachment. Browser network inspection established that the working web route is the same-origin Bug edit form with multipart files[], not file/ajaxUpload. A direct standard-library page-form request with the project .env credentials persisted attachments on Bugs #79 and #80. The CLI now uses this fixed Bug-only compatibility fallback after a v2 empty response, with API detail readback and no blind retry. The official v2 upload endpoint remains unsupported on this target."
     },
     {
       "endpoint_ids": ["project.create", "project.edit", "project.list_program", "project.delete", "product.view", "product.delete"],

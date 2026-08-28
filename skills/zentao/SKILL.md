@@ -46,12 +46,9 @@ Token 登录由内部 `token.login` 认证适配自动完成，不建立业务 `
 
 ## 配置与运行 scope
 
-直接 clone 使用 project scope：`setup` 或 `setup --scope project`；Plugin 或
-用户级配置使用 `setup --scope user`。
-
-`setup` 通过交互式提示读取密码，不接受 `--password`；写入后必须显式执行
-`doctor --json` 验证配置和 API v2 登录。命令输出、错误和文档示例都不显示
-密码或 Token。
+直接 clone 使用 project scope：`setup` 或 `setup --scope project`；Plugin/用户级配置使用
+`setup --scope user`。`setup` 通过交互式提示读取密码，不接受 `--password`；写入后执行
+`doctor --json` 验证，命令输出、错误和文档示例都不显示密码或 Token。
 
 配置文件严格按 `ZENTAO_CONFIG_FILE` → 仓库根目录 `.env`（存在时）→
 `~/.zentao-ai-assistant/config.env` 选择一个文件；不跨文件补字段，环境变量
@@ -81,13 +78,16 @@ Token cache 只保存短期 Token，不保存密码；临时资源和高层聚�
 
 官方 API 资源命令一条 CLI 命令只执行一个明确业务 endpoint。`resource fetch` 是已单独冻结的只读组合获取能力，可执行一次对象详情读取和零到多个同源资源 GET。禁止写后自动 GET、自动第二次写或写请求自动重试。收到 `UNKNOWN_WRITE_RESULT` 时不要直接重放原写操作；在任何后续写入前，先通过显式的只读 `view/list` 命令确认当前状态。
 
+文件上传在 ZenTao 21.7.8 上有兼容例外：Bug 目标 v2 空响应先回读，未发现同名同大小附件时才提交固定 Bug 编辑页面的 `files[]` 表单并再次回读；页面路径不接受任意 URL、不使用浏览器自动化，异常只回读一次、不重试。
+
 ## 对象关联资源
 
 `view` 只读取对象详情，不自动下载附件。用户明确要求获取、查看或分析对象资源时，先用对应 `view` 获取文本事实，再执行 `resource fetch --object-type <type> --object-id <id> --json`。
 
 `resource fetch` 只从对象附件区和富文本发现资源，尝试获取全部文件并保存到
 当前 runtime scope 的资源临时目录；不接受任意 URL。至少一个资源成功时保留
-成功结果并报告 `partial_failures`，全部失败才返回 `RESOURCE_FETCH_FAILED`。
+成功结果并报告 `partial_failures`；空响应、疑似登录/错误 HTML 或 MIME 类型冲突
+会以 `RESOURCE_CONTENT_INVALID` 记录，全部失败才返回 `RESOURCE_FETCH_FAILED`。
 下载后的图片/文档/日志等由宿主按可用能力继续理解。
 
 ## 输出与错误

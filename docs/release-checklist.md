@@ -26,8 +26,10 @@
 - [ ] Token 不写回 `.env`；若启用 `.tmp/zentao/auth/` 短期缓存，则权限、TTL、401 刷新和脱敏合同均通过。
 - [ ] 所有 R3 delete 在缺少 `--yes` 时不发送业务 HTTP。
 - [ ] 写入网络不确定返回 `UNKNOWN_WRITE_RESULT`，不自动重试、不自动 GET。
+- [ ] ZenTao 21.7.8 Bug 附件上传的 v2 空响应兼容路径仅在一次回读确认未落库后提交固定
+  `bug/edit` `files[]` 表单，并通过 API 回读确认；页面会话不接受任意 URL、不泄露密码。
 - [ ] `.tmp/` 已被 Git 忽略；`resource fetch` 只能从对象附件区/富文本发现资源，并拒绝跨源 URL/重定向。
-- [ ] 资源文件流式写入项目 `.tmp/zentao-resources/`，同名文件不覆盖，部分失败按 `partial_failures` 返回。
+- [ ] 资源文件流式写入项目 `.tmp/zentao-resources/`，同名文件不覆盖；空响应、登录/错误 HTML 和 MIME 冲突按 `RESOURCE_CONTENT_INVALID` 进入 `partial_failures`。
 - [ ] `zentao-batch-export` 只写当前 scope 的 `zentao/zentao-batch-export/<run-id>/`，ZIP 动态命名；资源复制拒绝符号链接/目录逃逸，单项失败继续并完整记录到 manifest。
 - [ ] user scope 使用 `~/.zentao-ai-assistant/cache/auth/`、
   `~/.zentao-ai-assistant/tmp/`，目录/文件权限目标仍为 `0700`/`0600`；config

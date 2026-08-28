@@ -46,6 +46,11 @@ class ResourceSecurityError(ZentaoError):
         super().__init__("RESOURCE_SECURITY_ERROR", message, details)
 
 
+class ResourceContentError(ZentaoError):
+    def __init__(self, message: str, details: dict[str, Any] | None = None) -> None:
+        super().__init__("RESOURCE_CONTENT_INVALID", message, details)
+
+
 class ResourceFetchError(ZentaoError):
     def __init__(self, message: str, details: dict[str, Any] | None = None) -> None:
         super().__init__("RESOURCE_FETCH_FAILED", message, details)
