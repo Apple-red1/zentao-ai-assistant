@@ -55,7 +55,7 @@ cache。
 
 resolver 的多 Skill smoke 使用本地 FakeZenTao 服务器，由独立子进程实际运行 `select`、`snapshot`、`compare`；断言业务请求均为 GET、没有 `bug.resolve`，因此不代表真实 ZenTao 调用。全仓库和 API 专项结果中的 `Real API calls: 0` 仍是硬边界：测试只验证本地 Fake/桩合同，不验证真实环境兼容性。
 
-后续增加场景时优先覆盖多页、空集、部分失败、重复数据、日期边界和真实用户表达。
+批量导出还应覆盖 Markdown 字段格式化、富文本资源引用替换为 ZIP 相对路径、重复文件名、部分失败继续和失败详情保留。后续增加场景时优先覆盖多页、空集、部分失败、重复数据、日期边界和真实用户表达。
 
 ## Bug ID 聊天展示
 
@@ -72,7 +72,7 @@ Issue #46 r3 实施时用户确认：不包含 CLI 不带 `--json` 的终端输�
 | `zentao-project-management` Project/Execution 风险与说明 | `zentao_project_management.py` 的 `build_health_report` / `risk_signals` | Bug 风险项加链接，混合 Task 等资源的 ID 不误链，保留部分失败 |
 | `zentao-bug-resolver` 目标、候选、队列、状态回报 | `select_bugs` / `build_snapshot` / `compare_snapshots` 与 Agent 显式回读 | 编号链接不触发详情读取、队列继续、证据流程或生命周期写入 |
 | `zentao-statistics` 统计解释 | `summarize_records` / `compare_summaries` 通常只含聚合；scope ID 不是 Bug ID | 纯数量不生成链接；从已有明细引用单个 Bug 时才加链接，不为此取明细 |
-| `zentao-batch-export` 导出结果聊天说明 | `export_objects` 的输出与 manifest；`render_content_markdown`、失败文件及 ZIP 不改 | 聊天提到的成功/失败 Bug 编号可点击，完整性与失败事实不变 |
+| `zentao-batch-export` 导出结果聊天说明 | `export_objects` 的输出与 manifest；`content.md` 的 Markdown 格式、资源相对路径、失败文件及 ZIP 内容遵守批量导出合同 | 聊天提到的成功/失败 Bug 编号可点击，完整性与失败事实不变 |
 
 确定性回归入口：
 

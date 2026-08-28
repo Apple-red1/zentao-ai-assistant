@@ -37,7 +37,7 @@ Project / Execution 的资源概览、风险信号和开放事项工作量分布
 
 ## `zentao-batch-export`
 
-按显式 `type:id` 批量导出多个 ZenTao 对象，首版覆盖当前 13 种同时具备 `view + resource fetch` 的 canonical 类型。每个对象的 `content.md` 保存完整 `view --json` 响应，附件和富文本资源进入独立 `resources/`，根 `manifest.json` 只记录路径、完整性与失败清单。单项失败继续导出；最终 ZIP 位于当前 runtime scope 的 `zentao/zentao-batch-export/<run-id>/` 并动态命名。
+按显式 `type:id` 批量导出多个 ZenTao 对象，首版覆盖当前 13 种同时具备 `view + resource fetch` 的 canonical 类型。每个对象的 `content.md` 以可读 Markdown 保存完整字段，附件和富文本资源进入独立 `resources/`，正文中已成功归档的资源引用改为解压后可用的相对路径，根 `manifest.json` 只记录路径、完整性与失败清单。单项失败继续导出；最终 ZIP 位于当前 runtime scope 的 `zentao/zentao-batch-export/<run-id>/` 并动态命名。
 
 ## `zentao-bug-resolver`
 

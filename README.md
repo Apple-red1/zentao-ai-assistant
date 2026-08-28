@@ -154,12 +154,12 @@ python3 skills/zentao-project-management/scripts/zentao_project_management.py he
 python3 skills/zentao-batch-export/scripts/zentao_batch_export.py bug:123 story:78 task:90 --json
 ```
 
-`zentao-batch-export` 只读复用基础 `view` 与 `resource fetch`，把每个对象的完整 `view --json` 响应写入 `content.md`，把附件/富文本资源归档到对象目录，再在当前 runtime scope 下生成动态命名的 ZIP。单项失败继续导出并完整保留到 `manifest.json` 的 `complete/failures`。
+`zentao-batch-export` 只读复用基础 `view` 与 `resource fetch`，把每个对象的完整字段格式化写入 `content.md`，把附件/富文本资源归档到对象目录，并将已成功归档的正文资源引用改为 `resources/<file>`，再在当前 runtime scope 下生成动态命名的 ZIP。单项失败继续导出并完整保留到 `manifest.json` 的 `complete/failures`。
 
 Bug 详情链接使用固定禅道路由直接生成，不打开浏览器：
 `python3 skills/zentao/scripts/zentao.py bug web-url 3641 --json`。
 
-六个 Skill 的聊天回复中，Bug 编号本身统一显示为可点击链接，规则见[Bug 展示说明](skills/zentao/references/bug-display.md)。原始 ID、JSON、查询和写入行为不变；CLI 终端输出及 ZIP 内 `content.md` 不变。
+六个 Skill 的聊天回复中，Bug 编号本身统一显示为可点击链接，规则见[Bug 展示说明](skills/zentao/references/bug-display.md)。原始 ID、机器 JSON、查询和写入行为不变；CLI 终端输出与 ZIP 内 `content.md` 各自遵循对应输出合同。
 
 Bug 证据驱动流程的确定性脚本入口为：
 

@@ -11,7 +11,7 @@ python skills/zentao/scripts/zentao.py doctor --json
 | `CONFIG_ERROR` | 当前选中的配置源缺少字段或 URL 无效 | 按 [configuration.md](configuration.md) 检查 `ZENTAO_CONFIG_FILE` → repo `.env` → Home config 的选择顺序；只报告缺少的键名，不打印配置内容。 |
 | `USAGE_ERROR` | 参数、scope、枚举或删除确认不符合 CLI 合同 | 执行对应 `<resource> <action> --help`。 |
 | `RESOURCE_SECURITY_ERROR` | 对象资源地址或重定向超出当前 ZenTao 同源可信范围 | 检查对象富文本/附件 URL；不要绕过同源校验。 |
-| `RESOURCE_CONTENT_INVALID` | HTTP 传输成功但内容为空、疑似登录/错误 HTML 或 MIME 类型冲突 | 检查 ZenTao 资源 URL、附件类型和登录会话；查看对应 `partial_failures`，不要把本地文件当作有效资源。 |
+| `RESOURCE_CONTENT_INVALID` | HTTP 传输成功但内容为空、疑似登录/错误 HTML 或 MIME 类型冲突 | 检查 ZenTao 资源 URL、附件类型和登录会话；旧式富文本图片应确认请求是否已转换为同源 `file/download`；查看对应 `partial_failures`，不要把本地文件当作有效资源。 |
 | `RESOURCE_FETCH_FAILED` | 已发现对象资源，但全部获取失败 | 查看 `details.partial_failures`，按各资源错误处理。 |
 | `API_ERROR` | ZenTao 明确返回 HTTP/业务失败 | 根据 `details.status` 与最小必要响应信息检查权限、ID 和字段。 |
 | `NETWORK_ERROR` | 请求确定未送达或 GET 重试耗尽 | 检查地址、DNS、TLS、网络和反向代理。 |

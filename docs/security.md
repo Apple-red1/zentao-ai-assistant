@@ -57,7 +57,13 @@ scope 的 trusted temp root：project 为 `.tmp/zentao-resources/`，user 为
 `~/.zentao-ai-assistant/tmp/zentao-resources/`，并保持逐跳同源校验、文件名清洗、
 符号链接/路径逃逸拒绝和 `.part` 清理。trusted temp root 随 scope 变化，但安全
 强度不变。下载完成后还会拒绝空响应、明显的登录/错误 HTML 和资源提示 MIME
-冲突；旧式文件页 URL 不直接使用 `index.php` 作为落盘名。
+冲突；旧式文件页 URL 不直接使用 `index.php` 作为落盘名。富文本旧式
+`m=file&f=read` 图片仅在请求前受限改为同源 `f=download`；改写后仍执行上述
+同源、Token、重定向和内容校验，普通附件 URL 不改写。
+
+批量导出的 `content.md` 只把成功复制到本次 ZIP 的资源映射为对象目录下的相对
+`resources/<file>` 路径，不暴露 runtime 临时目录的绝对路径；未归档的图片只显示
+为提示文本，不在 Markdown 中重新启用外部资源请求。
 
 ## Plugin cache 边界
 

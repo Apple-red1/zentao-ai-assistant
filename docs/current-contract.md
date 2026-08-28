@@ -70,10 +70,10 @@ project/user scope：项目配置为 `<repo>/.env`，用户配置为
 - `zentao` API catalog 仍覆盖 20 个资源、**120 个 ZenTao API v2 endpoint**，API 实现、CLI、Skill 路由、Fake、合同和 CLI E2E 保持 `120/120`。
 - 高层 Skill 不改变 endpoint catalog，也不把 API 组合能力冒充官方 endpoint。
 - `zentao-batch-export` 是只读批量资料编排：首版支持 `bug / epic / execution / feedback / product / product-plan / program / requirement / story / task / test-case / ticket / user`；输入显式使用 `type:id`，脚本按 `type + id` 去重。
-- 批量导出不新增基础 API endpoint：每个对象调用现有 CLI `view` 与 `resource fetch`；`content.md` 保留完整 `view --json` 响应，资源进入 `objects/<type>/<id>/resources/`，根 `manifest.json` 只记录索引、完整性和完整失败信息。
+- 批量导出不新增基础 API endpoint：每个对象调用现有 CLI `view` 与 `resource fetch`；`content.md` 以可读 Markdown 展示完整 `view --json` 字段，成功归档的富文本资源引用改为对象目录下的相对 `resources/<file>` 路径，资源进入 `objects/<type>/<id>/resources/`，根 `manifest.json` 仍只记录索引、完整性和完整失败信息。
 - `resource fetch` 的 HTTP 200 资源还必须通过非空、明显 HTML 登录/错误页和 MIME
   类型一致性校验；不通过时使用 `RESOURCE_CONTENT_INVALID` 保留在
-  `partial_failures`，旧式 `/index.php?...fileID=...` URL 按资源 ID/类型提示生成语义文件名。
+  `partial_failures`，旧式 `/index.php?...fileID=...` URL 按资源 ID/类型提示生成语义文件名。富文本旧式 `m=file&f=read` 图片请求仅将 `f` 改为同源 `download`，普通附件 URL 不改写，且输出保留原始 `source`。
 - 21.7.8 的 `file.upload` v2 endpoint 仍按真实证据标记为 unsupported；Bug 的基础 CLI
   上传在检测到 v2 空响应后，会先回读确认是否已经落库，未落库时才使用固定的
   `bug/edit` 页面 `files[]` 表单兼容写入，并通过 API 详情回读确认附件。该兼容路径不
@@ -91,7 +91,7 @@ project/user scope：项目配置为 `<repo>/.env`，用户配置为
 - 信息不足的 `UNCLEAR` / `NO_CODE_EVIDENCE` 不修改业务代码；`will-not-fix` 仅表示按门槛退回补充信息，不是技术修复结论。
 - 当前不宣称 module 名称映射、Bug 历史、ETag 或其它未经真实证据验证的字段/接口。
 - `bug web-url` 按固定禅道路由本地生成链接，不是新的 API endpoint，不访问页面或打开浏览器。
-- 所有六个 Skill 的聊天回复只要展示 Bug ID，编号本身就是可点击链接；统一消费 `bug web-url` 返回的 `id → url`，不按数组位置配对。不改变原始 ID、JSON、查询和写入合同；CLI 终端输出与 ZIP 内 `content.md` 不在本次展示范围。新 Skill 继承共享展示规则。
+- 所有六个 Skill 的聊天回复只要展示 Bug ID，编号本身就是可点击链接；统一消费 `bug web-url` 返回的 `id → url`，不按数组位置配对。不改变原始 ID、机器 JSON、查询和写入合同；CLI 终端输出与 ZIP 内 `content.md` 的 Markdown 导出格式分别遵守各自合同。新 Skill 继承共享展示规则。
 - `HUMAN_ATTESTED_RESOLVE`：当前消息明确确认已解决且目标唯一，即人工结论与对应 Bug 的 R2 授权；最小 bug view → active 时一次 fixed resolve → 显式 bug view 回读。不读取业务仓库/源码/提交/测试/diff/附件/patch，不运行 select/snapshot/compare，不套用普通证据门槛。
 - 人工确认默认显式 `--resolved-build trunk`，用户明确指定其它值时覆盖；负责人按“用户显式指定 assignee > Bug creator account > BLOCKED”确定，显式人员需由完整真实用户数据唯一解析，未指定时使用当前 Bug 的创建人 account，兼容 openedByAccount/openedBy.account；`openedBy` 字符串须经完整真实用户目录做区分大小写的 account 精确校验，不按姓名或大小写回退匹配；缺失、重名、冲突或数据不完整时停止，不回退、不猜测。resolve 必须显式传 `--assignee <target-account>`，回读同时验证 `status=resolved` 且 `assignedTo=target_account`；默认不传 resolved-date，自动生成 `[CODEX-HUMAN-ATTESTED-RESOLUTION]` 备注，不伪造代码或测试事实。resolved/closed 不重复写；当前消息明确列出的多个 Bug 按输入顺序去重并严格串行；真实阻塞停止，`UNKNOWN_WRITE_RESULT` 停止整个队列、只读回读且绝不重试。仅在真实阻塞时提问，不自动 close 或切换 endpoint。
 - “帮我解决/修复”与不确定表达不触发人工确认；人工确认是 Agent 指令分支，没有新增 Python lifecycle 编排器，不改变 120 endpoint 或只读 facade。
