@@ -4,7 +4,7 @@
 
 ## 已验证
 
-- 本地自动化全量测试：待本轮代码变更完成后重新执行并记录；Catalog、Internal、CLI、Fake、Contract、CLI E2E 目标均为 120/120，真实 API 调用计数为 0。
+- 本地自动化全量测试：本轮变更后 API 专项与仓库级回归均通过；Catalog、Internal、CLI、Fake、Contract、CLI E2E 均为 120/120，真实 API 调用计数为 0。
 - 真实只读 endpoint-level evidence：5 个 endpoint ID 通过（`token.login`、`product.list`、`project.list`、`bug.list_product`、`bug.list_project`），具体 case 记录在 compatibility evidence 文件中；不再使用无法追溯的“44/44”口径。
 - 真实对象资源获取：`resource fetch --object-type product --object-id 2` 返回空资源成功；临时 Bug 的富文本保留同源 `/theme/default/images/main/logo.png`，`resource fetch --object-type bug --object-id 3` 成功流式下载 2,067 字节 PNG，落盘文件与直接服务器响应 SHA-256 一致；临时对象已清理。
 - 真实写入和状态流：项目集、产品、项目、执行、构建、应用、需求、用户需求、业务需求、任务、测试用例、测试单、Bug、用户的创建，以及需求/业务需求关闭激活、任务开始完成关闭激活、Bug 解决关闭激活均已成功；Bug PUT 编辑在本实例上返回空响应且回读不变，已单独标为不支持。
@@ -79,7 +79,7 @@
 ## 当前实例限制
 
 - 反馈与工单模块：目标实例对创建、列表、详情及生命周期请求返回空响应（CLI 旧逻辑会渲染为 `status: success`）；产品配置探针返回 `Feedback does not exist.`，确认当前 21.7.8 未启用对应模块。代码现会把缺少对象字段的响应报告为 `API_ERROR`，而不是假成功。
-- 文件模块：在真实任务上上传后返回空响应，任务详情仍为 `files: []`；编辑同样返回空响应；不存在附件的真实删除返回业务错误。受控空响应曾暴露 File delete 将 `None` 合成为成功的问题，现已改为 `API_ERROR` 并补充回归测试；未猜测附件 ID 执行删除。官方上传文档将上传能力标注为 v22.0 及以上。
+- 文件模块：在真实 21.7.8 上，v2 `file.upload`/`file.edit` 仍返回空响应，官方 v2 上传能力标注为 v22.0 及以上；但页面网络观察确认附件实际由 Bug 编辑表单的 multipart `files[]` 写入。基础 CLI 现在仅在 v2 上传空响应、一次 API 回读确认未落库后，向固定的 `bug/edit` URL 提交页面表单，并再次回读确认。Bug `80` 的 `sample.txt` 已真实落库，附件 ID 为 2，大小 23 字节；`resource fetch` 下载成功且与源文件 SHA-256 均为 `82b5b5e695bdfd144be17d27f4fbc11a5855012bd9d9eb51c6d3cde8255d5b4e`，单对象 ZIP 的 manifest 和对象均 `complete=true`，ZIP 内字节一致。不存在附件的真实删除仍返回业务错误；未执行删除测试数据。
 
 发布前自动化门槛见 [release-checklist.md](../release-checklist.md)：完整测试必须在 Fake 环境达到 120/120，且真实 API 调用计数为 0。官方合同快照与 21.7.8 观察分别见 `skills/zentao/references/api-v2/official-contract.json` 和 `skills/zentao/references/compatibility/zentao-21.7.8.json`；文档统计必须与机器 evidence contract 一致。
 
@@ -91,7 +91,9 @@
 
 - 富文本中的同源绝对/根相对图片 URL 可被发现并下载；资源 GET 携带 API Token 即可成功；
 - 返回的 `Content-Type: image/png` 和二进制内容均按流式方式保存，未发生内容改写；
-- 21.7.8 实例的 `file upload` 写入端点返回空响应，Bug 详情的 `files` 仍为空；因此本次未把附件区下载标记为真实 `verified`，附件字段兼容性仍待支持该端点的实例复验；
+- 21.7.8 实例的 v2 `file upload` 写入端点仍返回空响应，但通过固定 Bug 编辑页面的 `files[]` 兼容路径已真实生成附件元数据；`resource fetch` 对 Bug `80` 下载附件成功，且批量导出 ZIP 的 manifest、附件文件和字节校验均完整；
 - 本次未发现真实资源重定向链，重定向和跨源拦截仍由 Fake E2E 覆盖。
 
-上述真实观察不改变官方 120 endpoint catalog；若后续实例提供附件元数据或重定向链，应记录为新的 21.7.8 `observed` 兼容事实后再扩展证据。
+上述真实观察不改变官方 120 endpoint catalog：`file.upload` 的 v2 endpoint 仍记录为
+unsupported，页面兼容路径是基础 CLI 的内部实现，不是新增 endpoint。为保留真实验证
+证据，本轮创建的测试 Bug `79`、`80` 未执行删除，需用户明确指定具体 ID 后再按 R3 合同清理。

@@ -33,4 +33,6 @@ project 为 `<repo>/.tmp/zentao/statistics/`，user 为
 - 不根据当前快照伪造历史趋势。
 - `complete=false` 或存在 `partial_failures` 时，回答必须明确统计并非完整事实。
 - 字段缺失时不臆造该维度；后续维度可随真实 API 证据迭代。
+- `by_assignee` 将空负责人和 ZenTao 的特殊值 `closed` 统一计入
+  `unassigned`，不把它们展示为真实负责人。
 - `--cache-data` 生成的 JSON 只是临时运行材料，不是长期事实源或审计数据库。

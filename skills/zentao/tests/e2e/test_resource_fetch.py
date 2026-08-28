@@ -85,6 +85,75 @@ class ResourceFetchE2ETests(unittest.TestCase):
             )
             self.assertFalse(any(r.get("path") == "/assets/blocked.png" for r in fake.state.requests))
 
+    def test_fetch_rejects_http_200_html_error_and_uses_file_page_name_hints(self) -> None:
+        with FakeZenTao() as fake:
+            fake.state.resources["bug"]["908"] = {
+                "id": 908,
+                "files": [
+                    {"url": "/index.php?m=file&f=read&t=png&fileID=7395"},
+                    {"title": "good.txt", "url": "/assets/good-908.txt"},
+                ],
+            }
+            fake.state.add_binary(
+                "/index.php",
+                b"<html><body>login redirect</body></html>",
+                content_type="text/html",
+            )
+            fake.state.add_binary("/assets/good-908.txt", b"good", content_type="text/plain")
+
+            result = run_cli(fake.base_url, [
+                "resource", "fetch", "--object-type", "bug", "--object-id", "908", "--json",
+            ])
+
+            self.assertEqual(0, result.returncode, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(["good.txt"], [item["file_name"] for item in payload["resources"]])
+            self.assertEqual(["RESOURCE_CONTENT_INVALID"], [item["code"] for item in payload["partial_failures"]])
+            self.assertNotIn("index.php", [item["file_name"] for item in payload["resources"]])
+
+    def test_fetch_rejects_empty_and_mismatched_mime_responses(self) -> None:
+        with FakeZenTao() as fake:
+            fake.state.resources["bug"]["909"] = {
+                "id": 909,
+                "files": [
+                    {"title": "empty.bin", "url": "/assets/empty.bin"},
+                    {"title": "image.png", "url": "/assets/mismatch.png"},
+                    {"title": "good.txt", "url": "/assets/good-909.txt"},
+                ],
+            }
+            fake.state.add_binary("/assets/empty.bin", b"", content_type="application/octet-stream")
+            fake.state.add_binary("/assets/mismatch.png", b"pdf", content_type="application/pdf")
+            fake.state.add_binary("/assets/good-909.txt", b"good", content_type="text/plain")
+
+            result = run_cli(fake.base_url, [
+                "resource", "fetch", "--object-type", "bug", "--object-id", "909", "--json",
+            ])
+
+            self.assertEqual(0, result.returncode, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(["good.txt"], [item["file_name"] for item in payload["resources"]])
+            self.assertEqual(
+                ["RESOURCE_CONTENT_INVALID", "RESOURCE_CONTENT_INVALID"],
+                [item["code"] for item in payload["partial_failures"]],
+            )
+
+    def test_fetch_names_successful_legacy_file_page_from_query_hints(self) -> None:
+        with FakeZenTao() as fake:
+            fake.state.resources["bug"]["910"] = {
+                "id": 910,
+                "files": [{"url": "/index.php?m=file&f=read&t=png&fileID=7395"}],
+            }
+            fake.state.add_binary("/index.php", b"png", content_type="image/png")
+
+            result = run_cli(fake.base_url, [
+                "resource", "fetch", "--object-type", "bug", "--object-id", "910", "--json",
+            ])
+
+            self.assertEqual(0, result.returncode, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(["file-7395.png"], [item["file_name"] for item in payload["resources"]])
+            self.assertEqual([], payload["partial_failures"])
+
     def test_human_output_keeps_local_paths_and_partial_failures_visible(self) -> None:
         with FakeZenTao() as fake:
             fake.state.resources["bug"]["907"] = {

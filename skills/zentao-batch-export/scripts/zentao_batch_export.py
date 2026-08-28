@@ -19,8 +19,12 @@ ZENTAO_SCRIPTS = REPO_ROOT / "skills" / "zentao" / "scripts"
 ZENTAO_CLI = ZENTAO_SCRIPTS / "zentao.py"
 if str(ZENTAO_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(ZENTAO_SCRIPTS))
+BATCH_SCRIPTS = Path(__file__).resolve().parent
+if str(BATCH_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(BATCH_SCRIPTS))
 
 from zentao_skill.public import prepare_runtime_temp_root  # noqa: E402
+from resource_validation import resource_content_failure  # noqa: E402
 
 
 SUPPORTED_TYPES = (
@@ -309,6 +313,13 @@ def _copy_resources(
             continue
         try:
             source = _safe_resource_source(item.get("local_path"), resource_root)
+            content_error = resource_content_failure(item, source)
+            if content_error is not None:
+                raise BatchExportError(
+                    content_error["code"],
+                    content_error["message"],
+                    details=content_error["details"],
+                )
             target = _unique_destination(destination, item.get("file_name"), f"resource-{index}")
             shutil.copyfile(source, target)
             if os.name == "posix":

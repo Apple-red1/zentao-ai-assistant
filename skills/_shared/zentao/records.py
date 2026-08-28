@@ -5,6 +5,9 @@ from datetime import date, datetime
 from typing import Any, Iterable
 
 
+_SPECIAL_ASSIGNEE_VALUES = frozenset({"closed"})
+
+
 def dedupe_records(records: Iterable[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
     found: dict[str, dict[str, Any]] = {}
     anonymous: list[dict[str, Any]] = []
@@ -48,7 +51,8 @@ def scalar_identity(value: Any) -> str:
 
 
 def assignee(record: dict[str, Any]) -> str:
-    return scalar_identity(first_value(record, "assignedTo", "assigned_to", "assignee", "assignedToAccount", "owner"))
+    value = scalar_identity(first_value(record, "assignedTo", "assigned_to", "assignee", "assignedToAccount", "owner"))
+    return "" if value.strip().casefold() in _SPECIAL_ASSIGNEE_VALUES else value
 
 
 def status(record: dict[str, Any]) -> str:
@@ -67,12 +71,14 @@ def title(record: dict[str, Any]) -> str:
     return scalar_identity(first_value(record, "title", "name"))
 
 
-def group_count(records: Iterable[dict[str, Any]], getter) -> dict[str, int]:
+def group_count(records: Iterable[dict[str, Any]], getter, *, empty_label: str | None = None) -> dict[str, int]:
     values = Counter()
     for record in records:
         value = getter(record)
         if value != "":
             values[str(value)] += 1
+        elif empty_label is not None:
+            values[empty_label] += 1
     return dict(sorted(values.items(), key=lambda item: item[0]))
 
 

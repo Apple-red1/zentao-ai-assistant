@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from zentao_skill.internal.config import RuntimePaths
 from zentao_skill.internal.errors import ResourceSecurityError
-from zentao_skill.internal.zentao.resources import discover_resources, display_source
+from zentao_skill.internal.zentao.resources import discover_resources, display_source, source_file_name
 from zentao_skill.services.resources.service import ResourcesService
 
 
@@ -97,6 +97,20 @@ class ResourceDiscoveryTests(unittest.TestCase):
             ["/assets/one.webp", "/assets/two.webp", "/assets/poster.jpg", "/assets/style.png"],
             [item.source for item in candidates],
         )
+
+    def test_does_not_scan_audit_history_or_diff_as_current_resources(self) -> None:
+        detail = {
+            "desc": '<p><img src="/assets/current.png"></p>',
+            "actions": [{"history": [{"diff": '<img src="/assets/old.png">'}]}],
+        }
+        candidates, failures = discover_resources(detail)
+        self.assertEqual([], failures)
+        self.assertEqual(["/assets/current.png"], [item.source for item in candidates])
+
+    def test_source_file_name_uses_file_page_query_hints(self) -> None:
+        source = "/index.php?m=file&f=read&t=png&fileID=7395"
+        self.assertEqual("file-7395.png", source_file_name(source))
+        self.assertIsNone(source_file_name("/index.php?m=file&f=read"))
 
     def test_output_source_redacts_embedded_data_and_sensitive_query_values(self) -> None:
         self.assertEqual("data:image/png;base64,...", display_source("data:image/png;base64,aGVsbG8="))

@@ -20,7 +20,8 @@ python skills/zentao/scripts/zentao.py resource fetch \
 1. `files` 等附件区元数据；
 2. 富文本中的内联/链接资源，包括图片、音视频、嵌入对象、CSS `url(...)` 和明显的文件下载链接。
 
-不扫描页面、不抓取全站资源，也不接受调用方传入任意 URL。
+不扫描页面、不抓取全站资源，也不接受调用方传入任意 URL；对象详情中的
+`actions`、`history`、`diff` 审计历史字段不作为当前资源来源扫描。
 
 ## 下载与本地文件
 
@@ -30,6 +31,11 @@ python skills/zentao/scripts/zentao.py resource fetch \
 - HTTP 文件以流式方式写入当前 runtime scope 的资源目录：project 为
   `<project-root>/.tmp/zentao-resources/<object-type>-<object-id>/`，user 为
   `~/.zentao-ai-assistant/tmp/zentao-resources/<object-type>-<object-id>/`；
+- HTTP 200 不等于资源成功：空响应、疑似登录页/HTML 错误页，以及响应 MIME 与
+  资源类型提示冲突的文件，会以 `RESOURCE_CONTENT_INVALID` 记入
+  `partial_failures`，不会进入成功资源列表；
+- 旧式 `/index.php?...fileID=...` URL 的文件名优先使用资源 ID 和类型提示生成，
+  不会直接落盘为无语义的 `index.php`；
 - 项目 `.tmp/` 与用户 runtime `tmp/` 均用于临时数据，资源默认不自动清理；
 - 同名文件自动生成 `-2`、`-3` 等唯一名称，不覆盖已有文件；
 - `data:` 内联资源直接从对象内容解码到同一临时目录。

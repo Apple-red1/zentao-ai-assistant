@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import mimetypes
 import re
 from dataclasses import dataclass
 from html.parser import HTMLParser
@@ -34,6 +35,10 @@ _ATTACHMENT_URL_KEYS = ("url", "downloadUrl", "downloadURL", "webPath", "href", 
 _ATTACHMENT_NAME_KEYS = ("title", "fileName", "filename", "name")
 _CSS_URL_RE = re.compile(r"url\(\s*(['\"]?)(.*?)\1\s*\)", re.IGNORECASE)
 _PAGE_SUFFIXES = {".html", ".htm", ".php", ".asp", ".aspx", ".jsp"}
+_GENERIC_PAGE_NAMES = {"index.php", "index.html", "download.php", "file.php"}
+_RESOURCE_ID_QUERY_KEYS = {"fileid", "attachmentid", "resourceid"}
+_RESOURCE_TYPE_QUERY_KEYS = {"t", "type", "mimetype", "contenttype"}
+_IGNORED_RESOURCE_KEYS = {"actions", "history", "diff"}
 
 
 @dataclass(frozen=True)
@@ -110,7 +115,10 @@ def discover_resources(detail: object) -> tuple[list[ResourceCandidate], list[di
         if isinstance(value, dict):
             for key, item in value.items():
                 item_path = f"{path}.{key}" if path else str(key)
-                if str(key).lower() == "files":
+                key_name = str(key).lower()
+                if key_name in _IGNORED_RESOURCE_KEYS:
+                    continue
+                if key_name == "files":
                     for entry in attachment_entries(item):
                         if isinstance(entry, str):
                             add(entry, origin="attachment", field=item_path)
@@ -139,6 +147,8 @@ def discover_resources(detail: object) -> tuple[list[ResourceCandidate], list[di
         if isinstance(value, dict):
             for key, item in value.items():
                 item_path = f"{path}.{key}" if path else str(key)
+                if str(key).lower() in _IGNORED_RESOURCE_KEYS:
+                    continue
                 walk_rich_text(item, item_path, inside_files=inside_files or str(key).lower() == "files")
         elif isinstance(value, list):
             for index, item in enumerate(value):
@@ -188,11 +198,54 @@ def display_source(source: str) -> str:
     return urlunsplit((parsed.scheme, netloc, parsed.path, query, ""))
 
 
-def source_file_name(source: str) -> str | None:
+def _query_value(source: str, keys: set[str]) -> str | None:
+    normalized_keys = {key.lower().replace("-", "").replace("_", "") for key in keys}
+    for key, value in parse_qsl(urlsplit(source).query, keep_blank_values=True):
+        normalized = key.lower().replace("-", "").replace("_", "")
+        if normalized in normalized_keys and value.strip():
+            return value.strip()
+    return None
+
+
+def _extension_hint(value: str | None) -> str | None:
+    if not value:
+        return None
+    value = value.strip().lower()
+    if "/" in value:
+        value = mimetypes.guess_extension(value.split(";", 1)[0].strip()) or ""
+    value = value.rsplit(".", 1)[-1].lstrip(".")
+    if re.fullmatch(r"[a-z0-9]{1,12}", value):
+        return f".{value}"
+    return None
+
+
+def source_file_name(source: str, *, content_type: str | None = None) -> str | None:
     if source.startswith("data:"):
         return None
-    name = Path(urlsplit(source).path).name
-    return unquote(name) if name else None
+    parsed = urlsplit(source)
+    name = Path(parsed.path).name
+    if not name:
+        return None
+    name = unquote(name)
+
+    file_id = _query_value(source, _RESOURCE_ID_QUERY_KEYS)
+    if file_id is not None and not re.fullmatch(r"[1-9][0-9]*", file_id):
+        file_id = None
+    suffix = _extension_hint(_query_value(source, _RESOURCE_TYPE_QUERY_KEYS))
+    if suffix is None and content_type:
+        suffix = _extension_hint(content_type)
+
+    is_generic_page = name.lower() in _GENERIC_PAGE_NAMES or (
+        file_id is not None and Path(name).suffix.lower() in _PAGE_SUFFIXES
+    )
+    if is_generic_page:
+        if file_id is not None:
+            return f"file-{file_id}{suffix or ''}"
+        if suffix:
+            return f"resource{suffix}"
+        return None
+
+    return name
 
 
 def decode_data_uri(source: str) -> tuple[bytes, str]:
