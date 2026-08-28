@@ -1,6 +1,6 @@
 # 功能概览
 
-当前产品是面向 AI 的 ZenTao 项目管理 Skill 集合：一个基础 API Skill 加四个
+当前产品是面向 AI 的 ZenTao 项目管理 Skill 集合：一个基础 API Skill 加五个
 高层 Skill。Plugin 与 Clone 共用仓库根目录的同一份 `skills/`，`_shared` 不是
 公开 Skill。
 
@@ -34,6 +34,10 @@
 ## `zentao-project-management`
 
 Project / Execution 的资源概览、风险信号和开放事项工作量分布。默认不发明数值健康分或人员绩效结论。
+
+## `zentao-batch-export`
+
+按显式 `type:id` 批量导出多个 ZenTao 对象，首版覆盖当前 13 种同时具备 `view + resource fetch` 的 canonical 类型。每个对象的 `content.md` 保存完整 `view --json` 响应，附件和富文本资源进入独立 `resources/`，根 `manifest.json` 只记录路径、完整性与失败清单。单项失败继续导出；最终 ZIP 位于当前 runtime scope 的 `zentao/zentao-batch-export/<run-id>/` 并动态命名。
 
 ## `zentao-bug-resolver`
 

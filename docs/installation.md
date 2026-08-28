@@ -42,7 +42,7 @@ claude plugin install zentao-ai-assistant@zentao-ai-assistant
 
 `--plugin-dir` 用于本地 load；marketplace 安装后可在 plugin details 中选择
 安装 scope。安装完成后，若宿主提示 reload，按提示执行 `/reload-plugins`，再
-开启新会话检查五个正式 Skill。Plugin 首次配置使用：
+开启新会话检查六个正式 Skill。Plugin 首次配置使用：
 
 ```bash
 python skills/zentao/scripts/zentao.py setup --scope user
@@ -61,7 +61,7 @@ codex
 ```
 
 在 Codex 中输入 `/plugins`，选择 `zentao-ai-assistant` marketplace 并安装；安装
-后开启新会话检查五个正式 Skill。Codex repo marketplace 的单一条目通过
+后开启新会话检查六个正式 Skill。Codex repo marketplace 的单一条目通过
 `source.path: "./"` 指向仓库根目录，不复制 `skills/` 到 marketplace 或 Plugin
 cache。首次配置同样使用 `setup --scope user`，然后显式运行 `doctor --json`。
 

@@ -1,7 +1,7 @@
 # ZenTao AI 项目管理 Skills 当前合同入口
 
 > 状态：**CURRENT / 当前唯一权威入口**
-> 更新日期：2026-08-27
+> 更新日期：2026-08-28
 > 适用范围：仓库内所有 ZenTao Skills、API v2 基础能力、共享脚本、测试和发布检查。
 
 本页是“现在应该相信什么”的索引。历史设计文档只用于追溯，不能覆盖本页指向的当前源码、测试与合同。
@@ -15,10 +15,11 @@
 | `skills/zentao-personal/` | 当前/指定用户的待办、风险、工作列表和工作摘要 |
 | `skills/zentao-project-management/` | Project / Execution 的进度事实、风险信号和工作量分布 |
 | `skills/zentao-bug-resolver/` | 证据驱动的 Bug 只读 `select` / `snapshot` / `compare` 与 Agent 编排 |
+| `skills/zentao-batch-export/` | 多个 ZenTao 对象的完整 `view` 字段、资源与 ZIP 批量资料导出 |
 
 共享低层辅助位于 `skills/_shared/zentao/`，它没有 `SKILL.md`，不参与 Skill 路由。
 
-当前公开 surface 为 5 Skills，且只有仓库根目录的这一份 `skills/` 是 canonical
+当前公开 surface 为 6 Skills，且只有仓库根目录的这一份 `skills/` 是 canonical
 业务能力源。Clone 与 Plugin 入口共用相同 Skill 文件：
 
 ```text
@@ -67,7 +68,10 @@ project/user scope：项目配置为 `<repo>/.env`，用户配置为
 
 - `zentao` API catalog 仍覆盖 20 个资源、**120 个 ZenTao API v2 endpoint**，API 实现、CLI、Skill 路由、Fake、合同和 CLI E2E 保持 `120/120`。
 - 高层 Skill 不改变 endpoint catalog，也不把 API 组合能力冒充官方 endpoint。
-- 高层 Skill 通过 `zentao_skill.public` 复用现有 Services/Session，不直接访问 `internal/http` 或拼接 API URL。
+- `zentao-batch-export` 是只读批量资料编排：首版支持 `bug / epic / execution / feedback / product / product-plan / program / requirement / story / task / test-case / ticket / user`；输入显式使用 `type:id`，脚本按 `type + id` 去重。
+- 批量导出不新增基础 API endpoint：每个对象调用现有 CLI `view` 与 `resource fetch`；`content.md` 保留完整 `view --json` 响应，资源进入 `objects/<type>/<id>/resources/`，根 `manifest.json` 只记录索引、完整性和完整失败信息。
+- 单对象/单资源失败不阻断后续导出；最终 ZIP 位于当前 scope 的 `.tmp/zentao/zentao-batch-export/<run-id>/` 或 `~/.zentao-ai-assistant/tmp/zentao/zentao-batch-export/<run-id>/`，文件名为动态 `zentao-export-<timestamp>-<short-id>.zip`，不接受调用方任意输出路径。
+- 统计、个人、项目管理和 Bug resolver 的读取脚本通过 `zentao_skill.public` 复用现有 Services/Session；`zentao-batch-export` 通过 public runtime bridge 取得 scope 路径并组合基础 `zentao` CLI。所有高层 Skill 都禁止直接访问 `internal/http` 或拼接 API URL。
 - `zentao-bug-resolver` 是第四个高层 Skill：其脚本只做证据驱动的只读 `select`、`snapshot`、`compare`，通过 `zentao_skill.public` 的只读 facade 取数；Agent 负责基于结果编排业务仓库证据、最小修改、验证和写前复查。这些脚本操作不是新的 API endpoint，不新增、不计入基础 `zentao` 的 120 个 API endpoint。
 - 统计、个人与项目管理的关键数量由脚本确定性计算；所有高层结果的 `complete/partial_failures` 必须保留。Bug resolver 还必须保留 `complete=false`、`pending_queue`、`unsupported_filters` 和 `unavailable_fields`；候选不完整时不得声称证据完整。
 - 普通流程的 `pending_queue` 只记录待处理 ID，不自动继续；下一项必须由用户再次明确继续，并重新解析授权与起始 snapshot。
@@ -84,7 +88,7 @@ project/user scope：项目配置为 `<repo>/.env`，用户配置为
   `~/.zentao-ai-assistant/cache/auth/`；不写回配置文件，不保存密码。明确 401
   会清理缓存并重新登录一次。
 - project scope 的聚合/资源临时数据位于 `.tmp/zentao/<skill>/` 与
-  `.tmp/zentao-resources/`；user scope 位于
+  `.tmp/zentao-resources/`；`zentao-batch-export` 的 run/staging/ZIP 位于 `.tmp/zentao/zentao-batch-export/`；user scope 位于
   `~/.zentao-ai-assistant/tmp/zentao/<skill>/` 与
   `~/.zentao-ai-assistant/tmp/zentao-resources/`。这些目录都不是长期事实源。
 - 运行约束：`standard library only / no MCP`；不复制第二份 Skills，不把宿主

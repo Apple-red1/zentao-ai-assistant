@@ -5,7 +5,7 @@
 - [ ] 根目录 `plugin.json`、`.claude-plugin/plugin.json`、
   `.claude-plugin/marketplace.json`、`.codex-plugin/plugin.json` 和
   `.agents/plugins/marketplace.json` 与 `docs/current-contract.md` 同步。
-- [ ] 仓库根目录 `skills/` 精确包含五个正式 Skill；`skills/_shared/zentao/`
+- [ ] 仓库根目录 `skills/` 精确包含六个正式 Skill；`skills/_shared/zentao/`
   没有 `SKILL.md`，不成为公开 Skill；不存在第二份 Skills tree。
 - [ ] Clone 的 `AGENTS.md`、`CLAUDE.md`、`GEMINI.md` 路由不复制业务规则；Gemini
   Plugin/Extension、Cursor/Copilot/VS Code Plugin 不写成 v1 已验证支持。
@@ -27,6 +27,7 @@
 - [ ] 写入网络不确定返回 `UNKNOWN_WRITE_RESULT`，不自动重试、不自动 GET。
 - [ ] `.tmp/` 已被 Git 忽略；`resource fetch` 只能从对象附件区/富文本发现资源，并拒绝跨源 URL/重定向。
 - [ ] 资源文件流式写入项目 `.tmp/zentao-resources/`，同名文件不覆盖，部分失败按 `partial_failures` 返回。
+- [ ] `zentao-batch-export` 只写当前 scope 的 `zentao/zentao-batch-export/<run-id>/`，ZIP 动态命名；资源复制拒绝符号链接/目录逃逸，单项失败继续并完整记录到 manifest。
 - [ ] user scope 使用 `~/.zentao-ai-assistant/cache/auth/`、
   `~/.zentao-ai-assistant/tmp/`，目录/文件权限目标仍为 `0700`/`0600`；config
   选择不混用多个文件。

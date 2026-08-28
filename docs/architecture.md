@@ -47,6 +47,7 @@ API endpoint 保持显式实现，`endpoints.json` 不参与运行时路由。
 | `zentao-personal` | 聚合当前/指定用户的待办、风险、工作列表和摘要；只读，不把工作量当作绩效结论。 |
 | `zentao-project-management` | 聚合 Project / Execution 的进度事实、风险信号和工作量分布；只读，不臆造健康分或绩效结论。 |
 | `zentao-bug-resolver` | 以 Bug 为单位执行证据驱动的选择、快照、代码证据、最小修复与验证编排；resolver script 只读，生命周期写入由 Agent 回到基础 CLI。 |
+| `zentao-batch-export` | 按显式 `type:id` 批量导出多个对象的完整字段与资源，生成 manifest 和动态 ZIP；只读，复用基础 CLI 的 `view/resource fetch`。 |
 
 统计、个人和项目管理脚本负责确定性分页、去重和聚合，向上保留 `complete` 与 `partial_failures`。Bug resolver 同样保留读取完整性和不可用字段；它的业务证据与本地修复属于 Agent 工作流，不扩展 API endpoint surface。
 
@@ -67,6 +68,8 @@ zentao-project-management -┘        |
 ```
 
 `zentao_skill.public` 是仓库内部稳定 programmatic facade，用于在一个 Python 进程内复用 Session 和完整分页。高层 Skill 禁止直接访问 `internal/zentao` / `internal/http`。
+
+`zentao-batch-export` 的业务含义在自己的 `scripts/`：它通过基础 `zentao.py` CLI 串行调用单对象 `view` 与 `resource fetch`，不复制资源发现/下载实现；同时只调用 public runtime bridge 取得当前 scope 临时根目录。最终资料位于 `zentao/zentao-batch-export/<run-id>/staging/`，ZIP 使用动态文件名，资源复制时再次拒绝符号链接和 trusted `zentao-resources` 目录外路径。
 
 `zentao_skill.public.runtime` 只暴露按 RuntimePaths 安全创建/取得临时根目录的
 runtime bridge，不是新的 ZenTao API，也不执行写入。RuntimePaths 统一决定

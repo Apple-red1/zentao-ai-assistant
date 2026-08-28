@@ -25,6 +25,7 @@ def main() -> int:
         ("zentao-personal", [python, "-m", "unittest", "discover", "-s", "skills/zentao-personal/tests", "-p", "test_*.py"]),
         ("zentao-project-management", [python, "-m", "unittest", "discover", "-s", "skills/zentao-project-management/tests", "-p", "test_*.py"]),
         ("zentao-bug-resolver", [python, "-m", "unittest", "discover", "-s", "skills/zentao-bug-resolver/tests", "-p", "test_*.py"]),
+        ("zentao-batch-export", [python, "-m", "unittest", "discover", "-s", "skills/zentao-batch-export/tests", "-p", "test_*.py"]),
         ("repository smoke", [python, "-m", "unittest", "discover", "-s", "tests", "-p", "test_*.py"]),
     ]
     ok = all(run(label, command) for label, command in checks)

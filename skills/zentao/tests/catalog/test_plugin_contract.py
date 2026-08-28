@@ -22,6 +22,7 @@ PUBLIC_SKILLS = (
     "zentao-personal",
     "zentao-project-management",
     "zentao-bug-resolver",
+    "zentao-batch-export",
 )
 PORTABLE_MANIFEST_FIELDS = {
     "$schema",
@@ -61,7 +62,7 @@ class PluginContractTests(unittest.TestCase):
         self.assertEqual(PLUGIN_REPOSITORY_PATH, urlsplit(manifest["repository"]).path.strip("/"))
         self.assertEqual("MIT", manifest["license"])
 
-    def test_public_skill_surface_has_exactly_five_skills(self) -> None:
+    def test_public_skill_surface_has_exactly_six_skills(self) -> None:
         skills_root = REPOSITORY_ROOT / "skills"
         immediate_skill_names = sorted(
             path.name for path in skills_root.iterdir() if path.is_dir()

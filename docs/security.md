@@ -37,6 +37,10 @@ project 为 `.tmp/zentao/<skill>/`，user 为
 `~/.zentao-ai-assistant/tmp/zentao/<skill>/`。这些数据是临时运行材料，不得作为
 长期数据库、兼容性证据或新的秘密配置系统。
 
+## 批量资料导出
+
+`zentao-batch-export` 只读复用基础 CLI：对象详情来自 `view`，资源来自 `resource fetch`。脚本不接受任意输出路径，project/user scope 分别只写入 `.tmp/zentao/zentao-batch-export/` 与 `~/.zentao-ai-assistant/tmp/zentao/zentao-batch-export/`。资源复制只接受基础资源目录 `zentao-resources` 下的普通文件，拒绝符号链接与目录逃逸；动态 ZIP 文件名不拼接对象标题或其它业务内容。部分失败通过 manifest 显式保留，不触发隐式重试。
+
 ## 对象资源下载
 
 `resource fetch` 继续只获取对象附件区和富文本发现的同源资源，流式保存到当前

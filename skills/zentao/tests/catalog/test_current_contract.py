@@ -18,7 +18,7 @@ class CurrentContractDocumentationTest(unittest.TestCase):
     def test_current_contract_documents_plugin_clone_and_runtime_contract(self) -> None:
         current = CURRENT.read_text(encoding="utf-8")
         for required in (
-            "5 Skills",
+            "6 Skills",
             "CLAUDE.md / GEMINI.md",
             "plugin.json / .claude-plugin / .codex-plugin",
             "project/user scope",
@@ -59,6 +59,7 @@ class CurrentContractDocumentationTest(unittest.TestCase):
             "zentao-statistics",
             "zentao-personal",
             "zentao-project-management",
+            "zentao-batch-export",
             "zentao_skill.public",
             ".tmp/zentao/auth/",
             "R3 delete",
@@ -72,6 +73,16 @@ class CurrentContractDocumentationTest(unittest.TestCase):
             self.assertIn(required, current)
         for stale in ("当前仓库仍存在旧形态", "不暴露 Bug 删除命令", "本轮明确延期", "产品边界是单一"):
             self.assertNotIn(stale, current)
+
+    def test_batch_export_is_registered_across_current_documentation_surfaces(self) -> None:
+        current = CURRENT.read_text(encoding="utf-8")
+        readme = README.read_text(encoding="utf-8")
+        features = FEATURES.read_text(encoding="utf-8")
+        for name, document in (("current contract", current), ("README", readme), ("features", features)):
+            with self.subTest(document=name):
+                self.assertIn("zentao-batch-export", document)
+        for anchor in ("type:id", "resource fetch", "content.md", "manifest.json", "zentao-export-<timestamp>-<short-id>.zip"):
+            self.assertIn(anchor, current)
 
     def test_bug_resolver_is_registered_across_current_documentation_surfaces(self) -> None:
         current = CURRENT.read_text(encoding="utf-8")

@@ -1,0 +1,4 @@
+interface:
+  display_name: "禅道批量资料导出"
+  short_description: "把多个禅道对象的完整字段与附件整理成可下载 ZIP"
+  default_prompt: "使用 $zentao-batch-export 按 type:id 批量导出用户指定的 ZenTao 对象，保留完整 view 数据、附件、部分失败与最终 ZIP 路径。"

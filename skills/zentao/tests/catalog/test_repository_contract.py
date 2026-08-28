@@ -17,6 +17,7 @@ HIGH_LEVEL_SKILLS = (
     REPOSITORY_ROOT / "skills" / "zentao-personal",
     REPOSITORY_ROOT / "skills" / "zentao-project-management",
     REPOSITORY_ROOT / "skills" / "zentao-bug-resolver",
+    REPOSITORY_ROOT / "skills" / "zentao-batch-export",
 )
 SHARED_ROOT = REPOSITORY_ROOT / "skills" / "_shared" / "zentao"
 
@@ -85,10 +86,12 @@ class RepositoryContractTests(unittest.TestCase):
             "skills/zentao-personal/",
             "skills/zentao-project-management/",
             "skills/zentao-bug-resolver/",
+            "skills/zentao-batch-export/",
         ):
             self.assertIn(skill_name, agents)
         routes = {
             "调查/修复/验证并可能 resolve Bug": "zentao-bug-resolver",
+            "多个 ZenTao 对象的完整资料、附件打包下载": "zentao-batch-export",
             "Project/Execution 进度、健康、风险、工作量": "zentao-project-management",
             "自己/某人的待办、风险、工作摘要": "zentao-personal",
             "数量、分布、汇总、比较": "zentao-statistics",

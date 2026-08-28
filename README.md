@@ -1,7 +1,7 @@
 # zentao-ai-assistant
 
 让 AI 通过 ZenTao 官方 API v2 查询项目、统计工作量、整理个人待办，并按明确授权处理 Bug。
-提供 **5 个 Skills**，支持直接 Clone 使用，也提供 Claude Code / Codex 插件安装入口；
+提供 **6 个 Skills**，支持直接 Clone 使用，也提供 Claude Code / Codex 插件安装入口；
 两种方式共用根目录的同一份 `skills/`。
 
 当前行为与开发事实入口：[`docs/current-contract.md`](docs/current-contract.md)。
@@ -15,6 +15,7 @@
 | [`zentao-personal`](skills/zentao-personal/SKILL.md) | 当前或指定用户的待办、风险、工作列表、日报/周报素材 | “看看我有哪些待办和逾期任务” |
 | [`zentao-project-management`](skills/zentao-project-management/SKILL.md) | 项目/执行进度事实、风险信号和工作量分布 | “分析项目 12 的进展和阻塞” |
 | [`zentao-bug-resolver`](skills/zentao-bug-resolver/SKILL.md) | Bug 证据分析、本地修复编排，以及明确人工确认后的受控回写 | “分析 Bug 123 的根因”；“Bug 123 已解决，标记已解决” |
+| [`zentao-batch-export`](skills/zentao-batch-export/SKILL.md) | 多个 ZenTao 对象的完整字段、附件/富文本资源与 ZIP 打包 | “把 bug:123、story:78 的完整资料和附件打包下载” |
 
 基础 API 覆盖 **20 个资源、120 个 endpoint**。统计和项目分析基于实际返回数据，
 不编造历史趋势、健康分或绩效结论；不完整数据会保留完整性标记。
@@ -42,7 +43,7 @@ python3 --version
 
 适合在本仓库中使用或开发。Codex 读取 `AGENTS.md`；Claude Code 和 Gemini CLI
 分别通过 `CLAUDE.md` / `GEMINI.md` 引用同一份规则，按用户目标读取对应 Skill。
-不需要将五个 Skill 单独复制到宿主目录。
+不需要将六个 Skill 单独复制到宿主目录。
 
 ```bash
 python3 skills/zentao/scripts/zentao.py setup --scope project
@@ -70,7 +71,7 @@ python3 skills/zentao/scripts/zentao.py setup --scope user
 python3 skills/zentao/scripts/zentao.py doctor --json
 ```
 
-如宿主提示重载，执行 `/reload-plugins`，再开启新会话确认五个 Skill 可用。
+如宿主提示重载，执行 `/reload-plugins`，再开启新会话确认六个 Skill 可用。
 仅做本地开发加载时可使用 `claude --plugin-dir .`，不必再执行 marketplace 安装。
 宿主命令参考 [Claude Code 官方安装说明](https://code.claude.com/docs/en/plugin-marketplaces)。
 
@@ -85,7 +86,7 @@ codex
 ```
 
 在 Codex CLI 中输入 `/plugins`，选择 `zentao-ai-assistant` marketplace，安装
-同名插件；安装后开启新会话，检查五个正式 Skill。`_shared` 只是共享实现，不是第六个 Skill。
+同名插件；安装后开启新会话，检查六个正式 Skill。`_shared` 只是共享实现，不是第七个 Skill。
 插件浏览器与新会话要求见 [OpenAI 官方插件文档](https://learn.chatgpt.com/docs/plugins)。
 
 首次配置在另一个终端的仓库根目录执行；若已配置 user scope，可跳过 `setup`：
@@ -150,7 +151,10 @@ python3 skills/zentao/scripts/zentao.py resource fetch --object-type bug --objec
 python3 skills/zentao-statistics/scripts/zentao_statistics.py summary bug --product 1 --json
 python3 skills/zentao-personal/scripts/zentao_personal.py overview --json
 python3 skills/zentao-project-management/scripts/zentao_project_management.py health --project 12 --json
+python3 skills/zentao-batch-export/scripts/zentao_batch_export.py bug:123 story:78 task:90 --json
 ```
+
+`zentao-batch-export` 只读复用基础 `view` 与 `resource fetch`，把每个对象的完整 `view --json` 响应写入 `content.md`，把附件/富文本资源归档到对象目录，再在当前 runtime scope 下生成动态命名的 ZIP。单项失败继续导出并完整保留到 `manifest.json` 的 `complete/failures`。
 
 Bug 证据驱动流程的确定性脚本入口为：
 

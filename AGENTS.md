@@ -12,6 +12,7 @@ skills/zentao-statistics/         # 统计、聚合、范围对比
 skills/zentao-personal/           # 个人待办、风险和工作摘要
 skills/zentao-project-management/ # Project / Execution 管理分析
 skills/zentao-bug-resolver/       # Bug 证据驱动分析、修复编排和受控 resolve
+skills/zentao-batch-export/       # 多对象完整资料、附件与 ZIP 批量导出
 ```
 
 `zentao` 是基础能力层，继续通过 Python 标准库访问 ZenTao 官方 API v2；高层 Skill 组合只读能力形成项目管理信息。后续可以增加新的高层 Skill，但不得把同一职责复制到多个 Skill。
@@ -40,7 +41,7 @@ Claude Clone    -> CLAUDE.md -> AGENTS.md
 Gemini Clone    -> GEMINI.md -> AGENTS.md
 ```
 
-正式 Skill inventory 只有以下五个：
+正式 Skill inventory 只有以下六个：
 
 | Skill | 主要职责 |
 |---|---|
@@ -49,6 +50,7 @@ Gemini Clone    -> GEMINI.md -> AGENTS.md
 | `skills/zentao-personal/` | 个人待办、风险和工作摘要 |
 | `skills/zentao-project-management/` | Project/Execution 进度、健康、风险、工作量 |
 | `skills/zentao-bug-resolver/` | Bug 证据、修复编排和受控 resolve |
+| `skills/zentao-batch-export/` | 多个 ZenTao 对象的完整字段、资源与 ZIP 资料包导出 |
 
 `skills/_shared/zentao/` 只是共享实现目录，没有 `SKILL.md`，不得作为公开
 Skill 或独立路由目标。
@@ -58,6 +60,7 @@ Skill 或独立路由目标。
 | 最终目标 | 主 Skill |
 |---|---|
 | 调查/修复/验证并可能 resolve Bug | `zentao-bug-resolver` |
+| 多个 ZenTao 对象的完整资料、附件打包下载 | `zentao-batch-export` |
 | Project/Execution 进度、健康、风险、工作量 | `zentao-project-management` |
 | 自己/某人的待办、风险、工作摘要 | `zentao-personal` |
 | 数量、分布、汇总、比较 | `zentao-statistics` |
@@ -112,6 +115,19 @@ zentao-statistics / zentao-personal / zentao-project-management
   -> internal/http
 ```
 
+批量导出链路：
+
+```text
+zentao_batch_export.py（只读业务编排）
+  -> 基础 zentao CLI 的 view / resource fetch
+  -> zentao Services / resource security contract
+  -> 当前 runtime scope 临时目录
+  -> staging / manifest / dynamic ZIP
+```
+
+批量导出脚本不得直连 HTTP、不得复制资源发现/下载逻辑，也不接受任意输出路径；
+对象级失败继续处理后续项并通过 `complete/failures` 明确暴露。
+
 Bug resolver 的读取与写入编排链路：
 
 ```text
@@ -154,6 +170,7 @@ API endpoint 覆盖率只描述 `zentao` 基础 Skill，不能当作整个多 Sk
 - 可复用的低层分页、身份、临时数据能力放 `skills/_shared/zentao/`；有业务含义的算法留在所属 Skill。
 - `partial_failures`、`complete`、截断或分页异常必须向上保留，不能把不完整数据展示成完整事实。
 - 高层 Skill 默认只读；需要写操作时转到 `zentao` 的明确 API 能力和风险授权规则。
+- `zentao-batch-export` 的批量循环、去重、Markdown、manifest、失败汇总和 ZIP 由自身 `scripts/` 实现；单对象详情与资源获取继续调用基础 `zentao` CLI，禁止复制 `resource fetch` 的同源/路径安全逻辑。
 - `zentao-bug-resolver` 的脚本只通过 `zentao_skill.public` 读取；普通流程的 Agent 只有在证据、验证、diff、并发复查和授权门槛全部满足时，才可把一次 R2 resolve 回交基础 CLI。
 - resolver 的 `compare` 是写入前复查；`changed=true`、比较失败或关键事实不可安全比较都必须阻止写入，`changed=false` 也不提供 CAS/ETag/锁保证。
 
@@ -228,7 +245,7 @@ python skills/zentao/tests/run_all.py
 
 并继续要求 Catalog/Internal/CLI/Skill routes/Fake/Contract/CLI E2E 精确 `120/120`、`Real API calls: 0` 和 `Result: PASS`。
 
-高层 Skill 至少覆盖：完整分页、重复 ID、空数据、部分失败、用户重名、日期边界、稳定排序、数据完整性和各自核心用户场景。自动化测试不得访问真实 ZenTao；Fake/真实 ZenTao 实例必须隔离。
+高层 Skill 至少覆盖：完整分页、重复 ID、空数据、部分失败、用户重名、日期边界、稳定排序、数据完整性和各自核心用户场景。`zentao-batch-export` 还必须覆盖混合对象、完整字段、资源归档、动态 ZIP、路径安全与失败继续导出。自动化测试不得访问真实 ZenTao；Fake/真实 ZenTao 实例必须隔离。
 
 ## 10. 文档同步与防漂移
 
