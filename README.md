@@ -181,7 +181,7 @@ pending 项不继承授权；模糊的“处理 Bug”最多允许本地修复�
 `HUMAN_ATTESTED_RESOLVE`：当前消息即人工结论和该 Bug 的 R2 授权。只做最小
 `bug view`，active 时一次 `bug resolve --resolution fixed --resolved-build trunk`
 并附自动生成的 `[CODEX-HUMAN-ATTESTED-RESOLUTION]` 备注，随后显式回读。
-用户明确指定其它解决版本时覆盖 `trunk`；默认不传 assignee/resolved-date，不提前追问。
+用户明确指定其它解决版本时覆盖 `trunk`；负责人按“用户显式指定 assignee > Bug creator account > BLOCKED”确定，显式人员需由完整真实用户数据唯一解析，未指定时使用当前 Bug 的创建人 account，兼容 openedByAccount/openedBy.account；`openedBy` 字符串须经完整真实用户目录做区分大小写的 account 精确校验，不按姓名或大小写回退匹配；缺失、重名、冲突或数据不完整时停止，不回退、不猜测。resolve 必须显式传 `--assignee <target-account>`，回读同时验证 `status=resolved` 且 `assignedTo=target_account`；默认不传 resolved-date，不提前追问。
 此分支不检查业务源码、提交、测试、diff、附件或 patch，不运行 select/snapshot/compare。
 已 resolved/closed 不重复写；当前消息列出的多个已解决 Bug 严格串行，真实阻塞即停止；
 `UNKNOWN_WRITE_RESULT` 停止整个队列、绝不重试，只读回读。不自动 close/activate/delete。

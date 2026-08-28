@@ -95,8 +95,9 @@ resolver 不继续处理或写入。记录实际输出和工具调用；文档�
 
 `HUMAN_ATTESTED_RESOLVE` 不新增 Python 写入编排器。测试分开验证以下范围：
 
+- 只读纯函数：`resolve_human_assignee` 按“用户显式指定 assignee > Bug creator account > BLOCKED”选择；复用创建人提取与共享用户身份匹配；`openedBy` 字符串须经完整目录做区分大小写的 account 精确校验，覆盖后续分页、目录不存在、仅姓名命中、大小写不一致及与旧式 account 字段冲突；旧格式保持兼容。覆盖缺失/重名/冲突/结构异常/不完整用户数据且不回退；`human_readback_matches` 同时检查状态和账号。
 - resolver 静态合同：明确完成表达与唯一目标、普通流程不误触发、跳过业务审计、单次 resolve/显式回读、resolved/closed 零写入、多 ID 严格串行、真实阻塞停止、未知写入不重试、脚本只读边界；UI prompt 不再强制先取 snapshot。
-- 真实 CLI 示例：从 workflow 提取命令，在本地 FakeZenTao 上执行，验证 `fixed`、默认 `--resolved-build trunk`、明确版本覆盖、UTF-8 备注、默认不传 assignee/resolved-date，及权限/校验/未知写入的结果和显式回读。
+- 真实 CLI 示例：从 workflow 提取命令，在本地 FakeZenTao 上执行，验证 `fixed`、默认 `--resolved-build trunk`、明确版本覆盖、UTF-8 备注、显式 `--assignee <target-account>`、默认不传 resolved-date、回读同时确认 `status=resolved` 且 `assignedTo=target_account`，及权限/校验/未知写入的结果和显式回读。
 - 自然语言路由与队列决策属于 Agent 指令，需要场景走查；静态断言或 CLI smoke 不能证明模型对任意表达都能正确编排，也不证明真实 ZenTao 兼容性。
 
 专项入口：

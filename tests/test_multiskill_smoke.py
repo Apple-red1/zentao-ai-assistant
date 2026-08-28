@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 import os
 import re
 import shlex
@@ -24,6 +25,12 @@ if str(SHARED_ROOT) not in sys.path:
 
 from tests.fake_zentao.server import FakeZenTao
 from zentao.runtime import store_temp_json
+
+resolver_spec = importlib.util.spec_from_file_location(
+    'human_resolver', ROOT / 'skills/zentao-bug-resolver/scripts/zentao_bug_resolver.py',
+)
+resolver = importlib.util.module_from_spec(resolver_spec)
+resolver_spec.loader.exec_module(resolver)
 
 
 TEST_HOME = Path(tempfile.mkdtemp(prefix="zentao-multiskill-test-home-"))
@@ -69,6 +76,9 @@ class HumanAttestedCLIExamplesTests(unittest.TestCase):
 
     def setUp(self) -> None:
         self.fake = self.enterContext(FakeZenTao())
+        self.fake.state.resources['bug']['1'].update({
+            'openedBy': {'account': 'creator'}, 'assignedTo': 'developer',
+        })
         self.directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
         skill = ROOT / 'skills' / 'zentao-bug-resolver'
         workflow = (skill / 'references' / 'workflow.md').read_text(encoding='utf-8')
@@ -77,12 +87,16 @@ class HumanAttestedCLIExamplesTests(unittest.TestCase):
         self.assertEqual(['view', 'resolve', 'view'], [cmd[3] for cmd in self.commands])
         templates = (skill / 'references' / 'comment-templates.md').read_text(encoding='utf-8')
         human_template = templates.split('## Human-attested', 1)[1].split('## Fixed', 1)[0]
-        self.comment = re.search(r'```text\n(.*?)\n```', human_template, re.S).group(1).replace('<id>', '1')
+        self.comment = (re.search(r'```text\n(.*?)\n```', human_template, re.S).group(1)
+                        .replace('<id>', '1').replace('<target-account>', 'creator')
+                        .replace('<用户显式指定 / Bug 创建人>', 'Bug 创建人'))
         self.comment_file = self.directory / 'human attested.txt'
         self.comment_file.write_text(self.comment, encoding='utf-8')
 
-    def command(self, index: int, *, build: str | None = None) -> subprocess.CompletedProcess[str]:
-        argv = [str(self.comment_file) if token == '<generated-human-attested-comment.txt>' else '1' if token == '<id>' else token for token in self.commands[index]]
+    def command(self, index: int, *, build: str | None = None, account: str = 'creator', bug_id: int = 1) -> subprocess.CompletedProcess[str]:
+        values = {'<generated-human-attested-comment.txt>': str(self.comment_file),
+                  '<id>': str(bug_id), '<target-account>': account}
+        argv = [values.get(token, token) for token in self.commands[index]]
         if build is not None:
             argv[argv.index('--resolved-build') + 1] = build
         return subprocess.run([sys.executable, *argv[1:]], cwd=ROOT, env=env_for(self.fake.base_url), text=True, capture_output=True, timeout=20)
@@ -90,17 +104,39 @@ class HumanAttestedCLIExamplesTests(unittest.TestCase):
     def business_requests(self) -> list[dict]:
         return [r for r in self.fake.state.requests if r['endpoint_id'] != 'token.login']
 
-    def test_default_example_sends_only_fixed_trunk_and_utf8_comment_then_explicit_readback(self) -> None:
+    def read_users_from_cli(self) -> list[dict]:
+        users = []
+        for browse in ('inside', 'outside'):
+            scope_users = []
+            for page_number in range(1, 20):
+                result = subprocess.run(
+                    [sys.executable, 'skills/zentao/scripts/zentao.py', 'user', 'list',
+                     '--browse', browse, '--page', str(page_number), '--per-page', '1', '--json'],
+                    cwd=ROOT, env=env_for(self.fake.base_url), text=True, capture_output=True, timeout=20,
+                )
+                self.assertEqual(0, result.returncode, result.stderr)
+                page = json.loads(result.stdout)
+                scope_users.extend(page['users'])
+                if len(scope_users) == page['pager']['total']:
+                    break
+                self.assertTrue(page['users'], 'Directory pagination stalled')
+            else:
+                self.fail('Directory pagination did not finish')
+            users.extend(scope_users)
+        return users
+
+    def test_default_example_sends_creator_account_then_checks_state_and_assignment(self) -> None:
         before = self.command(0)
         self.assertEqual(0, before.returncode, before.stderr)
         self.assertEqual('active', json.loads(before.stdout)['status'])
-        write = self.command(1)
+        target = resolver.resolve_human_assignee(json.loads(before.stdout))
+        write = self.command(1, account=target)
         self.assertEqual(0, write.returncode, write.stderr)
         self.assertEqual(['bug.view', 'bug.resolve'], [r['endpoint_id'] for r in self.business_requests()])
-        self.assertEqual({'resolution': 'fixed', 'resolvedBuild': 'trunk', 'comment': self.comment}, self.business_requests()[-1]['body'])
+        self.assertEqual({'resolution': 'fixed', 'resolvedBuild': 'trunk', 'assignedTo': 'creator', 'comment': self.comment}, self.business_requests()[-1]['body'])
         after = self.command(2)
         self.assertEqual(0, after.returncode, after.stderr)
-        self.assertEqual('resolved', json.loads(after.stdout)['status'])
+        self.assertTrue(resolver.human_readback_matches(json.loads(after.stdout), target))
         self.assertEqual(['GET', 'PUT', 'GET'], [r['method'] for r in self.business_requests()])
 
     def test_explicit_build_and_user_explanation_are_preserved(self) -> None:
@@ -109,7 +145,7 @@ class HumanAttestedCLIExamplesTests(unittest.TestCase):
         self.assertEqual(0, self.command(0).returncode)
         write = self.command(1, build='7')
         self.assertEqual(0, write.returncode, write.stderr)
-        self.assertEqual({'resolution': 'fixed', 'resolvedBuild': 7, 'comment': comment}, self.business_requests()[-1]['body'])
+        self.assertEqual({'resolution': 'fixed', 'resolvedBuild': 7, 'assignedTo': 'creator', 'comment': comment}, self.business_requests()[-1]['body'])
         after = self.command(2)
         self.assertEqual('resolved', json.loads(after.stdout)['status'])
 
@@ -149,7 +185,100 @@ class HumanAttestedCLIExamplesTests(unittest.TestCase):
                 self.assertEqual(['bug.view', 'bug.resolve'], [r['endpoint_id'] for r in self.business_requests()])
                 after = self.command(2)
                 self.assertEqual(status, json.loads(after.stdout)['status'])
+                self.assertEqual(status == 'resolved', resolver.human_readback_matches(json.loads(after.stdout), 'creator'))
                 self.assertEqual(['bug.view', 'bug.resolve', 'bug.view'], [r['endpoint_id'] for r in self.business_requests()])
+
+    def test_explicit_user_is_resolved_from_real_cli_user_data(self) -> None:
+        self.fake.state.resources['user'] = {
+            '7': {'id': 7, 'account': 'tester', 'realname': '张三'},
+        }
+        before = json.loads(self.command(0).stdout)
+        users = self.read_users_from_cli()
+        target = resolver.resolve_human_assignee(before, explicit_assignee='张三', users=users, users_complete=True)
+        self.assertEqual('tester', target)
+        comment = self.comment.replace('creator', target).replace('来源：Bug 创建人', '来源：用户显式指定')
+        self.comment_file.write_text(comment, encoding='utf-8')
+        self.assertEqual(0, self.command(1, account=target).returncode)
+        self.assertEqual('tester', self.business_requests()[-1]['body']['assignedTo'])
+        self.assertTrue(resolver.human_readback_matches(json.loads(self.command(2).stdout), target))
+        self.assertEqual(['bug.view', 'user.list', 'user.list', 'bug.resolve', 'bug.view'],
+                         [r['endpoint_id'] for r in self.business_requests()])
+
+    def test_opened_by_string_uses_exact_account_on_later_directory_page(self) -> None:
+        self.fake.state.resources['bug']['1']['openedBy'] = 'dongyanrong'
+        self.fake.state.resources['user'] = {
+            '6': {'id': 6, 'account': 'other', 'realname': 'dongyanrong'},
+            '7': {'id': 7, 'account': 'dongyanrong', 'realname': '董燕荣'},
+        }
+        before = json.loads(self.command(0).stdout)
+        users = self.read_users_from_cli()
+        target = resolver.resolve_human_assignee(before, users=users, users_complete=True)
+        self.assertEqual('dongyanrong', target)
+        self.comment_file.write_text(self.comment.replace('creator', target), encoding='utf-8')
+        write = self.command(1, account=target)
+        self.assertEqual(0, write.returncode, write.stderr)
+        self.assertEqual('dongyanrong', self.business_requests()[-1]['body']['assignedTo'])
+        after = self.command(2)
+        self.assertEqual(0, after.returncode, after.stderr)
+        self.assertTrue(resolver.human_readback_matches(json.loads(after.stdout), target))
+        self.assertEqual(['bug.view'] + ['user.list'] * 4 + ['bug.resolve', 'bug.view'],
+                         [r['endpoint_id'] for r in self.business_requests()])
+
+    def test_opened_by_missing_account_or_name_only_never_reaches_resolve(self) -> None:
+        for opened_by in ('missing', '董燕荣', 'DONGYANRONG'):
+            with self.subTest(opened_by=opened_by):
+                self.fake.state.reset()
+                self.fake.state.resources['bug']['1']['openedBy'] = opened_by
+                self.fake.state.resources['user'] = {'7': {'id': 7, 'account': 'dongyanrong', 'realname': '董燕荣'}}
+                before = json.loads(self.command(0).stdout)
+                users = self.read_users_from_cli()
+                with self.assertRaises(ValueError):
+                    resolver.resolve_human_assignee(before, users=users, users_complete=True)
+                self.assertEqual(['bug.view', 'user.list', 'user.list'],
+                                 [r['endpoint_id'] for r in self.business_requests()])
+
+    def test_missing_or_conflicting_creator_blocks_account_selection_after_pre_view(self) -> None:
+        for creator in (None, {'realname': '张三'}, {'account': ['creator']}):
+            with self.subTest(creator=creator):
+                self.fake.state.reset()
+                self.fake.state.resources['bug']['1']['openedBy'] = creator
+                before = json.loads(self.command(0).stdout)
+                with self.assertRaises(ValueError):
+                    resolver.resolve_human_assignee(before)
+                self.assertEqual(['bug.view'], [r['endpoint_id'] for r in self.business_requests()])
+
+    def test_resolved_status_without_target_assignment_is_not_a_completed_flow(self) -> None:
+        original_handle = self.fake.state.handle
+
+        def ignore_assignment(route, path_params, query, body):
+            if route.endpoint_id == 'bug.resolve':
+                body = {key: value for key, value in body.items() if key != 'assignedTo'}
+            return original_handle(route, path_params, query, body)
+
+        self.fake.state.handle = ignore_assignment
+        target = resolver.resolve_human_assignee(json.loads(self.command(0).stdout))
+        self.assertEqual(0, self.command(1, account=target).returncode)
+        after = json.loads(self.command(2).stdout)
+        self.assertEqual('resolved', after['status'])
+        self.assertEqual('developer', after['assignedTo'])
+        self.assertFalse(resolver.human_readback_matches(after, target))
+        self.assertEqual(['bug.view', 'bug.resolve', 'bug.view'], [r['endpoint_id'] for r in self.business_requests()])
+
+    def test_serial_examples_use_each_bugs_creator_including_current_assignee(self) -> None:
+        self.fake.state.resources['bug']['2'] = {
+            'id': 2, 'status': 'active', 'openedByAccount': 'second', 'assignedTo': 'second',
+        }
+        for ident, expected in ((1, 'creator'), (2, 'second')):
+            before = json.loads(self.command(0, bug_id=ident).stdout)
+            target = resolver.resolve_human_assignee(before)
+            self.assertEqual(expected, target)
+            self.comment_file.write_text(self.comment.replace('Bug #1', f'Bug #{ident}').replace('creator', target), encoding='utf-8')
+            self.assertEqual(0, self.command(1, account=target, bug_id=ident).returncode)
+            self.assertTrue(resolver.human_readback_matches(json.loads(self.command(2, bug_id=ident).stdout), target))
+        self.assertEqual(['bug.view', 'bug.resolve', 'bug.view'] * 2,
+                         [r['endpoint_id'] for r in self.business_requests()])
+        writes = [r for r in self.business_requests() if r['endpoint_id'] == 'bug.resolve']
+        self.assertEqual(['creator', 'second'], [r['body']['assignedTo'] for r in writes])
 
 
 class MultiSkillSmokeTests(unittest.TestCase):

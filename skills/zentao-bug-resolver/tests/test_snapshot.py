@@ -59,6 +59,108 @@ class SnapshotTests(unittest.TestCase):
         self.assertFalse(result["comparison_blocked"])
         self.assertEqual([], result["changes"])
 
+    def test_creator_account_rejects_conflicts_and_malformed_evidence(self) -> None:
+        for raw in (
+            {"openedByAccount": "alice", "creatorAccount": "bob"},
+            {"openedByAccount": "alice", "openedBy": {"account": "bob"}},
+            {"openedBy": {"account": ["alice"]}},
+            {"openedByAccount": True}, {"creatorAccount": 42},
+            {"openedByAccount": "   "}, {"openedByAccount": " alice"},
+            {"openedByAccount": "closed"},
+            {"openedByAccount": "alice", "creator": []},
+            {"openedByAccount": "alice", "creatorAccount": {}},
+        ):
+            with self.subTest(raw=raw):
+                self.assertIsNone(mod.extract_creator_account(raw))
+                self.assertIn("creator_account", mod.build_snapshot(1, raw)["unavailable_fields"])
+        self.assertEqual("alice", mod.extract_creator_account({
+            "openedByAccount": "alice", "creator": {"account": "alice"},
+        }))
+
+    def test_human_assignee_defaults_to_creator_but_explicit_user_wins(self) -> None:
+        bug = {"openedBy": {"account": "creator"}}
+        self.assertEqual("creator", mod.resolve_human_assignee(bug))
+        users = [{"id": 2, "account": "tester", "realname": "张三"}]
+        for value in ("tester", "张三", "TESTER"):
+            for raw in (bug, {}):
+                with self.subTest(value=value, raw=raw):
+                    self.assertEqual("tester", mod.resolve_human_assignee(
+                        raw, explicit_assignee=value, users=users, users_complete=True,
+                    ))
+
+    def test_human_assignee_fails_closed_without_fallback(self) -> None:
+        for raw in ({}, {"openedBy": "张三"}, {"openedByAccount": "alice", "creatorAccount": "bob"}):
+            with self.subTest(raw=raw), self.assertRaises(ValueError):
+                mod.resolve_human_assignee(raw)
+        bug = {"openedByAccount": "creator"}
+        for value, users, complete in (
+            ("nobody", [], True),
+            ("", [], True),
+            ("张三", [{"account": "a", "realname": "张三"}, {"account": "b", "realname": "张三"}], True),
+            ("a", [{"account": "a"}], False),
+            ("张三", [{"account": ["a"], "realname": "张三"}], True),
+            ("张三", [{"realname": "张三"}], True),
+            ("a", [{"account": "a", "realname": ["张三"]}], True),
+            ("a", [{"id": 1, "account": "a"}, {"id": 1, "account": "b"}], True),
+        ):
+            with self.subTest(value=value, users=users, complete=complete), self.assertRaises(ValueError):
+                mod.resolve_human_assignee(bug, explicit_assignee=value, users=users, users_complete=complete)
+
+    def test_opened_by_string_is_verified_by_exact_directory_account(self) -> None:
+        bug = {"openedBy": "dongyanrong"}
+        users = [
+            {"id": 1, "account": "dongyanrong", "realname": "董燕荣"},
+            {"id": 2, "account": "other", "realname": "dongyanrong"},
+        ]
+        self.assertEqual("dongyanrong", mod.resolve_human_assignee(bug, users=users, users_complete=True))
+        self.assertEqual("dongyanrong", mod.extract_creator_account(bug, users=users, users_complete=True))
+        self.assertIsNone(mod.extract_creator_account(bug))
+
+    def test_opened_by_string_does_not_use_name_case_fallback_or_partial_directory(self) -> None:
+        for candidate, users, complete in (
+            ("dongyanrong", [], True),
+            ("董燕荣", [{"account": "dongyanrong", "realname": "董燕荣"}], True),
+            ("DONGYANRONG", [{"account": "dongyanrong"}], True),
+            ("dongyanrong", [{"account": "dongyanrong"}], False),
+            ("dongyanrong", [{"id": 1, "account": "dongyanrong"}, {"id": 2, "account": "dongyanrong"}], True),
+        ):
+            with self.subTest(candidate=candidate, users=users, complete=complete), self.assertRaises(ValueError):
+                mod.resolve_human_assignee({"openedBy": candidate}, users=users, users_complete=complete)
+
+    def test_opened_by_string_must_agree_with_other_creator_evidence(self) -> None:
+        users = [{"account": "dongyanrong"}, {"account": "other"}]
+        for explicit in ("dongyanrong", "other"):
+            bug = {"openedBy": "dongyanrong", "openedByAccount": explicit}
+            with self.subTest(explicit=explicit):
+                if explicit == "dongyanrong":
+                    self.assertEqual(explicit, mod.resolve_human_assignee(bug, users=users, users_complete=True))
+                else:
+                    with self.assertRaises(ValueError):
+                        mod.resolve_human_assignee(bug, users=users, users_complete=True)
+        with self.assertRaises(ValueError):
+            mod.resolve_human_assignee({"openedBy": "missing", "openedByAccount": "other"}, users=users, users_complete=True)
+
+    def test_explicit_assignee_overrides_unverified_opened_by_string(self) -> None:
+        self.assertEqual("tester", mod.resolve_human_assignee(
+            {"openedBy": "not-in-directory"}, explicit_assignee="张三",
+            users=[{"account": "tester", "realname": "张三"}], users_complete=True,
+        ))
+
+    def test_human_readback_requires_resolved_and_explicit_account(self) -> None:
+        for assignment in ("alice", {"account": "alice", "realname": "张三"}):
+            self.assertTrue(mod.human_readback_matches({"status": "resolved", "assignedTo": assignment}, "alice"))
+        for raw in (
+            {"status": "active", "assignedTo": "alice"},
+            {"status": "closed", "assignedTo": "alice"},
+            {"status": "resolved", "assignedTo": "bob"},
+            {"status": "resolved"},
+            {"status": "resolved", "assignedTo": {"realname": "alice"}},
+            {"status": "resolved", "assignedTo": {"id": "alice"}},
+            {"status": "resolved", "assignedTo": ["alice"]},
+        ):
+            with self.subTest(raw=raw):
+                self.assertFalse(mod.human_readback_matches(raw, "alice"))
+
     def test_compare_reports_each_critical_change(self) -> None:
         baseline = mod.build_snapshot(1, self.complete_bug(steps="old"))
         current = self.complete_bug(status="resolved", assignedTo="bob", steps="new")

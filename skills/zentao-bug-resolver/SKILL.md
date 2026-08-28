@@ -19,14 +19,15 @@ description: Investigate or fix ZenTao Bugs using business code evidence, or mar
 
 “帮我解决 / 修复 Bug”“修复后标记已解决”仍是普通证据流程；“应该好了 / 可能没问题了”、否定、条件、引用内容不构成人工确认。不得仅按关键词触发写入。
 
-本分支直接执行：**最小 bug view → active 时一次 fixed resolve → 显式 bug view 回读**。不运行 select/snapshot/compare，不读取业务仓库、附件、源码、提交、测试、diff 或 patch，不重新审计用户的结论，也不要求补充这些事实。
+本分支直接执行：**最小 bug view → 确定目标负责人 account → active 时一次 fixed resolve（显式 assignee）→ 显式 bug view 回读状态和负责人**。不运行 select/snapshot/compare，不读取业务仓库、附件、源码、提交、测试、diff 或 patch，不重新审计用户的结论，也不要求补充这些事实。
 
 - 默认显式使用 `--resolved-build trunk`；用户明确指定其它解决版本时覆盖此值。
 - 自动生成 UTF-8 的 HUMAN-ATTESTED 备注；不编造代码、测试或提交事实。
-- 默认不传 `--assignee`、`--resolved-date`，不提前追问负责人、备注、版本、日期或提交信息。
+- 负责人优先级为 **用户显式指定 assignee > Bug creator account > BLOCKED**。显式人员必须通过完整真实用户数据唯一解析；未指定时复用 `extract_creator_account` 提取当前 Bug 创建人。`openedBy` 为字符串时，先读取完整真实用户目录，再做区分大小写的 account 精确校验，不能直接拒绝或按姓名猜测；`openedByAccount` / `openedBy.account` 旧格式保持兼容。读取后调用只读纯函数 `resolve_human_assignee`，字符串候选必须传入真实 `users` 与 `users_complete=True`；失败不回退、不写入。
+- 每次 resolve 必须显式传 `--assignee <target-account>`；默认不传 `--resolved-date`。仅账号缺失、重名、结构冲突、用户数据不完整等真实阻塞时提问，不提前追问备注、版本、日期或提交信息。
 - 已 `resolved` / `closed` 不重复写；其它状态、字段校验、权限或不可确认的结果按 workflow 的真实阻塞处理。
 - 当前消息明确列出多个已解决 Bug 时，按输入顺序去重并严格串行处理；只处理这些 ID。任一真实阻塞停止，不读取后续 Bug。`UNKNOWN_WRITE_RESULT` 停止整个队列，绝不重试原 resolve，只读回读。
-- 结果以实际回读为准；不自动 close、activate、delete，不通过 edit/close/activate 绕过失败。
+- 只有回读同时满足 `status=resolved` 和 `assignedTo=target_account` 才报告本次流转完成；负责人不匹配时停止，不补写。已 resolved/closed 只报告原状态、本次未写入，不代表本次完成指派。不自动 close、activate、delete，不通过 edit/close/activate 绕过失败。
 
 本分支只改变 Agent 编排，不增加 resolver script 或 facade 写能力。
 

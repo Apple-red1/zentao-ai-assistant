@@ -37,7 +37,7 @@
 
 ### 0.3 单 Bug 的 CLI 顺序（H-002 / H-003 / H-005 / H-008）
 
-1. 只执行一次最小 pre-view，判断对象存在、可访问及当前 status。不下载附件、不查询创建人或测试账号。
+1. 只执行一次最小 pre-view，判断对象存在、可访问及当前 status；active 时还从同一详情获取创建人 account（未显式指定负责人时）。不下载附件、不查询业务测试证据。
 
 ```bash
 python skills/zentao/scripts/zentao.py bug view <id> --json
@@ -48,41 +48,65 @@ python skills/zentao/scripts/zentao.py bug view <id> --json
 | pre-view 状态 | 下一步 |
 |---|---|
 | `active` | eligible；每个 active Bug 最多一次 resolve |
-| `resolved` / `closed` | 不重复写，报告当前状态，可继续下一个明确 ID |
+| `resolved` / `closed` | 不重复写，不解析目标负责人；报告“原已处于该状态，本次未写入”，可继续下一个明确 ID；不代表本次流转完成 |
 | 其它 / 不可识别 | 停止整个队列，说明状态并提问 |
 
-2. 仅 active 时，按 comment-templates 的 Human-attested 模板生成 UTF-8 文件。用户有说明则保留原意，无说明不追问。默认文件放在项目 Git ignored 的 `.tmp/zentao/bug-resolver/`，逐 Bug 使用独立文件，不含认证秘密。
+2. 仅 active 时，确定本次目标负责人，优先级固定为：
+
+```text
+用户显式指定 assignee > Bug creator account > BLOCKED
+```
+
+- **用户明确指定人员**：只读查询基础 `user list`（`--browse inside` 和 `--browse outside`），按 pager 读取所有页；可通过只读 public facade 复用 Session。保留原始记录，不能先按 ID 丢弃冲突记录；分页失败、截断、停滞或无法证明完整时停止。使用 `resolve_human_assignee(bug, explicit_assignee=<用户原文>, users=<完整用户记录>, users_complete=True)`；`users_complete=True` 只能来自本次完整读取事实。该函数复用共享 `resolve_user` 的精确 account → 精确 realname/name → 唯一大小写 account 匹配；重名、账号不存在、缺 account、冲突或结构异常都阻塞，**不回退**创建人，不直接把用户输入当账号。显式人员有效时无需创建人字段。
+- **用户未指定人员**：复用 `extract_creator_account`，兼容 `openedByAccount: string`、`openedBy.account: string` 及真实返回的 `openedBy: "dongyanrong"`。前两种明确 account 证据保持兼容；当 `openedBy` 为非空字符串时，必须像上面的显式人员路径一样读取完整真实用户目录，再调用 `resolve_human_assignee(bug, users=<完整用户记录>, users_complete=True)`。字符串只作为候选，必须与目录中的 **account 精确校验（区分大小写）** 成功；**不使用 realname/name**、模糊匹配或大小写回退查找创建人。目录不存在该 account、目录不完整/冲突或结构异常时停止，不能直接要求用户补负责人来跳过目录校验，也不能静默使用其它创建人字段兜底。
+- 创建人所有可用账号证据必须一致；`openedBy` 字符串校验成功后仍需与其它字段比对。缺失、布尔/数字/列表等异常值、空白或 `closed` 特殊值不能作账号。仅有明确 account 字段且没有 `openedBy` 字符串候选时，可直接调用 `resolve_human_assignee(bug)`；纯函数没有收到完整目录就不会接受 `openedBy` 字符串。普通 snapshot/compare 不自动查询用户目录，未验证的字符串仍保持 unavailable。
+- 两种分支中的任何解析失败都停止 lifecycle 和整个队列，携带真实原因提问。每个 Bug 独立解析各自目标，不复用上一项的创建人/目标；用户对单个 Bug 的指定不能扩散到其它 Bug。创建人已是当前负责人时仍允许一次正常 resolve，不增加其它写入。
+
+以上是 `scripts/zentao_bug_resolver.py` 的只读纯函数，不运行 select/snapshot/compare、不调用 API、不执行 lifecycle。Agent 将 scripts 目录加入 Python import path 后导入并传入已经读取的 **Bug 对象**，不要传响应 envelope：
+
+```python
+from zentao_bug_resolver import resolve_human_assignee, human_readback_matches
+
+# openedBy 为字符串时，users 来自本次完整的真实用户目录读取：
+target_account = resolve_human_assignee(bug, users=users, users_complete=True)
+# 只有旧式明确 account 字段时可省略 users；显式人员用上文 explicit_assignee 参数。
+```
+
+3. 账号确定后，按 comment-templates 的 Human-attested 模板生成 UTF-8 文件。用户有说明则保留原意，无说明不追问。默认文件放在当前 scope 的 Git ignored `.tmp/zentao/bug-resolver/` 或 user runtime `~/.zentao-ai-assistant/tmp/zentao/bug-resolver/`，逐 Bug 使用独立文件，不含认证秘密。
 
 ```bash
 python skills/zentao/scripts/zentao.py bug resolve <id> \
   --resolution fixed \
   --resolved-build trunk \
+  --assignee <target-account> \
   --comment-file <generated-human-attested-comment.txt> \
   --json
 ```
 
-默认显式 `resolvedBuild=trunk`（主干）。用户明确指定其它解决版本时，将唯一的 `--resolved-build` 值覆盖为用户明确值，不追加第二个参数。基础 CLI 接受正整数版本 ID 或 `trunk`；无法表达的用户值按真实 CLI 校验错误反馈，不猜版本或把版本名当 ID。默认不传 `--assignee` 和 `--resolved-date`，不主动查询或追问负责人、备注、日期、版本、commit/push/merge。备注只记录人工确认及本次使用的版本参数，不伪造已验证的解决版本证据。
+默认显式 `resolvedBuild=trunk`（主干）。用户明确指定其它解决版本时，将唯一的 `--resolved-build` 值覆盖为用户明确值，不追加第二个参数。基础 CLI 接受正整数版本 ID 或 `trunk`；无法表达的用户值按真实 CLI 校验错误反馈，不猜版本或把版本名当 ID。必须显式传入唯一的 `--assignee <target-account>`，不依赖 endpoint 默认指派；默认不传 `--resolved-date`。不提前追问备注、日期、版本、commit/push/merge。备注只记录人工确认、本次版本参数、目标账号及其来源，不伪造已验证的解决版本或已完成指派证据。
 
-3. resolve 后必须通过另一个明确命令显式 post-view；基础 CLI 自身不自动 GET。
+4. resolve 后必须通过另一个明确命令显式 post-view；基础 CLI 自身不自动 GET。
 
 ```bash
 python skills/zentao/scripts/zentao.py bug view <id> --json
 ```
 
-回读真实为 `resolved` 才报告“回读已解决”；如果 pre-view 原本就是 resolved/closed，应说明“原已处于该状态，本次未写入”。写响应成功不能替代回读。若写后读到 active/closed/其它状态、读失败或响应不合法，报告 API 与回读差异并停止，不能声称本次 resolve 已成功，不发送后续写入。写前 view 不是 CAS、ETag 或锁，不保证读写之间没有并发变化。
+按 pre-view 相同规则解包并核对 post-view 对象/ID，然后调用 `human_readback_matches(bug, target_account)`。只有同时满足 **`status=resolved` 且 `assignedTo=target_account`** 才报告“已解决并指派给目标账号”。`assignedTo` 只接受账号字符串或对象中的明确 `account`；缺失、只有姓名/ID、结构异常不能证明指派完成。目标必须沿用写前确定的账号，不能用写后创建人或当前负责人重算来掩盖不一致。
+
+如果 pre-view 原本就是 resolved/closed，应说明“原已处于该状态，本次未写入”；不能声明已完成本次目标指派。写响应成功不能替代回读。若写后读到 active/closed/其它状态、负责人不匹配、读失败或响应不合法，报告实际状态/负责人及目标差异并停止，不能声称本次流转完成，不发送后续写入；禁止重复 resolve 或 edit/activate/close 补偿指派。写前 view 不是 CAS、ETag 或锁，不保证读写之间没有并发变化。
 
 ### 0.4 多 Bug、真实阻塞与未知结果（H-004 / H-006）
 
-当前消息明确列出多个已解决 Bug 时按输入顺序去重，严格串行：前一项 pre-view → eligible resolve → post-view 完成后，才读取下一项。不并行发 lifecycle；已 resolved/closed 零写入后可继续。普通流程仍一次一个 current Bug，不因本分支放宽 pending 授权。
+当前消息明确列出多个已解决 Bug 时按输入顺序去重，严格串行：前一项 pre-view → 独立解析目标 account → eligible resolve → post-view 状态和负责人核验完成后，才读取下一项。不并行发 lifecycle；已 resolved/closed 零写入后可继续。普通流程仍一次一个 current Bug，不因本分支放宽 pending 授权。
 
-只有真实阻塞才反问：目标缺失/歧义、对象不存在/不可访问、状态不允许、权限拒绝、ZenTao 要求额外必填字段或其它必须由人决定的业务校验、未知写入后仍不能确认。错误命令 exit 非 0 时读取 stderr 的 `error.code/message/details`，按真实错误说明，不展示秘密。不得提前问元数据或审计事实。
+只有真实阻塞才反问：目标缺失/歧义、对象不存在/不可访问、状态不允许、负责人账号缺失/歧义/数据不完整、回读负责人不匹配、权限拒绝、ZenTao 要求额外必填字段或其它必须由人决定的业务校验、未知写入后仍不能确认。错误命令 exit 非 0 时读取 stderr 的 `error.code/message/details`，按真实错误说明，不展示秘密。不得提前问元数据或审计事实。
 
 - 校验/权限等明确失败（包括实际拒绝 trunk）：停在当前对象，不读取后续 Bug，携带真实错误提问；不猜版本、不自动重试，不自动填默认值后再写。必要的 post-view 只用于陈述当前状态，不能把失败改报为成功。
-- `UNKNOWN_WRITE_RESULT`：立刻停止整个队列，绝不重试原 resolve，只读回读。即使回读为 resolved，也只报告“写入响应未知；当前回读为 resolved”，不自动继续剩余 ID；无法确认则保持 unknown 并请求人工决定。
+- `UNKNOWN_WRITE_RESULT`：立刻停止整个队列，绝不重试原 resolve，只读回读，同时核对 status 和 assignedTo。即使回读同时满足目标，也只报告“写入响应未知；当前回读已 resolved 且负责人为目标账号”，不自动继续剩余 ID；负责人不匹配或无法确认则保持 unknown 并请求人工决定。
 - 401 只继承基础 CLI 认证层的一次刷新/重放，Agent 不再执行第二个 resolve 命令。
 - 不通过 edit/close/activate、私有接口、数据库或 facade 绕过失败；不自动 close、activate、delete。
 
-结束报告逐项给出实际状态、是否发送 resolve、实际回读和未处理 ID；不要求普通流程的分类、测试、diff 或 compare 报告。阻塞后的剩余对象等待用户新的明确指令。
+结束报告逐项给出目标账号及来源、实际状态/负责人、是否发送 resolve、实际回读和未处理 ID；不要求普通流程的分类、测试、diff 或 compare 报告。阻塞后的剩余对象等待用户新的明确指令。
 
 ## 1. 执行面
 

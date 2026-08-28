@@ -12,12 +12,17 @@ from typing import Any, Callable
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SHARED = REPO_ROOT / "skills" / "_shared"
-if str(SHARED) not in sys.path:
-    sys.path.insert(0, str(SHARED))
+for directory in (SHARED, Path(__file__).resolve().parent):
+    if str(directory) not in sys.path:
+        sys.path.insert(0, str(directory))
 
 from zentao.identity import AmbiguousMatchError, MatchNotFoundError, resolve_named_entity, resolve_user  # noqa: E402
 from zentao.records import dedupe_records, scalar_identity  # noqa: E402
 from zentao.runtime import get_client  # noqa: E402
+from resolver_accounts import (  # noqa: E402
+    CREATOR_ACCOUNT_KEYS, CREATOR_OBJECT_KEYS, extract_creator_account,
+    human_readback_matches, resolve_human_assignee,
+)
 COLLECTIONS = {"bug": "bugs", "product": "products", "project": "projects", "execution": "executions", "user": "users"}
 SCOPES = ("product", "project", "execution")
 TIME_ALIASES = {
@@ -32,8 +37,6 @@ FIELD_ALIASES = {
 }
 CRITICAL_FIELDS = ("id", "status", "assignee", "title", "description", "severity", "priority", "product", "project", "execution", "module", "affected_build", "creator_account", "created", "updated")
 CRITICAL_ALIASES = {"id": ("id",), "status": FIELD_ALIASES["status"], "assignee": FIELD_ALIASES["assignee"], "title": ("title", "name"), "description": ("steps", "description", "desc"), "severity": ("severity",), "priority": ("pri", "priority"), "product": ("product", "productID", "product_id"), "project": ("project", "projectID", "project_id"), "execution": ("execution", "executionID", "execution_id"), "module": ("module", "moduleID", "module_id"), "affected_build": ("openedBuild", "affectedBuild", "affected_build", "resolvedBuild"), "created": TIME_ALIASES["created"], "updated": TIME_ALIASES["updated"]}
-CREATOR_ACCOUNT_KEYS = ("openedByAccount", "creatorAccount", "createdByAccount", "creator_account", "opened_by_account", "created_by_account")
-CREATOR_OBJECT_KEYS = ("openedBy", "opened_by", "creator", "createdBy", "openedByUser", "creatorUser")
 def _positive_int(value: str) -> int:
     try:
         parsed = int(value)
@@ -263,20 +266,6 @@ def filter_records(rows: list[dict[str, Any]], *, user: str | None = None, modul
         if included:
             matched.append(row)
     return matched, [_unsupported(name, rows, values) for name, values in missing.items() if values]
-
-
-def extract_creator_account(bug: dict[str, Any]) -> str | None:
-    for key in CREATOR_ACCOUNT_KEYS:
-        value = bug.get(key)
-        if isinstance(value, dict):
-            value = value.get("account")
-        if value not in (None, "") and not isinstance(value, (list, dict)):
-            return str(value)
-    for key in CREATOR_OBJECT_KEYS:
-        value = bug.get(key)
-        if isinstance(value, dict) and value.get("account") not in (None, ""):
-            return str(value["account"])
-    return None
 
 
 def _critical_value(value: Any) -> Any:

@@ -260,10 +260,32 @@ class BugResolverSkillContractTests(unittest.TestCase):
         self.assertEqual(1, resolve.count("--resolved-build"))
         self.assertEqual("trunk", resolve[resolve.index("--resolved-build") + 1])
         self.assertEqual("fixed", resolve[resolve.index("--resolution") + 1])
-        self.assertNotIn("--assignee", resolve)
+        self.assertEqual(1, resolve.count("--assignee"))
+        self.assertEqual("<target-account>", resolve[resolve.index("--assignee") + 1])
         self.assertNotIn("--resolved-date", resolve)
         self.assertIn("--comment-file", resolve)
         self.assertIn("覆盖", human)
+
+    def test_human_assignee_priority_and_readback_are_explicit(self) -> None:
+        human = self.human_workflow()
+        for anchor in (
+            "用户显式指定 assignee > Bug creator account > BLOCKED",
+            "resolve_human_assignee", "extract_creator_account", "resolve_user",
+            "users_complete=True", "inside", "outside", "重名", "不回退",
+            "human_readback_matches", "status=resolved", "assignedTo=target_account",
+            "每个 Bug 独立", "原已处于该状态，本次未写入",
+            "负责人不匹配", "不代表本次流转完成",
+        ):
+            with self.subTest(anchor=anchor):
+                self.assertIn(anchor, human)
+        self.assertNotIn("默认不传 `--assignee`", human + SKILL)
+
+    def test_opened_by_string_requires_exact_account_directory_validation(self) -> None:
+        human = self.human_workflow()
+        for anchor in ('openedBy: "dongyanrong"', 'account 精确校验', '区分大小写',
+                       '不使用 realname/name', 'users_complete=True'):
+            self.assertIn(anchor, human)
+        self.assertNotIn("也不需要用户列表", human)
 
     def test_human_state_queue_and_failure_contract(self) -> None:
         human = self.human_workflow()

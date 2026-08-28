@@ -271,4 +271,4 @@ python tests/run_all.py
 
 `HUMAN_ATTESTED_RESOLVE` 只在当前用户明确确认已解决且目标唯一时触发，该消息即对应 Bug 的 R2 授权。不读取业务仓库、源码、提交、测试、diff、附件或 patch，不运行 select/snapshot/compare；普通证据门槛不适用。只做最小 bug view，active 时一次基础 CLI fixed resolve，再显式 bug view 回读；resolved/closed 不重复写。
 
-默认显式 `--resolved-build trunk`，用户明确指定其它值时覆盖；默认不传 assignee/resolved-date，自动生成 HUMAN-ATTESTED 备注，不伪造审计事实。当前消息明确列出的多个 Bug 按输入顺序去重并严格串行，任一真实阻塞立即停止；`UNKNOWN_WRITE_RESULT` 停止整个队列、绝不重试，只读回读。不自动 close/activate/delete 或用其它 endpoint 绕过失败。resolver script 和 facade 保持只读。
+默认显式 `--resolved-build trunk`，用户明确指定其它值时覆盖；负责人按“用户显式指定 assignee > Bug creator account > BLOCKED”确定，显式人员需由完整真实用户数据唯一解析，未指定时使用当前 Bug 的创建人 account，兼容 openedByAccount/openedBy.account；`openedBy` 字符串须经完整真实用户目录做区分大小写的 account 精确校验，不按姓名或大小写回退匹配；缺失、重名、冲突或数据不完整时停止，不回退、不猜测。resolve 必须显式传 `--assignee <target-account>`，回读同时验证 `status=resolved` 且 `assignedTo=target_account`；默认不传 resolved-date，自动生成 HUMAN-ATTESTED 备注，不伪造审计事实。当前消息明确列出的多个 Bug 按输入顺序去重并严格串行，任一真实阻塞立即停止；`UNKNOWN_WRITE_RESULT` 停止整个队列、绝不重试，只读回读。不自动 close/activate/delete 或用其它 endpoint 绕过失败。resolver script 和 facade 保持只读。

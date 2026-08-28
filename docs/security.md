@@ -75,7 +75,7 @@ Claude/Codex Plugin cache 是可替换的代码目录，不是配置、Token 或
 
 `HUMAN_ATTESTED_RESOLVE` 只接受当前用户明确的已解决确认及唯一目标；该消息就是对应 Bug 的人工业务结论与 R2 授权。“帮我修复”、条件句或不确定表达不构成完成确认。此分支不读取业务仓库、提交、测试、diff、附件或 patch，不执行 select/snapshot/compare；普通证据门槛不适用。
 
-每个 Bug 最小 pre-view 后，active 才允许一次基础 CLI fixed resolve 并显式回读；resolved/closed 零写入。默认显式 `--resolved-build trunk`，用户明确值覆盖；默认不传 assignee/resolved-date。自动 HUMAN-ATTESTED 备注只记录用户结论及本次版本参数，不编造验证或提交事实。
+每个 Bug 最小 pre-view 后，active 才允许一次基础 CLI fixed resolve 并显式回读；resolved/closed 零写入。默认显式 `--resolved-build trunk`，用户明确值覆盖；负责人按“用户显式指定 assignee > Bug creator account > BLOCKED”确定，显式人员需由完整真实用户数据唯一解析，未指定时使用当前 Bug 的创建人 account，兼容 openedByAccount/openedBy.account；`openedBy` 字符串须经完整真实用户目录做区分大小写的 account 精确校验，不按姓名或大小写回退匹配；缺失、重名、冲突或数据不完整时停止，不回退、不猜测。resolve 必须显式传 `--assignee <target-account>`，回读同时验证 `status=resolved` 且 `assignedTo=target_account`；默认不传 resolved-date。自动 HUMAN-ATTESTED 备注只记录用户结论、本次版本参数、目标账号及来源，不编造验证、提交或已完成指派事实。
 
 单 Bug 可由当前上下文唯一确定；多 Bug 请求只处理当前消息明确列出的 ID，按输入顺序去重、严格串行，不补入历史 pending 项。真实阻塞时不读取后续对象。包括 trunk 被拒绝在内的业务/权限错误必须如实反馈，不猜字段、不自动重试，不用 edit/close/activate 或私有接口绕过。`UNKNOWN_WRITE_RESULT` 停止整个队列，仅显式只读回读；即使回读为 resolved 也不自动继续，无法确认则保留 unknown。最小 view 不是 CAS/ETag/锁，不保证读写间无并发变化。
 

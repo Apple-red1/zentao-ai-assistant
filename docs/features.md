@@ -61,7 +61,7 @@ pending 项不继承授权；模糊“处理 Bug”不产生 R2。只有满足�
 `HUMAN_ATTESTED_RESOLVE` 是独立的人工确认分支：用户明确说已解决且目标唯一时，
 当前消息即该 Bug 的人工结论与 R2 授权。只做最小 bug view，active 时一次 fixed resolve，
 随后显式回读；resolved/closed 不重复写。默认 `--resolved-build trunk`，用户明确指定时覆盖，
-默认不传 assignee/resolved-date，自动生成 HUMAN-ATTESTED 备注。不审计业务代码、提交、测试、
+负责人按“用户显式指定 assignee > Bug creator account > BLOCKED”确定，显式人员需由完整真实用户数据唯一解析，未指定时使用当前 Bug 的创建人 account，兼容 openedByAccount/openedBy.account；`openedBy` 字符串须经完整真实用户目录做区分大小写的 account 精确校验，不按姓名或大小写回退匹配；缺失、重名、冲突或数据不完整时停止，不回退、不猜测。resolve 必须显式传 `--assignee <target-account>`，回读同时验证 `status=resolved` 且 `assignedTo=target_account`；默认不传 resolved-date，自动生成 HUMAN-ATTESTED 备注。不审计业务代码、提交、测试、
 diff、附件或 patch，不运行 select/snapshot/compare。当前消息明确列出的多个 Bug 严格串行，
 真实阻塞或 UNKNOWN_WRITE_RESULT 停止整个队列；未知写入只读回读、绝不重试，不自动 close。
 普通“修复 Bug”或“应该好了”不触发该分支。

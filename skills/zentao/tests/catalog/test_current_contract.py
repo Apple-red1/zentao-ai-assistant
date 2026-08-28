@@ -167,6 +167,12 @@ class CurrentContractDocumentationTest(unittest.TestCase):
                 for anchor in ("HUMAN_ATTESTED_RESOLVE", "trunk", "普通", "只读", "回读"):
                     self.assertIn(anchor, document)
                 self.assertNotIn("默认不传 `--resolved-build`", document)
+                self.assertNotIn("默认不传 assignee/resolved-date", document)
+                self.assertNotIn("默认不传 `--assignee`", document)
+                for anchor in ("用户显式指定 assignee > Bug creator account > BLOCKED", "status=resolved", "assignedTo=target_account"):
+                    self.assertIn(anchor, document)
+                for anchor in ("`openedBy` 字符串", "区分大小写", "account 精确校验"):
+                    self.assertIn(anchor, document)
 
 
 if __name__ == "__main__":

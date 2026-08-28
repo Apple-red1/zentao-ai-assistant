@@ -96,7 +96,9 @@ Agent 普通流程读取 resolver JSON 与业务仓库
 
 `HUMAN_ATTESTED_RESOLVE` 由 Agent 执行：当前消息明确确认已解决且目标唯一 → 最小 bug view → active 时一次基础 CLI fixed resolve → 显式 bug view 回读。已 resolved/closed 不重复写；当前消息明确列出的 ID 严格串行，真实阻塞或 UNKNOWN_WRITE_RESULT 停止整个队列。
 
-人工确认默认 `--resolved-build trunk`，用户明确值覆盖；默认不传 assignee/resolved-date，自动生成 HUMAN-ATTESTED 备注。跳过业务审计与 select/snapshot/compare，不增加 Python 写入编排器，不扩展 facade、endpoint 或普通流程的 pending 授权。
+人工确认默认 `--resolved-build trunk`，用户明确值覆盖；负责人按“用户显式指定 assignee > Bug creator account > BLOCKED”确定，显式人员需由完整真实用户数据唯一解析，未指定时使用当前 Bug 的创建人 account，兼容 openedByAccount/openedBy.account；`openedBy` 字符串须经完整真实用户目录做区分大小写的 account 精确校验，不按姓名或大小写回退匹配；缺失、重名、冲突或数据不完整时停止，不回退、不猜测。resolve 必须显式传 `--assignee <target-account>`，回读同时验证 `status=resolved` 且 `assignedTo=target_account`；默认不传 resolved-date，自动生成 HUMAN-ATTESTED 备注。跳过业务审计与 select/snapshot/compare，不增加 Python 写入编排器，不扩展 facade、endpoint 或普通流程的 pending 授权。
+
+`scripts/resolver_accounts.py` 只提供纯数据函数：创建人 account 提取、人工确认目标账号选择、状态/负责人回读检查；由 `zentao_bug_resolver.py` 重新导出供 Agent 使用。显式用户匹配复用共享 `zentao.identity.resolve_user`，模块不读取网络、不写入、不自行推进队列。
 
 ## RuntimePaths 与临时运行数据
 
