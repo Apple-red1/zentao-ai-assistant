@@ -156,6 +156,9 @@ python3 skills/zentao-batch-export/scripts/zentao_batch_export.py bug:123 story:
 
 `zentao-batch-export` 只读复用基础 `view` 与 `resource fetch`，把每个对象的完整 `view --json` 响应写入 `content.md`，把附件/富文本资源归档到对象目录，再在当前 runtime scope 下生成动态命名的 ZIP。单项失败继续导出并完整保留到 `manifest.json` 的 `complete/failures`。
 
+Bug 详情链接使用固定禅道路由直接生成，不打开浏览器：
+`python3 skills/zentao/scripts/zentao.py bug web-url 3641 --json`。
+
 Bug 证据驱动流程的确定性脚本入口为：
 
 ```bash

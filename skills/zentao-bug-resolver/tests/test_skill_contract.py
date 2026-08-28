@@ -40,6 +40,12 @@ class BugResolverSkillContractTests(unittest.TestCase):
         self.assertIn("不能推断 R2", WORKFLOW)
         self.assertIn("不等于 resolve 授权", SKILL)
 
+    def test_url_only_requests_use_fixed_cli_route_without_browser(self) -> None:
+        self.assertIn("## Bug 链接请求优先路由", SKILL)
+        self.assertIn("bug web-url <id>", SKILL)
+        self.assertIn("禁止打开浏览器", SKILL)
+        self.assertIn("固定路由的 `zentao.py bug web-url`", WORKFLOW)
+
     def test_pending_queue_requires_explicit_continuation_and_does_not_inherit_authority(self) -> None:
         for anchor in (
             "pending_queue",

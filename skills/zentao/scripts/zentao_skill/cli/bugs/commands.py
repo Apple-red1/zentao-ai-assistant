@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 
 from ...internal.errors import UsageError
+from ...internal.web_urls import render_bug_web_urls
 from ...services.bugs.service import BugsService
 from ..common import add_json_flag, auto_value, build_ref, non_negative_int, number, page_int, per_page_int, positive_int, resolve_text
 
@@ -70,6 +71,10 @@ def register(resource_subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     p_view.add_argument("id", type=positive_int, help="资源 ID")
     add_json_flag(p_view)
     p_view.set_defaults(_handler=_run_view)
+    p_web_url = resource_subparsers.add_parser('web-url', help='按固定禅道路由生成 Bug Web URL（不访问页面）')
+    p_web_url.add_argument("id", type=positive_int, nargs="+", help="一个或多个 Bug ID")
+    add_json_flag(p_web_url)
+    p_web_url.set_defaults(_handler=_run_web_url)
     p_resolve = resource_subparsers.add_parser('resolve', help='解决 Bug')
     p_resolve.add_argument("id", type=positive_int, help="资源 ID")
     p_resolve.add_argument('--resolution', type=str, required=True, choices=['by-design', 'duplicate', 'external', 'fixed', 'not-repro', 'postponed', 'to-story', 'will-not-fix'], dest='resolution', help='resolution 参数')
@@ -137,6 +142,10 @@ def _run_list(services: object, args: argparse.Namespace) -> object | None:
 def _run_view(services: object, args: argparse.Namespace) -> object | None:
     service: BugsService = getattr(services, 'bug')
     return service.view(item_id=args.id)
+
+def _run_web_url(services: object, args: argparse.Namespace) -> object:
+    return_value = render_bug_web_urls(services.session.config.base_url, args.id)
+    return return_value[0] if len(return_value) == 1 else return_value
 
 def _run_resolve(services: object, args: argparse.Namespace) -> object | None:
     service: BugsService = getattr(services, 'bug')

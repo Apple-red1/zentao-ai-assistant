@@ -7,6 +7,10 @@ description: Investigate or fix ZenTao Bugs using business code evidence, or mar
 
 先按**当前消息**选择路径，再读取对应证据。执行前读取 [`references/workflow.md`](references/workflow.md) 的对应分支；生命周期备注使用 [`references/comment-templates.md`](references/comment-templates.md) 中对应模板。
 
+## Bug 链接请求优先路由
+
+当用户只要求 Bug URL、链接或详情链接时，直接执行 `python skills/zentao/scripts/zentao.py bug web-url <id> [<id> ...] --json`。链接格式固定为 `ZENTAO_BASE_URL/index.php?m=bug&f=view&bugID=<id>`；禁止打开浏览器、检查登录页、访问详情页或猜测其它格式。只有用户要求调查、修复或 resolve 时，才进入下面的证据流程。
+
 ## 人工确认：`HUMAN_ATTESTED_RESOLVE`
 
 用户明确确认“已解决 / 解决了 / 标记已解决”，且 Bug ID 明确或当前上下文只有一个正在处理的 Bug，即视为该 Bug 的人工业务结论和 `RESOLVE_R2_ALLOWED`。例如“3641 已解决”“Bug #3641 解决了，更新禅道”。没有明确 ID 且无法从当前上下文唯一确定目标时才提问，不猜目标。

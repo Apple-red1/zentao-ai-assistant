@@ -80,6 +80,7 @@ project/user scope：项目配置为 `<repo>/.env`，用户配置为
 - 普通 fixed 分支只有 `SOLVABLE` 的完整证据、验证、diff 和写前 compare 门槛满足后，Agent 才能经基础 `zentao` CLI 执行一次 `bug resolve` 并显式回读；不会自动 close、activate、delete，也不把生命周期动作当作 standalone comment 或 active Bug 单独转派。
 - 信息不足的 `UNCLEAR` / `NO_CODE_EVIDENCE` 不修改业务代码；`will-not-fix` 仅表示按门槛退回补充信息，不是技术修复结论。
 - 当前不宣称 module 名称映射、Bug 历史、ETag 或其它未经真实证据验证的字段/接口。
+- `bug web-url` 按固定禅道路由本地生成链接，不是新的 API endpoint，不访问页面或打开浏览器。
 - `HUMAN_ATTESTED_RESOLVE`：当前消息明确确认已解决且目标唯一，即人工结论与对应 Bug 的 R2 授权；最小 bug view → active 时一次 fixed resolve → 显式 bug view 回读。不读取业务仓库/源码/提交/测试/diff/附件/patch，不运行 select/snapshot/compare，不套用普通证据门槛。
 - 人工确认默认显式 `--resolved-build trunk`，用户明确指定其它值时覆盖；默认不传 assignee/resolved-date，自动生成 `[CODEX-HUMAN-ATTESTED-RESOLUTION]` 备注，不伪造代码或测试事实。resolved/closed 不重复写；当前消息明确列出的多个 Bug 按输入顺序去重并严格串行；真实阻塞停止，`UNKNOWN_WRITE_RESULT` 停止整个队列、只读回读且绝不重试。仅在真实阻塞时提问，不自动 close 或切换 endpoint。
 - “帮我解决/修复”与不确定表达不触发人工确认；人工确认是 Agent 指令分支，没有新增 Python lifecycle 编排器，不改变 120 endpoint 或只读 facade。

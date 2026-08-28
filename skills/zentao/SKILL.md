@@ -1,6 +1,6 @@
 ---
 name: zentao
-description: Use when users ask to read or explicitly change ZenTao through the official API v2 capability surface, or fetch object-associated attachment/rich-text resource files for further analysis.
+description: Use when users ask to read or explicitly change ZenTao through the official API v2 capability surface, generate Bug Web URLs, or fetch object-associated attachment/rich-text resource files for further analysis.
 ---
 
 # 禅道（zentao）
@@ -41,7 +41,7 @@ python skills/zentao/scripts/zentao.py <resource> <action> [scope] [parameters] 
 - `test-task` → `references/api-v2/test-tasks.md`
 - `ticket` → `references/api-v2/tickets.md`
 - `user` → `references/api-v2/users.md`
-
+Bug 链接固定使用 `ZENTAO_BASE_URL/index.php?m=bug&f=view&bugID=<id>`，直接执行 `zentao.py bug web-url <id> [<id> ...] --json`；此路径不打开浏览器、不访问页面。
 Token 登录由内部 `token.login` 认证适配自动完成，不建立业务 `token` 命令域；`doctor` 可验证配置和登录。仓库内其他高层 Skill 通过 `references/programmatic.md` 说明的 public facade 复用该基础能力。
 
 ## 配置与运行 scope

@@ -35,3 +35,8 @@ Bug 列表的官方 `browseType` 范围按 scope 区分：产品支持
 `all | unclosed | assignedtome | openedbyme | assignedbyme`；项目和执行支持
 `all | unresolved`。CLI 的 `assigned-to-me`、`opened-by-me`、`assigned-by-me`
 会映射为对应 API 值。详见独立官方合同快照和 #9 的 API v2 deep-link 证据。
+
+## Bug Web URL
+
+`bug web-url` 是本地只读组合能力，按固定禅道路由
+`ZENTAO_BASE_URL/index.php?m=bug&f=view&bugID=<id>` 生成单个或批量链接，不发送页面请求，也不启动浏览器。
