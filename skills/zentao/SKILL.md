@@ -92,6 +92,7 @@ Token cache 只保存短期 Token，不保存密码；临时资源和高层聚�
 
 ## 输出与错误
 
+- 对象链接先读取[对象 Web URL 证据合同](references/web-urls.md)；不得仅凭 ID、base URL 或历史示例拼接链接。无可靠证据时返回对象 ID 及“页面 URL：当前能力无法可靠生成/尚未验证”；API 成功不等于页面已验证，CLI 无通用页面生成/验证能力。
 - 默认输出面向终端阅读；`--json` 输出机器结果。
 - `--json` 成功：stdout 只包含领域 JSON；DELETE 等空响应返回最小 `{"status":"success"}`（已知 ID 时包含 `id`）。
 - `--json` 失败：stdout 为空，stderr 输出 `{"error":{"code","message","details"}}`。

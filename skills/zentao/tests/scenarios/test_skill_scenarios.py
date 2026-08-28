@@ -15,6 +15,34 @@ from zentao_skill.internal.zentao.tickets import TicketsAPI
 
 
 class SkillScenarioTests(unittest.TestCase):
+    def test_bug_view_does_not_infer_page_links_from_id_or_rich_text(self) -> None:
+        for steps in (None, '历史示例：<a href="/bug-view-123.html">Bug</a>',
+                      '候选格式：/index.php?m=bug&f=view&bugID=123'):
+            with self.subTest(steps=steps), FakeZenTao() as fake:
+                bug = {"id": 1, "title": "URL evidence", "status": "active"}
+                if steps is not None:
+                    bug["steps"] = steps
+                fake.state.resources["bug"]["1"] = bug
+                result = run_cli(fake.base_url, ["bug", "view", "1", "--json"])
+                self.assertEqual(0, result.returncode, result.stderr)
+                self.assertEqual(bug, json.loads(result.stdout))
+                business = [r for r in fake.state.requests if r["endpoint_id"] != "token.login"]
+                self.assertEqual(["bug.view"], [r["endpoint_id"] for r in business])
+
+    def test_bug_view_preserves_api_links_without_claiming_page_verification(self) -> None:
+        # Fixture URLs are API data, not evidence that a real deployment supports them.
+        for field in ("url", "link"):
+            for route in ("/zentao/index.php?m=bug&f=view&bugID=1", "/zentao/bug-view-1.html"):
+                with self.subTest(field=field, route=route), FakeZenTao() as fake:
+                    bug = {"id": 1, "title": "API URL evidence", "status": "active",
+                           field: fake.base_url + route}
+                    fake.state.resources["bug"]["1"] = bug
+                    result = run_cli(fake.base_url, ["bug", "view", "1", "--json"])
+                    self.assertEqual(0, result.returncode, result.stderr)
+                    self.assertEqual(bug, json.loads(result.stdout))
+                    business = [r for r in fake.state.requests if r["endpoint_id"] != "token.login"]
+                    self.assertEqual(["bug.view"], [r["endpoint_id"] for r in business])
+
     def test_program_create_rejects_blank_name_before_http(self) -> None:
         with FakeZenTao() as fake:
             result = run_cli(fake.base_url, [

@@ -2,6 +2,10 @@
 
 参数细节以 CLI `--help` 为运行时事实；本页只做领域导航。
 
+`bug view` 读取 API 对象，不验证 Web 详情页。输出链接前遵守
+[对象 Web URL 证据合同](../web-urls.md)：不得仅凭 ID、base URL 或历史示例拼接地址；
+没有可靠来源时返回 Bug ID 及“页面 URL：当前能力无法可靠生成/尚未验证”。
+
 | Endpoint | API | CLI | 风险 | 用途 |
 |---|---|---|---|---|
 | `bug.create` | `POST` `/api.php/v2/bugs` | `bug create` | R1 | 创建 Bug |

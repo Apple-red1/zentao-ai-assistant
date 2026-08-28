@@ -28,6 +28,7 @@ project 为 `<repo>/.tmp/zentao/statistics/`，user 为
 
 ## 规则
 
+- 统计结果中的对象链接先按[对象 Web URL 证据合同](../zentao/references/web-urls.md)核对来源；不得仅凭 ID 或历史示例拼接链接。没有可靠证据时返回对象 ID，并说明“页面 URL：当前能力无法可靠生成/尚未验证”。
 - 只读，不执行 create/edit/lifecycle/delete。
 - 不直接拼 ZenTao URL；底层通过 `zentao` 的 programmatic public facade。
 - 不根据当前快照伪造历史趋势。

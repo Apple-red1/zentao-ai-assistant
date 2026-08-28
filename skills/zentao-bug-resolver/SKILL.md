@@ -54,6 +54,13 @@ python skills/zentao-bug-resolver/scripts/zentao_bug_resolver.py compare --bug-i
 
 普通证据流程不得自动 close、activate、delete、连续处理下一 Bug、提交/推送/合并/部署，也不得用生命周期动作伪造 standalone comment 或 active Bug 单独转派。
 
+## 对象详情链接
+
+两条路径的结果和备注均遵守[对象 Web URL 证据合同](../zentao/references/web-urls.md)。
+不得仅凭 ID、base URL 或历史示例拼接页面链接；没有可靠链接证据时返回 Bug ID，
+并说明“页面 URL：当前能力无法可靠生成/尚未验证”。链接不可用不增加任何 resolve 门槛，
+也不为人工确认分支追加源码、附件或页面探测。
+
 ## 两条路径共用的写入边界
 
 resolver Python 脚本只做 ZenTao 读取和确定性处理；生命周期写入属于 Agent 编排，必须回到基础 `zentao` CLI。每个 eligible Bug 至多一次 resolve 命令，随后显式回读。基础 CLI 的 401 认证刷新合同不变；workflow 不增加重试，不绕过风险授权。

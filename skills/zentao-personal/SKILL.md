@@ -26,6 +26,7 @@ python skills/zentao-personal/scripts/zentao_personal.py brief --json
 
 ## 规则
 
+- 工作列表与报告中的对象链接先按[对象 Web URL 证据合同](../zentao/references/web-urls.md)核对来源；不得仅凭 ID 或历史示例拼接链接。没有可靠证据时返回对象 ID，并说明“页面 URL：当前能力无法可靠生成/尚未验证”。
 - 默认只读。
 - 个人报告是事实整理，不把工作量直接解释成绩效评价。
 - 优先级建议必须能追溯到 ZenTao 的 priority、severity、deadline、status 等字段。

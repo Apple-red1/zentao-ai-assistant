@@ -28,6 +28,7 @@ project 为 `<repo>/.tmp/zentao/project-management/`，user 为
 
 ## 规则
 
+- 项目报告中的对象链接先按[对象 Web URL 证据合同](../zentao/references/web-urls.md)核对来源；不得仅凭 ID 或历史示例拼接链接。没有可靠证据时返回对象 ID，并说明“页面 URL：当前能力无法可靠生成/尚未验证”。
 - 默认只读。
 - 默认不生成数值“健康分”；没有明确规则时只报告事实和风险信号。
 - workload 只表达事项分布，不自动推导人员绩效。
