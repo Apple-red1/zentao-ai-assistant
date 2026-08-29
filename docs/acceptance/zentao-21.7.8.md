@@ -1,6 +1,6 @@
 # ZenTao 21.7.8 兼容性状态
 
-官方 API v2 合同与目标实例兼容性是两个独立维度。本文件记录 2026-08-25 在全新 ZenTao 21.7.8 实例上的真实验收结果；凭证仍只从本地 `.env` 读取，不写入仓库。
+官方 API v2 合同与目标实例兼容性是两个独立维度。本文件记录 2026-08-25 起在全新 ZenTao 21.7.8 实例上的真实验收结果；凭证仍只从本地 `.env` 读取，不写入仓库。
 
 ## 已验证
 
@@ -97,3 +97,126 @@
 上述真实观察不改变官方 120 endpoint catalog：`file.upload` 的 v2 endpoint 仍记录为
 unsupported，页面兼容路径是基础 CLI 的内部实现，不是新增 endpoint。为保留真实验证
 证据，本轮创建的测试 Bug `79`、`80` 未执行删除，需用户明确指定具体 ID 后再按 R3 合同清理。
+
+## 独立评论功能（Issue #52，2026-08-28）
+
+本次使用项目 `.env` 中配置的专用 ZenTao 21.7.8 实例完成真实写入和只读回读；自动化
+Fake 不参与以下结果。评论页面和内嵌图片均通过现有 `LegacyWebClient`，没有新增 API
+endpoint，也没有执行删除清理这些专用验收数据。
+
+| 能力 | 真实对象 | 写后 action / 文件证据 | 结果 |
+|---|---:|---|---|
+| 十种对象评论正文 | Bug 79、Story 5、Product 2、Task 3、Execution 10、Project 8、Test-task 16、Product-plan 7、Release 1、Build 55 | action `4843`、`4864`、`4867`、`4870`、`4873`、`4875`、`4889`、`4892`、`4894`、`4896`（按对象顺序） | 均成功，回读确认 `action=commented`、对象类型/ID和正文 |
+| Bug/Story 重复普通附件 | Bug 79、Story 5 | Bug action `4899`，file `8/9`；Story action `4902`，file `10/11` | 均成功，中文文件名、大小和 comment action 归属回读确认 |
+| Bug 单张内嵌图片 | Bug 79 | action `4941`，inline file `17` | `ajaxUpload` 单次成功，评论回读确认同源图片 URL |
+| 评论资源显式回读 | Bug 79、Story 5 | `resource fetch --include-comments`；Bug 评论资源含 action `4899`/inline `4941` 等，Story 含 action `4902` 的 file `10/11` | 两个命令均 exit `0`，`partial_failures=[]`，下载文件字节可读 |
+
+用于资源字节核对的验收文件 SHA-256：内嵌 PNG（Bug file `17`）为
+`65d3e2eafcc403c84f500dc83d8e774e240eae611fd76cf15f4515784b8643d3`；Story `附件-A.txt`
+（file `10`）为 `990c40f4024db3d59454f4a43a030667d04d613b54ad46fd13354e64a987ed`，
+`附件-B.txt`（file `11`）为 `4797c36988bf0024ee4b1d974c760018c021ee03507d7543019bcef47a46e42e`。
+验收时资源落盘于当前 scope 的 `.tmp/zentao-resources/`；该临时目录已在本次交付前清理，验收输出未写入仓库。
+
+## 评论能力 Campaign（Issue #53，2026-08-28）
+
+本节记录 Issue #54 → #55 → #56 → #57 的严格串行验收。真实业务测试使用项目
+`.env` 指向的专用 ZenTao 21.7.8 实例；凭证、Token、Cookie 和完整请求头未进入
+日志、证据或仓库。自动化测试只使用 Fake，不计入真实业务结果。
+
+### Batch 0 与 P1
+
+Batch 0 已通过：
+
+```text
+python3 skills/zentao/tests/run_all.py
+  Catalog/Internal/CLI/Skill routes/Fake/Contract/CLI E2E/Official snapshot: 120/120
+  Real API calls: 0
+  Result: PASS
+python3 -m unittest discover -s skills/zentao-batch-export/tests -p 'test_*.py'
+  18 tests OK（Campaign 改动后的最终门槛为 19 tests OK）
+python3 tests/run_all.py
+  Result: PASS
+```
+
+P1 的 46 个自动化场景全部通过。十种当前对象的评论正文、Bug/Story 的重复普通
+附件、中文文件名、同名文件、相同字节文件均完成真实写入和 action/附件回读。
+一次页面返回 HTML 的旧写入 action `4977` 被记录为 `UNKNOWN_WRITE_RESULT`，未重放；
+修复后通过新的 action `4980` 完成确认。P1 只保留了可追溯的新增测试对象和证据，未
+用第二种传输、数据库或浏览器绕过失败。
+
+### P2：文件与图片
+
+P2 的原生能力探针发现了项目实现缺口，按 Campaign 规则先冻结证据、修复根因再
+重跑：
+
+- CLI 原先只提交一张 `--inline-image`，重复图片场景的原生页面探针支持 2/3/5
+  个引用；修复为可重复参数，且同一本地图片只上传一次并保留重复 markup。
+- Story 及其余八种当前对象的评论图片参数原先被 CLI 错误拒绝；原生页面探针支持，
+  已统一接入固定页面协议。
+- 其余八种当前对象的评论附件参数原先被 CLI 错误拒绝；原生页面探针支持，已统一
+  接入并完成单文件及 2/3/5 文件回读。
+- Bug/Story 的普通附件与内嵌图片混合提交原先被项目代码拒绝；修复后真实 action
+  `5286`（修复后首次探测写入）已记录且禁止重放，正式混合场景使用 action `5288`、
+  `5291`、`5293`、`5295` 完成回读和资源字节校验。
+- 真实 WebP 评论写入可以成功，但目标实例返回的资源 URL 以文本 MIME 响应，显式
+  `resource fetch --include-comments` 无法通过内容校验；该“评论资源读取边界”分类
+  为 `UPSTREAM_UNSUPPORTED`，没有用项目 workaround 掩盖。
+- Program 的未开放对象链路无法得到可安全确认的原生评论提交能力，因此 F04-S04/S05
+  为 `INCONCLUSIVE`/`BLOCKED`，没有把正式 CLI 失败改写成成功。
+
+P2 修复后的单元、CLI E2E 和批量导出测试分别通过；图片四种格式的源文件 SHA-256、
+评论 action、附件元数据和 `resource fetch --include-comments` 的落盘字节均完成核对。
+
+### P3：并发、资源范围与批量导出
+
+P3 的真实并发和回读结果如下：
+
+- 不同正文并发写入 action `5299`、`5300` 均唯一确认；相同正文两次写入 action
+  `5303`、`5304` 均按候选不唯一返回 `UNKNOWN_WRITE_RESULT`，每个进程只发出一次
+  POST，没有盲目重试。
+- 显式重复评论 action `5306`、`5308` 通过对象/action/正文回读确认；`5308` 的
+  证据匹配在只读回读中修正，未重放写入。普通提交后丢弃临时状态场景通过，正常登录
+  页面 HTML 场景通过且无凭证泄露。
+- 默认资源范围不包含评论资源；显式 `--include-comments` 可读取已验证的 Bug/Story
+  评论附件和图片。批量导出对 Bug/Story 自动启用该范围，对 Product/Task 保持默认
+  范围；单对象失败继续导出并在 manifest 的 `partial_failures` 中保留，未将不完整
+  资料包声称为完整成功。
+- 真实 Product 详情的 `dynamics` 动态历史包含附件样式字段，曾造成默认资源范围的
+  虚假候选和部分失败；修复资源发现边界后，Product/Task 批量结果不再扫描该历史容器。
+
+### P4：Fresh 回归与最终状态
+
+P4 Fresh 共 141 条记录；核心评论、重复正文、重复附件、图片、并发、默认/显式评论
+资源、Bug/Story 混合批量以及条件能力全部为 `BASELINE_SUPPORTED`。其中包含：
+
+- Bug/Story/Product 核心评论及重复正文各 5 轮；Bug/Story 多附件及同名文件各 5 轮；
+  Bug 单图 5 轮；不同正文与相同正文并发各 5 轮；默认/显式评论资源各 5 轮；
+  Bug/Story 混合批量 3 轮。
+- 原生支持的多图、混合资源、重混合资源分别 5/5/3 轮；八种新对象的评论附件与
+  内嵌图片能力各 3 轮。
+- 跨源拦截、能力门禁、PROJECT_GAP 流程、UPSTREAM_UNSUPPORTED 负例及敏感信息
+  脱敏自动化均通过。Program 原生评论能力仍为 `INCONCLUSIVE`，其依赖场景保持
+  `BLOCKED`，没有使用替代传输。
+
+对象×能力最终状态（仅列本 Campaign 实际覆盖范围）：
+
+| 对象 | comment | attachments | inline_image（含重复） | 混合 file+image | comment resources |
+|---|---|---|---|---|---|
+| bug | BASELINE_SUPPORTED | BASELINE_SUPPORTED | PROJECT_GAP_FIXED | PROJECT_GAP_FIXED | BASELINE_SUPPORTED；WebP 读取为 UPSTREAM_UNSUPPORTED |
+| story | BASELINE_SUPPORTED | BASELINE_SUPPORTED | PROJECT_GAP_FIXED | PROJECT_GAP_FIXED | BASELINE_SUPPORTED |
+| product / task / execution / project / test-task / product-plan / release / build | BASELINE_SUPPORTED | PROJECT_GAP_FIXED | PROJECT_GAP_FIXED | NOT_RUN | NOT_RUN（当前资源验证范围仍为 Bug/Story） |
+| program | INCONCLUSIVE | BLOCKED | BLOCKED | BLOCKED | BLOCKED |
+| test-case / requirement / epic / feedback / ticket | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED |
+
+`PROJECT_GAP_FIXED` 表示原生探针已证明能力存在且项目实现已修复并完成 Fresh；
+`UPSTREAM_UNSUPPORTED` 仅用于目标实例对 WebP 评论资源读取的内容/MIME 边界；
+`INCONCLUSIVE`/`BLOCKED` 表示依赖能力无法安全确认，不是成功或失败的臆测。
+
+本 Campaign 的最终自动化门槛使用实际可用的 `python3` 解释器执行（环境中没有
+`python` 命令）：
+
+```text
+python3 skills/zentao/tests/run_all.py
+python3 -m unittest discover -s skills/zentao-batch-export/tests -p 'test_*.py'
+python3 tests/run_all.py
+```

@@ -9,6 +9,13 @@ python skills/zentao/scripts/zentao.py resource fetch \
   --object-type bug \
   --object-id 123 \
   --json
+
+# 显式包含已验证的评论附件/内嵌图片（仅 bug/story）
+python skills/zentao/scripts/zentao.py resource fetch \
+  --object-type bug \
+  --object-id 123 \
+  --include-comments \
+  --json
 ```
 
 当前可获取具有官方 `view` 能力的对象类型：`bug`、`epic`、`execution`、`feedback`、`product`、`product-plan`、`program`、`requirement`、`story`、`task`、`test-case`、`ticket`、`user`。
@@ -22,6 +29,13 @@ python skills/zentao/scripts/zentao.py resource fetch \
 
 不扫描页面、不抓取全站资源，也不接受调用方传入任意 URL；对象详情中的
 `actions`、`history`、`diff` 审计历史字段不作为当前资源来源扫描。
+
+`--include-comments` 默认关闭。显式开启时仅对 `bug` 和 `story` 读取对象详情中
+`action=commented` 且对象类型/ID匹配的评论资源：Bug 可读取评论普通附件与评论正文中的
+内嵌图片，Story 只读取评论普通附件。评论附件必须保留 `origin=comment`、对应
+`action_id`、来源字段 `actions.files` 或 `actions.comment`，并在可用时保留 `file_id`；
+不属于当前 comment action 的文件不会被下载。其它对象即使详情包含 `actions` 也不因该标志
+扩大资源范围。批量导出对 Bug/Story 内部显式传入该标志，普通 `resource fetch` 默认行为不变。
 
 ## 下载与本地文件
 

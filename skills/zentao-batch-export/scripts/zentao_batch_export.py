@@ -23,6 +23,7 @@ BATCH_SCRIPTS = Path(__file__).resolve().parent
 if str(BATCH_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(BATCH_SCRIPTS))
 
+from zentao_skill.comment_contract import VERIFIED_COMMENT_RESOURCE_TYPES  # noqa: E402
 from zentao_skill.public import prepare_runtime_temp_root  # noqa: E402
 from content_markdown import render_content_markdown, render_failed_content_markdown  # noqa: E402
 from resource_validation import resource_content_failure  # noqa: E402
@@ -374,7 +375,15 @@ def export_objects(specs: list[str]) -> dict[str, Any]:
             exported_count += 1
             resource_paths: dict[str, str] = {}
             resource_payload, resource_error = _run_cli(
-                ["resource", "fetch", "--object-type", object_type, "--object-id", str(object_id)]
+                [
+                    "resource",
+                    "fetch",
+                    "--object-type",
+                    object_type,
+                    "--object-id",
+                    str(object_id),
+                    *(["--include-comments"] if object_type in VERIFIED_COMMENT_RESOURCE_TYPES else []),
+                ]
             )
             resource_count = 0
             if resource_error is not None:

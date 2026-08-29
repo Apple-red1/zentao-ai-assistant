@@ -59,9 +59,14 @@ class ResourcesService:
     def __init__(self, api: ResourcesAPI) -> None:
         self.api = api
 
-    def fetch(self, *, object_type: str, object_id: int) -> dict[str, object]:
+    def fetch(self, *, object_type: str, object_id: int, include_comments: bool = False) -> dict[str, object]:
         detail = self.api.view_object(object_type=object_type, item_id=object_id)
-        candidates, failures = discover_resources(detail)
+        candidates, failures = discover_resources(
+            detail,
+            include_comments=include_comments,
+            object_type=object_type,
+            object_id=object_id,
+        )
         output_dir = self._output_directory(object_type, object_id)
         resources: list[dict[str, object]] = []
 
@@ -79,18 +84,18 @@ class ResourcesService:
                         "size": len(raw),
                     }
                 else:
-                    download_source = (
-                        rewrite_legacy_file_read_url(candidate.source)
-                        if candidate.origin == "rich_text"
-                        else candidate.source
-                    )
+                    download_source = candidate.source
+                    if candidate.origin == "rich_text" or (
+                        candidate.origin == "comment" and candidate.field == "actions.comment"
+                    ):
+                        download_source = rewrite_legacy_file_read_url(candidate.source)
                     metadata = self.api.download(source=download_source, destination=temp_path)
                 self._validate_download(candidate, metadata, temp_path)
                 file_name = self._choose_file_name(candidate.file_name, metadata, index)
                 destination = self._unique_destination(output_dir, file_name)
                 output_dir.mkdir(parents=True, exist_ok=True)
                 os.replace(temp_path, destination)
-                resources.append({
+                resource = {
                     "source": display_source(candidate.source),
                     "origin": candidate.origin,
                     "field": candidate.field,
@@ -98,13 +103,38 @@ class ResourcesService:
                     "content_type": str(metadata.get("content_type") or "application/octet-stream"),
                     "size": int(metadata.get("size") or destination.stat().st_size),
                     "local_path": str(destination),
-                })
+                }
+                if candidate.action_id is not None:
+                    resource["action_id"] = candidate.action_id
+                if candidate.file_id is not None:
+                    resource["file_id"] = candidate.file_id
+                resources.append(resource)
             except ZentaoError as exc:
                 temp_path.unlink(missing_ok=True)
-                failures.append(self._failure(display_source(candidate.source), candidate.origin, candidate.field, exc.code, exc.message))
+                failures.append(
+                    self._failure(
+                        display_source(candidate.source),
+                        candidate.origin,
+                        candidate.field,
+                        exc.code,
+                        exc.message,
+                        action_id=candidate.action_id,
+                        file_id=candidate.file_id,
+                    )
+                )
             except (ValueError, OSError) as exc:
                 temp_path.unlink(missing_ok=True)
-                failures.append(self._failure(display_source(candidate.source), candidate.origin, candidate.field, "RESOURCE_DOWNLOAD_ERROR", str(exc)))
+                failures.append(
+                    self._failure(
+                        display_source(candidate.source),
+                        candidate.origin,
+                        candidate.field,
+                        "RESOURCE_DOWNLOAD_ERROR",
+                        str(exc),
+                        action_id=candidate.action_id,
+                        file_id=candidate.file_id,
+                    )
+                )
 
         result = {
             "object_type": object_type,
@@ -144,8 +174,22 @@ class ResourcesService:
         return resolved
 
     @staticmethod
-    def _failure(source: str, origin: str, field: str | None, code: str, message: str) -> dict[str, object]:
-        return {"source": source, "origin": origin, "field": field, "code": code, "message": message}
+    def _failure(
+        source: str,
+        origin: str,
+        field: str | None,
+        code: str,
+        message: str,
+        *,
+        action_id: int | None = None,
+        file_id: int | None = None,
+    ) -> dict[str, object]:
+        result: dict[str, object] = {"source": source, "origin": origin, "field": field, "code": code, "message": message}
+        if action_id is not None:
+            result["action_id"] = action_id
+        if file_id is not None:
+            result["file_id"] = file_id
+        return result
 
     @classmethod
     def _validate_download(cls, candidate: ResourceCandidate, metadata: dict[str, object], path: Path) -> None:

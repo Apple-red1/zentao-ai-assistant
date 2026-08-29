@@ -42,6 +42,8 @@ from ..internal.zentao.tickets import TicketsAPI
 from .tickets.service import TicketsService
 from ..internal.zentao.users import UsersAPI
 from .users.service import UsersService
+from ..internal.zentao.comments import CommentAPI
+from .comments.service import CommentService
 
 
 class Services:
@@ -67,3 +69,4 @@ class Services:
         self.test_task = TestTasksService(TestTasksAPI(self.session))
         self.ticket = TicketsService(TicketsAPI(self.session))
         self.user = UsersService(UsersAPI(self.session))
+        self.comments = CommentService(CommentAPI(self.session), account=self.session.config.account)

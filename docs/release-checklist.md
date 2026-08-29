@@ -29,6 +29,11 @@
 - [ ] ZenTao 21.7.8 Bug 附件上传的 v2 空响应兼容路径仅在一次回读确认未落库后提交固定
   `bug/edit` `files[]` 表单，并通过 API 回读确认；页面会话不接受任意 URL、不泄露密码。
 - [ ] `.tmp/` 已被 Git 忽略；`resource fetch` 只能从对象附件区/富文本发现资源，并拒绝跨源 URL/重定向。
+- [ ] 独立评论只复用固定同源 `LegacyWebClient`；十种对象能力、重复 `files[]`、Bug 单张
+  `imgFile`、写前后 action 回读、未知结果不重放和潜在孤儿文件边界均有 Fake/E2E 覆盖；
+  该能力未加入官方 endpoint catalog。
+- [ ] `resource fetch --include-comments` 默认关闭，仅 Bug/Story 扩展到已验证 comment action
+  资源；批量导出只对 Bug/Story 显式包含评论资源，其它对象不扩大范围。
 - [ ] 资源文件流式写入项目 `.tmp/zentao-resources/`，同名文件不覆盖；空响应、登录/错误 HTML 和 MIME 冲突按 `RESOURCE_CONTENT_INVALID` 进入 `partial_failures`。
 - [ ] `zentao-batch-export` 只写当前 scope 的 `zentao/zentao-batch-export/<run-id>/`，ZIP 动态命名；资源复制拒绝符号链接/目录逃逸，单项失败继续并完整记录到 manifest。
 - [ ] user scope 使用 `~/.zentao-ai-assistant/cache/auth/`、

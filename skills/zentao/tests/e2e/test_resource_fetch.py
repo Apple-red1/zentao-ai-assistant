@@ -85,6 +85,61 @@ class ResourceFetchE2ETests(unittest.TestCase):
             )
             self.assertFalse(any(r.get("path") == "/assets/blocked.png" for r in fake.state.requests))
 
+    def test_include_comments_fetches_all_comment_files_and_images_and_default_excludes_them(self) -> None:
+        with FakeZenTao() as fake:
+            files = []
+            for index in range(5):
+                file_id = 3100 + index
+                content = f"attachment-{index}".encode("utf-8")
+                path = f"/comment-files/{file_id}"
+                fake.state.add_binary(path, content, content_type="text/plain", filename=f"attachment-{index}.txt")
+                files.append({
+                    "id": file_id,
+                    "objectType": "comment",
+                    "objectID": 1201,
+                    "title": f"attachment-{index}.txt",
+                    "size": len(content),
+                    "url": path,
+                })
+            image_sources = []
+            for index in range(3):
+                path = f"/assets/comment-image-{index}.png"
+                fake.state.add_binary(path, f"image-{index}".encode("utf-8"), content_type="image/png", filename=f"image-{index}.png")
+                image_sources.append(path)
+            fake.state.resources["bug"]["911"] = {
+                "id": 911,
+                "title": "多资源评论",
+                "actions": [{
+                    "id": 1201,
+                    "action": "commented",
+                    "objectType": "bug",
+                    "objectID": 911,
+                    "actor": "admin",
+                    "comment": "资源评论" + "".join(f'<p><img src="{source}"></p>' for source in image_sources),
+                    "files": files,
+                }],
+            }
+
+            default = run_cli(fake.base_url, ["resource", "fetch", "--object-type", "bug", "--object-id", "911", "--json"])
+            included = run_cli(fake.base_url, [
+                "resource", "fetch", "--object-type", "bug", "--object-id", "911", "--include-comments", "--json",
+            ])
+
+            self.assertEqual(0, default.returncode, default.stderr)
+            self.assertEqual([], json.loads(default.stdout)["resources"])
+            self.assertEqual(0, included.returncode, included.stderr)
+            payload = json.loads(included.stdout)
+            self.assertEqual([], payload["partial_failures"])
+            self.assertEqual(8, len(payload["resources"]))
+            self.assertTrue(all(item["origin"] == "comment" for item in payload["resources"]))
+            self.assertTrue(all(item["action_id"] == 1201 for item in payload["resources"]))
+            self.assertEqual(
+                {f"attachment-{index}.txt" for index in range(5)} | {f"image-{index}.png" for index in range(3)},
+                {item["file_name"] for item in payload["resources"]},
+            )
+            for item in payload["resources"]:
+                self.assertEqual(Path(item["local_path"]).read_bytes(), fake.state.binary_resources[item["source"]]["content"])
+
     def test_fetch_rejects_http_200_html_error_and_uses_file_page_name_hints(self) -> None:
         with FakeZenTao() as fake:
             fake.state.resources["bug"]["908"] = {

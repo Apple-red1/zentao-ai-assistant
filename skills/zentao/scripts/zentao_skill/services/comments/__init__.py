@@ -1,0 +1,1 @@
+"""Shared standalone comment service."""

@@ -37,8 +37,8 @@ class NetworkError(ZentaoError):
 
 
 class UnknownWriteResult(ZentaoError):
-    def __init__(self, message: str = "写请求可能已被服务器执行，但客户端无法确认最终结果") -> None:
-        super().__init__("UNKNOWN_WRITE_RESULT", message, {})
+    def __init__(self, message: str = "写请求可能已被服务器执行，但客户端无法确认最终结果", details: dict[str, Any] | None = None) -> None:
+        super().__init__("UNKNOWN_WRITE_RESULT", message, details)
 
 
 class ResourceSecurityError(ZentaoError):
