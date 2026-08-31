@@ -1,4 +1,4 @@
-"""Four-column Markdown presentation; URLs come only from the base CLI."""
+"""Phase-specific Markdown presentation; URLs come only from the base CLI."""
 from __future__ import annotations
 
 import html
@@ -9,7 +9,7 @@ from collections import Counter
 from pathlib import Path
 
 from team_config import TeamError
-from team_report import bug_account, level
+from team_report import bug_account, bug_resolver_account, level
 
 CLI = Path(__file__).resolve().parents[2] / 'zentao' / 'scripts' / 'zentao.py'
 
@@ -73,21 +73,31 @@ def render_team_report(report, *, brief=False):
             if not bugs:
                 lines.extend(['暂无符合条件的 Bug。' if member['complete'] else '查询不完整，无法确定是否存在符合条件的 Bug。', ''])
                 continue
-            lines.extend(['| Bug ID | 标题 | 优先级 | 状态 |', '|---|---|---|---|'])
+            if state == 'active':
+                lines.extend(['| Bug ID | 标题 | 优先级 | 状态 |', '|---|---|---|---|'])
+            else:
+                lines.extend(['| Bug ID | 标题 | 优先级 | 状态 | 当前测试负责人 |',
+                              '|---|---|---|---|---|'])
             for bug in bugs:
-                if bug.get('status') != state or bug_account(bug) != member['account']:
+                owner = bug_account(bug) if state == 'active' else bug_resolver_account(bug)
+                if bug.get('status') != state or owner != member['account']:
                     raise TeamError('TEAM_PRESENTATION_CONFLICT', 'Bug 状态或负责人和分组不一致')
                 ident = int(bug['id'])
                 link = f'[{ident}]({urls[ident]})' if ident in urls else f'{ident}（链接生成失败）'
                 pri = level(bug.get('pri', bug.get('priority')))
                 priority = f'P{pri}' if pri < 5 else '—'
                 title = bug.get('title') if isinstance(bug.get('title'), str) else '（标题缺失）'
-                lines.append(f"| {link} | {escape(title)} | {priority} | {'激活' if state == 'active' else '已解决'} |")
+                row = f"| {link} | {escape(title)} | {priority} | {'激活' if state == 'active' else '已解决'}"
+                if state == 'resolved':
+                    row += f" | {escape(bug_account(bug) or '—')}"
+                lines.append(row + ' |')
             lines.append('')
     if report['partial_failures']:
         lines.extend(['## 数据完整性', ''])
         for failure in report['partial_failures']:
-            detail = ' / '.join(str(failure[k]) for k in ('resource', 'scope', 'browse', 'account', 'page') if k in failure)
+            detail = ' / '.join(str(failure[k]) for k in
+                                ('resource', 'scope', 'browse', 'account', 'bug_id', 'field', 'page')
+                                if k in failure)
             lines.append(f"- {escape(failure['code'])}" + (f'：{escape(detail)}' if detail else ''))
         lines.append('')
     if display_failures:

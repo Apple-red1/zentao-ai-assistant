@@ -1,7 +1,7 @@
 # ZenTao AI 项目管理 Skills 当前合同入口
 
 > 状态：**CURRENT / 当前唯一权威入口**
-> 更新日期：2026-08-28
+> 更新日期：2026-08-31
 > 适用范围：仓库内所有 ZenTao Skills、API v2 基础能力、共享脚本、测试和发布检查。
 
 本页是“现在应该相信什么”的索引。历史设计文档只用于追溯，不能覆盖本页指向的当前源码、测试与合同。
@@ -68,10 +68,10 @@ project/user scope：项目配置为 `<repo>/.env`，用户配置为
 
 ## 当前实现事实
 
-- 插件版本 `1.6.0`，仍为六个正式 Skill。`zentao-personal` 增加 `team-view/add/remove/replace` 名单维护及 `team-bugs/team-brief` 查询入口；没有新增 API endpoint。
+- 插件版本 `1.7.0`，仍为六个正式 Skill。`zentao-personal` 提供 `team-view/add/remove/replace` 名单维护及 `team-bugs/team-brief` 查询入口；没有新增 API endpoint。
 - 团队配置始终保存于 `~/.zentao-ai-assistant/teams/<identity-sha256>.json`，以规范化 base URL + account 隔离，跨源码项目复用；只接受明确的名单维护请求，完整用户目录唯一解析后保存真实 account，本人自动纳入而不保存为配置成员。损坏配置、身份冲突、目录不完整和并发写入均阻止覆盖。
-- 团队 Bug 与日报共用 `assignedTo` 归属、完整分页、跨 Product/Project/Execution 扫描、ID 去重和两阶段分组；显式 scope 仅缩小查询。只纳入 `active/resolved`，排除 `closed`。输出按阶段→成员→优先级/严重程度/旧 Bug/数值 ID 排序，全部成员和符合条件的 Bug 都保留；日报只增加汇总。
-- 团队 `--markdown` 输出固定四列表格并调用基础 `bug web-url` 生成编号链接；机器 JSON 与默认终端 JSON 保持原始字段。失败、未知状态、日期异常、冲突和分页截断通过 `complete/partial_failures` 暴露，失败不能伪装为 0。独立查询不构成事务快照。
+- 团队 Bug 与日报共用完整分页、跨 Product/Project/Execution 扫描、ID 去重和阶段分类；`active` 按当前 `assignedTo` 归入“需要马上行动”，`resolved` 按 `resolvedBy` 归入“待测试验证”，当前 `assignedTo` 仅展示测试负责人，`closed` 排除。显式 scope 仅缩小查询。输出按阶段→成员→优先级/严重程度/旧 Bug/数值 ID 排序，全部成员和符合条件的 Bug 都保留；日报只增加汇总。
+- 团队 `--markdown` 对 active 输出四列、对 resolved 输出含“当前测试负责人”的五列表格，并调用基础 `bug web-url` 生成编号链接；机器 JSON 与默认终端 JSON 保持原始字段。`resolvedBy` 无效不回退猜测；团队内解决人的测试负责人无效时仍保留 Bug。字段失败、未知状态、日期异常、冲突和分页截断通过 `complete/partial_failures` 暴露，失败不能伪装为 0。独立查询不构成事务快照。
 - facade 新增只读 `connection_identity` 和可选 `list_all(preserve_partial=True)`；后者在页读取失败时保留已读页且不重试，默认调用行为不变。团队本地配置写入不扩展 facade 的 ZenTao 写入权限。
 - `zentao` API catalog 仍覆盖 20 个资源、**120 个 ZenTao API v2 endpoint**，API 实现、CLI、Skill 路由、Fake、合同和 CLI E2E 保持 `120/120`。
 - 高层 Skill 不改变 endpoint catalog，也不把 API 组合能力冒充官方 endpoint。

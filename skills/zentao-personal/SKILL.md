@@ -37,9 +37,10 @@ python skills/zentao-personal/scripts/zentao_personal.py team-bugs --markdown
 python skills/zentao-personal/scripts/zentao_personal.py team-brief --markdown
 ```
 
-聊天优先直接保留脚本的四列表格、全部明细与完整性提示，不自行缩成重点项。
-本人始终纳入；`active` 与 `resolved` 分区，排除 `closed`。今日表示当前快照，
-不按创建/更新时间过滤。两种团队入口共用同一数据链路和排序器。
+聊天优先直接保留脚本的阶段表格、全部明细与完整性提示，不自行缩成重点项。
+本人始终纳入；`active` 按当前 `assignedTo` 归入“需要马上行动”，`resolved`
+按 `resolvedBy` 归入“待测试验证”并展示当前测试负责人 `assignedTo`，排除 `closed`。
+今日表示当前快照，不按创建/更新时间过滤。两种团队入口共用同一数据链路和排序器。
 
 ## 规则
 

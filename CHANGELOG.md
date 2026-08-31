@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 插件升级到 `1.7.0`。修复 #58：团队 active Bug 继续按 `assignedTo` 归属，resolved Bug 改按 `resolvedBy` 归入解决人的“待测试验证”，保留当前测试负责人展示，并对归属/展示字段异常 fail-visible。
 - 插件升级到 `1.6.0`。实现 #48：`zentao-personal` 支持用户默认团队名单维护、团队 Bug 与团队日报；按实例/账号隔离持久化，完整分页、active/resolved 分区、成员四列表格和失败完整性共用同一数据链路。
 - facade 增加不含秘密的连接身份和可选部分页保留，维持默认异常行为及 120 endpoint 只读边界。
 - 合并版插件统一升级到 `1.5.0`；保留 Markdown 批量导出与旧式富文本图片下载修复。

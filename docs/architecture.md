@@ -95,8 +95,9 @@ config/cache/tmp 三类路径；高层 Skill 仍只能通过 public facade，不
 
 个人团队在 `zentao-personal/scripts/` 分工：`team_config.py` 管理用户级身份隔离、
 校验、锁和原子名单写入；`team_report.py` 复用共享身份解析与 public 完整分页，
-采集、过滤、去重、排序并生成统一结果；`team_presenter.py` 复用基础 CLI
-`bug web-url`，将同一结果呈现为四列表格。`team-bugs` 与 `team-brief` 不各自维护
+采集、过滤、去重、排序并生成统一结果，其中 `active` 按 `assignedTo`、`resolved`
+按 `resolvedBy` 归属；`team_presenter.py` 复用基础 CLI `bug web-url`，将同一结果
+呈现为 active 四列、resolved 五列的阶段表格。`team-bugs` 与 `team-brief` 不各自维护
 查询实现。名单属于个人业务配置，不进入 `_shared` 或连接 `.env`；只读 facade
 提供不含秘密的连接身份和显式保留部分页能力，不执行团队或 ZenTao 写入。
 

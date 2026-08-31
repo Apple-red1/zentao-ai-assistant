@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "zentao-ai-assistant",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "ZenTao project management skills for AI coding agents.",
   "repository": "https://github.com/Apple-red1/zentao-ai-assistant",
   "license": "MIT"

@@ -48,7 +48,7 @@ cache。
 ## 高层 Skill
 
 - `zentao-statistics`：去重、状态/负责人/优先级/严重程度、Task deadline、compare。
-- `zentao-personal`：用户重名、个人过滤、严重 Bug、逾期 Task；默认团队名单隔离和原子写入、完整目录校验、跨范围分页、重复/冲突 ID、负责人和状态分组、零结果与部分失败、日期排序、两种入口的全部明细/四列表格一致性。
+- `zentao-personal`：用户重名、个人过滤、严重 Bug、逾期 Task；默认团队名单隔离和原子写入、完整目录校验、跨范围分页、重复/冲突 ID、active/assignedTo 与 resolved/resolvedBy 阶段归属、测试负责人展示、异常字段 fail-visible、零结果与部分失败、日期排序、两种入口的相同分类结果。
 - `zentao-project-management`：事实型 health signals、无数值健康分、开放事项 workload。
 - `zentao-bug-resolver`：只读 `select`、Bug snapshot、写前 `compare` 及证据完整性边界。
 - `zentao-batch-export`：混合类型去重、完整字段 Markdown、资源归档、部分失败继续、动态 ZIP、runtime scope 与路径安全。
@@ -62,7 +62,7 @@ resolver 的多 Skill smoke 使用本地 FakeZenTao 服务器，由独立子进�
 
 ## 个人默认团队测试
 
-Issue #48 的 `skills/zentao-personal/tests/test_team.py` 从实际个人 CLI 入口验证
+Issue #48/#58 的 `skills/zentao-personal/tests/test_team.py` 从实际个人 CLI 入口验证
 团队名单与结果合同。`tests/test_multiskill_smoke.py` 的 `TeamCLISmokeTests` 在
 临时 HOME 和本地 Fake 上运行独立 CLI 进程，覆盖名单维护、后续页 403、目录
 不完整时禁止覆盖、Markdown 链接和复制到临时插件目录后的共享配置访问。

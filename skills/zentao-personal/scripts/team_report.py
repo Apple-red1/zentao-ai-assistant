@@ -104,10 +104,10 @@ def collect_bugs(client, *, scope=None, scope_id=None, per_page=1000):
     return rows, failures
 
 
-def bug_account(row):
-    """Only actual account fields, never display-name/id/creator fallbacks."""
+def account_field(row, *keys):
+    """Normalize explicit account fields without display-name/id/creator fallbacks."""
     values = []
-    for key in ('assignedTo', 'assignedToAccount'):
+    for key in keys:
         if key not in row:
             continue
         value = row[key]
@@ -124,6 +124,14 @@ def bug_account(row):
     if not values or len(set(values)) > 1:
         return None
     return values[0]
+
+
+def bug_account(row):
+    return account_field(row, 'assignedTo', 'assignedToAccount')
+
+
+def bug_resolver_account(row):
+    return account_field(row, 'resolvedBy', 'resolvedByAccount')
 
 
 def level(value):
@@ -179,8 +187,14 @@ def build_team_report(members, rows, *, scope=None, scope_id=None, failures=None
         if ident in seen:
             duplicates += 1
             before = seen[ident]
-            signature = lambda r: (bug_account(r), r.get('status'), r.get('title'),
-                                   r.get('pri', r.get('priority')), r.get('severity'), r.get('openedDate'))
+            def signature(value):
+                status = value.get('status')
+                owner = (bug_account(value) if status == 'active'
+                         else bug_resolver_account(value) if status == 'resolved' else None)
+                verification = bug_account(value) if status == 'resolved' else None
+                return (owner, verification, status, value.get('title'),
+                        value.get('pri', value.get('priority')), value.get('severity'),
+                        value.get('openedDate'))
             if signature(before) != signature(row) and ident not in conflicted:
                 conflicted.add(ident)
                 record({'code': 'BUG_SNAPSHOT_CONFLICT', 'bug_id': ident})
@@ -190,16 +204,27 @@ def build_team_report(members, rows, *, scope=None, scope_id=None, failures=None
     for ident, row in seen.items():
         if ident in conflicted or row.get('status') == 'closed':
             continue
-        account = bug_account(row)
-        if account is None:
-            record({'code': 'BUG_ASSIGNEE_INVALID', 'bug_id': ident})
-            continue
-        if account not in by_account:
-            continue
         status = row.get('status')
         if not isinstance(status, str) or status not in groups:
-            record({'code': 'BUG_STATUS_INVALID', 'bug_id': ident, 'account': account}, account)
+            record({'code': 'BUG_STATUS_INVALID', 'bug_id': ident})
             continue
+        if status == 'active':
+            account = bug_account(row)
+            if account is None:
+                record({'code': 'BUG_ASSIGNEE_INVALID', 'bug_id': ident, 'field': 'assignedTo'})
+                continue
+            if account not in by_account:
+                continue
+        else:
+            account = bug_resolver_account(row)
+            if not valid_account(account):
+                record({'code': 'BUG_RESOLVER_INVALID', 'bug_id': ident, 'field': 'resolvedBy'})
+                continue
+            if account not in by_account:
+                continue
+            if not valid_account(bug_account(row)):
+                record({'code': 'BUG_VERIFICATION_ASSIGNEE_INVALID', 'bug_id': ident,
+                        'field': 'assignedTo', 'account': account}, account)
         if created_time(row) is None:
             record({'code': 'BUG_DATE_INVALID', 'bug_id': ident, 'account': account}, account)
         if not isinstance(row.get('title'), str) or not row['title']:

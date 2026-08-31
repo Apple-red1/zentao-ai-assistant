@@ -22,8 +22,11 @@ from team_presenter import render_team_report
 
 
 def bug(ident, account='alice', status='active', **kwargs):
-    return dict(id=ident, assignedTo=account, status=status, title=f'Bug {ident}',
-                pri=2, severity=2, openedDate='2026-08-01 10:00:00') | kwargs
+    row = dict(id=ident, assignedTo=account, status=status, title=f'Bug {ident}',
+               pri=2, severity=2, openedDate='2026-08-01 10:00:00') | kwargs
+    if status == 'resolved' and 'resolvedBy' not in row:
+        row['resolvedBy'] = account
+    return row
 
 
 class TeamTests(unittest.TestCase):
@@ -125,6 +128,79 @@ class TeamTests(unittest.TestCase):
         self.assertEqual([3], [b['id'] for b in bugs['awaiting_verification'][1]['bugs']])
         self.assertTrue(all(c[4] == 'all' for c in self.calls if c[0] == 'bug'))
         self.assertTrue(any(c[3] == 4 for c in self.calls if c[0] == 'bug'))
+
+    def test_resolved_bug_is_grouped_by_resolver_with_external_verification_assignee(self):
+        self.configure()
+        self.rows = [bug(3667, 'external-qa', 'resolved', resolvedBy='alice')]
+        result = self.ok('team-bugs', '--product', '1')
+        self.assertTrue(result['complete'])
+        self.assertEqual([3667], result['bug_ids'])
+        self.assertEqual([3667], [b['id'] for b in result['awaiting_verification'][1]['bugs']])
+        self.assertEqual([], result['awaiting_verification'][0]['bugs'])
+        self.assertEqual(1, result['summary']['resolved_awaiting_verification'])
+        self.assertEqual('external-qa', result['awaiting_verification'][1]['bugs'][0]['assignedTo'])
+
+    def test_resolved_bug_is_counted_once_under_resolver_when_both_accounts_are_in_team(self):
+        self.configure()
+        self.rows = [bug(8, 'bob', 'resolved', resolvedBy={'account': 'alice'})]
+        result = self.ok('team-bugs', '--product', '1')
+        self.assertEqual([8], result['bug_ids'])
+        self.assertEqual([8], [b['id'] for b in result['awaiting_verification'][1]['bugs']])
+        self.assertEqual([], result['awaiting_verification'][2]['bugs'])
+        self.assertEqual(1, result['summary']['total_not_closed'])
+
+    def test_invalid_resolver_is_fail_visible_without_assignee_fallback(self):
+        self.configure()
+        self.rows = [bug(9, 'alice', 'resolved', resolvedBy={'realname': '张三'})]
+        result = self.ok('team-bugs', '--product', '1')
+        self.assertEqual([], result['bug_ids'])
+        self.assertFalse(result['complete'])
+        failure = next(f for f in result['partial_failures'] if f['code'] == 'BUG_RESOLVER_INVALID')
+        self.assertEqual(9, failure['bug_id'])
+        self.assertEqual('resolvedBy', failure['field'])
+
+    def test_missing_resolver_is_fail_visible_and_account_alias_is_supported(self):
+        self.configure()
+        missing = bug(12, 'alice', 'resolved')
+        missing.pop('resolvedBy')
+        self.rows = [missing]
+        result = self.ok('team-bugs', '--product', '1')
+        self.assertEqual([], result['bug_ids'])
+        self.assertIn('BUG_RESOLVER_INVALID', [f['code'] for f in result['partial_failures']])
+
+        alias = bug(13, 'external-qa', 'resolved')
+        alias.pop('resolvedBy')
+        alias['resolvedByAccount'] = 'alice'
+        self.rows = [alias]
+        result = self.ok('team-bugs', '--project', '1')
+        self.assertTrue(result['complete'])
+        self.assertEqual([13], [b['id'] for b in result['awaiting_verification'][1]['bugs']])
+
+    def test_invalid_verification_assignee_keeps_bug_under_valid_resolver(self):
+        self.configure()
+        self.rows = [bug(10, {'realname': '测试'}, 'resolved', resolvedBy='alice')]
+        result = self.ok('team-bugs', '--product', '1')
+        self.assertEqual([10], result['bug_ids'])
+        self.assertEqual([10], [b['id'] for b in result['awaiting_verification'][1]['bugs']])
+        self.assertFalse(result['complete'])
+        failure = next(f for f in result['partial_failures']
+                       if f['code'] == 'BUG_VERIFICATION_ASSIGNEE_INVALID')
+        self.assertEqual({'bug_id': 10, 'field': 'assignedTo'},
+                         {key: failure[key] for key in ('bug_id', 'field')})
+        response = SimpleNamespace(returncode=0, stdout=json.dumps(
+            [{'id': 10, 'url': 'http://localhost/index.php?bugID=10'}]))
+        with patch('team_presenter.subprocess.run', return_value=response):
+            markdown = render_team_report(result)
+        self.assertIn('| [10](http://localhost/index.php?bugID=10) | Bug 10 | P2 | 已解决 | — |', markdown)
+        self.assertIn(r'BUG\_VERIFICATION\_ASSIGNEE\_INVALID：alice / 10 / assignedTo', markdown)
+
+    def test_reactivated_bug_uses_current_assignee_instead_of_historical_resolver(self):
+        self.configure()
+        self.rows = [bug(11, 'bob', 'active', resolvedBy='alice')]
+        result = self.ok('team-bugs', '--product', '1')
+        self.assertEqual([11], [b['id'] for b in result['active'][2]['bugs']])
+        self.assertEqual([], result['active'][1]['bugs'])
+        self.assertTrue(all(not member['bugs'] for member in result['awaiting_verification']))
 
     def test_explicit_scopes_do_not_scan_global_or_change_team(self):
         self.configure()
@@ -324,6 +400,8 @@ class TeamTests(unittest.TestCase):
         self.assertIn('| [2](http://localhost/index.php?bugID=2) | A \\| \\[B\\] &lt;tag&gt;<br>C | P2 | 激活 |', detail)
         self.assertIn('### 李四（0）', detail)
         self.assertIn('| Bug ID | 标题 | 优先级 | 状态 |', detail)
+        self.assertIn('| Bug ID | 标题 | 优先级 | 状态 | 当前测试负责人 |', detail)
+        self.assertIn('| [3](http://localhost/index.php?bugID=3) | Bug 3 | P2 | 已解决 | alice |', detail)
         self.assertNotIn('| 负责人 |', detail)
         self.assertEqual(['bug', 'web-url', '1', '2', '3', '--json'], run.call_args.args[0][2:])
         report['complete'] = False

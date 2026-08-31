@@ -174,7 +174,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cache-data", action="store_true")
     output = parser.add_mutually_exclusive_group()
     output.add_argument("--json", action="store_true")
-    output.add_argument("--markdown", action="store_true", help="团队 Bug/日报四列表格")
+    output.add_argument("--markdown", action="store_true", help="团队 Bug/日报阶段表格")
     parser.add_argument("--member", action="append", help="团队成员 account/唯一姓名，可重复")
     parser.add_argument("--clear", action="store_true", help="显式清空配置成员，仍保留本人")
     parser.add_argument("--per-page", type=int)

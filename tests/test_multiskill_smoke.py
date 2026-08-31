@@ -298,7 +298,8 @@ class TeamCLISmokeTests(unittest.TestCase):
         self.fake.state.resources['bug'] = {
             str(i): {'id': i, 'assignedTo': account, 'status': status, 'title': f'事项 {i}',
                      'pri': 2, 'severity': 2, 'openedDate': '2026-08-01 10:00:00',
-                     'product': 1, 'project': 1, 'execution': 1}
+                     'product': 1, 'project': 1, 'execution': 1,
+                     **({'resolvedBy': account} if status == 'resolved' else {})}
             for i, account, status in [(1, 'admin', 'active'), (2, 'alice', 'active'),
                                        (3, 'alice', 'resolved'), (4, 'bob', 'closed')]
         }
