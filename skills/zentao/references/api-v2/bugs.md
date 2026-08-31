@@ -31,6 +31,16 @@ ID 发送单一创建 endpoint，不会猜测或替换关联对象。
 `bug activate` 只适用于已解决或已关闭 Bug；在 active 状态下不能作为“只转负责人、保持 active”
 的替代接口，目标实例也未提供可用的独立转派 endpoint。
 
+## 步骤内嵌图片兼容能力
+
+`bug create` 和 `bug edit` 可重复接受 `--steps-inline-image <local-image>`。这是针对
+ZenTao 21.7.8 编辑器页面的兼容路径，不是新的 API v2 endpoint：读取固定 Bug 表单取得
+`uid`，兼容该字段的 `hidden` 和 `text` 输入形态，但只按精确字段名受控读取；其它可见输入
+不会纳入 payload。经同源 `file/ajaxUpload` 上传本地图片，把受控 `<img src>` 片段随
+`steps` 页面表单提交，再通过现有 `bug.view` 回读确认步骤引用和 Bug 文件归属。普通步骤
+文本先转义；uid 缺失、空值或冲突，或上传、表单写入、回读无法安全确认时失败且不回退到
+评论、不自动重试。
+
 Bug 列表的官方 `browseType` 范围按 scope 区分：产品支持
 `all | unclosed | assignedtome | openedbyme | assignedbyme`；项目和执行支持
 `all | unresolved`。CLI 的 `assigned-to-me`、`opened-by-me`、`assigned-by-me`

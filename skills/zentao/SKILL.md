@@ -4,7 +4,6 @@ description: Use when users ask to read or explicitly change ZenTao through the 
 ---
 
 # 禅道（zentao）
-
 仓库当前合同索引见 [`docs/current-contract.md`](../../docs/current-contract.md)。本文件负责 Skill 的用户调用、安全授权和输出语义；endpoint 机器合同及真实兼容性按该索引分别读取，不以历史 `RULES.md` 为依据。
 
 ## 调用入口
@@ -41,16 +40,17 @@ python skills/zentao/scripts/zentao.py <resource> <action> [scope] [parameters] 
 - `user` → `references/api-v2/users.md`
 Bug 链接固定使用 `ZENTAO_BASE_URL/index.php?m=bug&f=view&bugID=<id>`，直接执行 `zentao.py bug web-url <id> [<id> ...] --json`；此路径不打开浏览器、不访问页面。
 Token 登录由内部 `token.login` 认证适配自动完成，不建立业务 `token` 命令域；`doctor` 可验证配置和登录。仓库内其他高层 Skill 通过 `references/programmatic.md` 说明的 public facade 复用该基础能力。
+## Bug 描述图片路由
+当用户要求图片进入 Bug 描述/重现步骤，且当前消息含聊天附件时，图片属于 `steps`，不是评论或普通附件。宿主提供本地路径时，按附件顺序把路径传给同一次 `bug create/edit --steps-inline-image`；保留“附件1...”等说明文字，禁止调用 `bug comment`、`--inline-image`，或先创建后补备注。
+如果宿主无法取得可读本地路径，先停止并报告阻塞，不创建不完整 Bug。只有用户明确要求添加备注/历史记录时，才使用 `bug comment --inline-image`。Plugin 更新后必须重新加载当前 canonical `skills/`。
+
 ## 独立评论
-
 独立评论走现有 `LegacyWebClient` 的固定同源页面协议，不是官方 API v2 endpoint，也不改变对象状态或生命周期。命令格式为：
-
 ```bash
 python skills/zentao/scripts/zentao.py bug comment 123 --comment "复现结果已补充" --json
 python skills/zentao/scripts/zentao.py story comment 78 --comment-file comment.txt --file ./trace.log --json
 ```
-
-当前十种对象（`bug`、`story`、`product`、`task`、`execution`、`project`、`test-task`、`product-plan`、`release`、`build`）均支持评论正文、可重复 `--file` 和可重复 `--inline-image`。普通附件与内嵌图片可以在同一条评论中混用；相同本地内嵌图片在一次调用中复用远端 file identity，但保留每个引用。`--comment` 与 `--comment-file` 互斥，正文不能为空；用户正文会先按 HTML 实体编码，受控图片片段才作为 markup 追加。
+当前十种对象（`bug`、`story`、`product`、`task`、`execution`、`project`、`test-task`、`product-plan`、`release`、`build`）均支持评论正文、可重复 `--file` 和可重复 `--inline-image`。普通附件与内嵌图片可以在同一条评论中混用；相同本地内嵌图片在一次调用中复用远端 file identity，但保留每个引用。`--comment` 与 `--comment-file` 互斥，正文不能为空；用户正文会先按 HTML 实体编码，受控图片片段才作为 markup 追加。Bug `create/edit` 另支持可重复 `--steps-inline-image <local-image>`，图片先上传到固定同源编辑器，再随 `steps` 一次写入，不回退为评论；表单 `uid` 按精确字段名读取，兼容 `hidden`/`text`，其它可见输入不纳入，缺失、空值或冲突时 fail-closed。
 
 每次写入都先读取评论表单和 action snapshot，再只提交一次评论 POST，并通过写后 action ID 差集、对象类型/ID、正文、当前用户和附件归属回读确认。无法得到唯一候选或网络结果不确定时返回 `UNKNOWN_WRITE_RESULT`，不自动重放；关键对象字段发生变化时返回并发变化信息，不执行第二次写入。每张内嵌图通过固定同源 `file/ajaxUpload` 上传，响应无法确认时停止评论并提示可能存在孤儿文件。
 ## 配置与运行 scope

@@ -5,7 +5,6 @@ import mimetypes
 import socket
 import uuid
 from dataclasses import dataclass
-from html.parser import HTMLParser
 from http.cookiejar import CookieJar
 from pathlib import Path
 from typing import Any, Iterable
@@ -13,6 +12,7 @@ from urllib import error, request
 from urllib.parse import parse_qs, urlencode, urljoin, urlsplit, urlunsplit
 
 from ...comment_contract import web_object_type
+from .legacy_bug import is_bug_edit_form, is_bug_form, parse_form, validate_bug_form_url
 
 _MAX_PAGE_RESPONSE = 1024 * 1024
 _OBJECT_DETAIL_QUERY = {
@@ -41,6 +41,12 @@ class LegacyPageResponse:
 class LegacyForm:
     action: str | None
     hidden_fields: tuple[tuple[str, str], ...]
+    # The Bug create/edit pages use a named uid control to bind editor
+    # uploads. It is hidden on some ZenTao versions and text on others, so
+    # keep this explicitly allow-listed value separate from the hidden form
+    # payload rather than collecting arbitrary visible inputs.
+    uid_values: tuple[str, ...] = ()
+    uid_invalid: bool = False
 
 
 class LegacyPageFailure(Exception):
@@ -78,35 +84,6 @@ class _SameOriginRedirectHandler(request.HTTPRedirectHandler):
         if _origin(newurl) != self.origin:
             raise error.HTTPError(req.full_url, code, msg, headers, fp)
         return super().redirect_request(req, fp, code, msg, headers, newurl)
-
-
-class _FormParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.form_action: str | None = None
-        self.hidden_fields: list[tuple[str, str]] = []
-        self._in_form = False
-        self._found_form = False
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        attributes = {key.lower(): value for key, value in attrs}
-        normalized_tag = tag.lower()
-        if normalized_tag == "form" and not self._found_form:
-            self._found_form = True
-            self._in_form = True
-            self.form_action = attributes.get("action")
-            return
-        if normalized_tag != "input" or not self._in_form:
-            return
-        if (attributes.get("type") or "").lower() != "hidden":
-            return
-        name = attributes.get("name")
-        if name:
-            self.hidden_fields.append((name, attributes.get("value") or ""))
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag.lower() == "form" and self._in_form:
-            self._in_form = False
 
 
 class LegacyWebClient:
@@ -182,17 +159,24 @@ class LegacyWebClient:
     def upload_inline_image(
         self,
         *,
-        object_type: str,
-        object_id: int,
+        object_type: str | None = None,
+        object_id: int | None = None,
         uid: str,
         file: str | Path,
+        referer: str | None = None,
     ) -> LegacyPageResponse:
         """Upload one image through ZenTao's fixed editor ajaxUpload route."""
+        if referer is None:
+            if object_type is None or object_id is None:
+                raise ValueError("评论图片上传必须提供对象类型和对象 ID")
+            referer = self._comment_url(object_type=object_type, object_id=object_id)
+        else:
+            validate_bug_form_url(referer, self.base_url)
         self._login()
         upload_url = self._ajax_upload_url(uid)
         body, content_type = _encode_multipart([("imgFile", Path(file))])
         headers = self._html_headers(
-            referer=self._comment_url(object_type=object_type, object_id=object_id),
+            referer=referer,
             content_type=content_type,
         )
         # The 21.7.8 zen-editor sends this route through ZUI's AJAX wrapper;
@@ -209,6 +193,62 @@ class LegacyWebClient:
             headers=headers,
             body=body,
             stage="inline_upload",
+        )
+
+    def get_bug_create_form(self, *, product_id: int) -> LegacyForm:
+        expected_url = self._bug_create_url(product_id)
+        return self._get_bug_form(expected_url, stage="bug_create_form", form_kind="create")
+
+    def get_bug_edit_form(self, *, bug_id: int) -> LegacyForm:
+        expected_url = self._bug_edit_url(bug_id)
+        return self._get_bug_form(expected_url, stage="bug_edit_form", form_kind="edit")
+
+    def upload_bug_steps_image(
+        self,
+        *,
+        uid: str,
+        file: str | Path,
+        product_id: int | None = None,
+        bug_id: int | None = None,
+    ) -> LegacyPageResponse:
+        if (product_id is None) == (bug_id is None):
+            raise ValueError("Bug 步骤图片上传必须明确 create 或 edit 目标")
+        referer = self._bug_create_url(product_id) if product_id is not None else self._bug_edit_url(bug_id)
+        return self.upload_inline_image(uid=uid, file=file, referer=referer)
+
+    def post_bug_form(
+        self,
+        *,
+        form: LegacyForm,
+        fields: Iterable[tuple[str, object]],
+        product_id: int | None = None,
+        bug_id: int | None = None,
+    ) -> LegacyPageResponse:
+        if (product_id is None) == (bug_id is None):
+            raise ValueError("Bug 表单提交必须明确 create 或 edit 目标")
+        if product_id is not None:
+            expected_url = self._bug_create_url(product_id)
+            stage = "bug_create"
+            form_kind = "create"
+        else:
+            expected_url = self._bug_edit_url(bug_id)
+            stage = "bug_edit"
+            form_kind = "edit"
+        if not is_bug_form(form, expected_url, form_kind=form_kind):
+            raise LegacyPageFailure("ZenTao Bug 页面表单 action 不在固定白名单内", stage=stage)
+        supplied = list(fields)
+        supplied_names = {name for name, _ in supplied}
+        payload_fields = [
+            *[(name, value) for name, value in form.hidden_fields if name not in supplied_names],
+            *supplied,
+        ]
+        body, content_type = _encode_multipart(payload_fields)
+        return self._request(
+            "POST",
+            expected_url,
+            headers=self._html_headers(referer=expected_url, content_type=content_type),
+            body=body,
+            stage=stage,
         )
 
     def get_object_detail(self, *, object_type: str, object_id: int) -> LegacyPageResponse:
@@ -248,8 +288,8 @@ class LegacyWebClient:
         )
         if _looks_like_login_page(form_response):
             raise LegacyPageFailure("ZenTao 页面会话未建立", stage="form", status=form_response.status)
-        form = _parse_form(form_response.body)
-        if form is None or not _is_bug_edit_form(form, edit_url):
+        form = parse_form(form_response.body)
+        if form is None or not is_bug_edit_form(form, edit_url):
             raise LegacyPageFailure("ZenTao Bug 编辑页面未返回可用表单", stage="form", status=form_response.status)
 
         supplied = list(fields)
@@ -264,6 +304,21 @@ class LegacyWebClient:
             body=body,
             stage="upload",
         )
+
+    def _get_bug_form(self, expected_url: str, *, stage: str, form_kind: str) -> LegacyForm:
+        self._login()
+        response = self._request(
+            "GET",
+            expected_url,
+            headers=self._html_headers(referer=self._page_url("/index.php?m=user&f=login")),
+            stage=stage,
+        )
+        if _looks_like_login_page(response):
+            raise LegacyPageFailure("ZenTao 页面会话未建立", stage=stage, status=response.status)
+        form = parse_form(response.body)
+        if form is None or not is_bug_form(form, expected_url, form_kind=form_kind):
+            raise LegacyPageFailure("ZenTao Bug 页面未返回可用表单", stage=stage, status=response.status)
+        return form
 
     def _login(self) -> None:
         if self._page_session_ready:
@@ -305,6 +360,16 @@ class LegacyWebClient:
             "objectID": object_id,
         })
         return self._page_url(f"/index.php?{query}")
+
+    def _bug_create_url(self, product_id: int) -> str:
+        if not isinstance(product_id, int) or isinstance(product_id, bool) or product_id <= 0:
+            raise ValueError("Bug 创建 product ID 必须是正整数")
+        return self._page_url("/index.php?" + urlencode({"m": "bug", "f": "create", "productID": product_id}))
+
+    def _bug_edit_url(self, bug_id: int) -> str:
+        if not isinstance(bug_id, int) or isinstance(bug_id, bool) or bug_id <= 0:
+            raise ValueError("Bug 编辑 ID 必须是正整数")
+        return self._page_url("/index.php?" + urlencode({"m": "bug", "f": "edit", "bugID": bug_id}))
 
     def _ajax_upload_url(self, uid: str) -> str:
         if not isinstance(uid, str) or not uid:
@@ -351,14 +416,14 @@ class LegacyWebClient:
             raise LegacyPageFailure(
                 "ZenTao 页面请求网络失败",
                 stage=stage,
-                transport_uncertain=stage in {"upload", "comment", "inline_upload"},
+                transport_uncertain=stage in {"upload", "comment", "inline_upload", "bug_create", "bug_edit"},
             ) from exc
         except (TimeoutError, socket.timeout, ConnectionResetError, BrokenPipeError,
                 http.client.RemoteDisconnected, http.client.IncompleteRead) as exc:
             raise LegacyPageFailure(
                 "ZenTao 页面请求网络失败",
                 stage=stage,
-                transport_uncertain=stage in {"upload", "comment", "inline_upload"},
+                transport_uncertain=stage in {"upload", "comment", "inline_upload", "bug_create", "bug_edit"},
             ) from exc
 
     def _html_headers(self, *, referer: str | None = None, content_type: str | None = None) -> dict[str, str]:
@@ -392,36 +457,6 @@ def _origin(value: str) -> tuple[str, str, int]:
 def _looks_like_login_page(response: LegacyPageResponse) -> bool:
     text = response.body.decode("utf-8", errors="ignore").lower()
     return 'name="account"' in text and ('name="password"' in text or 'id="password"' in text)
-
-
-def _parse_form(body: bytes) -> LegacyForm | None:
-    parser = _FormParser()
-    try:
-        parser.feed(body.decode("utf-8", errors="replace"))
-        parser.close()
-    except Exception:
-        return None
-    if not parser._found_form:
-        return None
-    return LegacyForm(parser.form_action, tuple(parser.hidden_fields))
-
-
-def _is_bug_edit_form(form: LegacyForm, expected_url: str) -> bool:
-    if not form.action:
-        return False
-    try:
-        action = urljoin(expected_url, form.action)
-        if _origin(action) != _origin(expected_url):
-            return False
-    except ValueError:
-        return False
-    parsed = urlsplit(action)
-    query = parse_qs(parsed.query)
-    return (
-        parsed.path == urlsplit(expected_url).path
-        and query.get("m") == ["bug"]
-        and query.get("f") == ["edit"]
-    )
 
 
 def _encode_multipart(values: Iterable[tuple[str, object]]) -> tuple[bytes, str]:

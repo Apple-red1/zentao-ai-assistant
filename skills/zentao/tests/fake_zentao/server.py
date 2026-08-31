@@ -124,6 +124,9 @@ class FakeZenTao:
                 if module == "file" and function == "ajaxUpload":
                     self._handle_inline_upload(query)
                     return True
+                if module == "bug" and function in {"create", "edit"}:
+                    self._handle_bug_form(query)
+                    return True
                 if module in self._DETAIL_MODULES and function == "view":
                     self._handle_detail_page(module, query)
                     return True
@@ -244,11 +247,68 @@ class FakeZenTao:
                     bytes(image_entry.get("content") or b""),
                     filename=str(image_entry.get("name") or "inline.png"),
                     content_type=str(image_entry.get("content_type") or "image/png"),
+                    uid=str(query.get("uid") or ""),
                 )
                 if fault in {"commit_then_drop", "drop_after_commit"}:
                     self._drop()
                     return
                 self._send_json_raw(200, {"fileID": file_id, "url": url})
+
+            def _handle_bug_form(self, query: dict[str, Any]) -> None:
+                if not self._authenticated():
+                    self._send_raw(401, b"<html>login required</html>", "text/html")
+                    return
+                function = str(query.get("f") or "")
+                if function == "create":
+                    try:
+                        product_id = int(query.get("productID"))
+                    except (TypeError, ValueError):
+                        self._send_raw(400, b"<html>invalid product</html>", "text/html")
+                        return
+                    object_id = None
+                    uid = f"fake-bug-uid-create-{product_id}"
+                    action = f"/index.php?m=bug&amp;f=create&amp;productID={product_id}"
+                    stage = "bug_create"
+                    form_stage = "bug_create_form"
+                else:
+                    try:
+                        object_id = int(query.get("bugID"))
+                    except (TypeError, ValueError):
+                        self._send_raw(400, b"<html>invalid bug</html>", "text/html")
+                        return
+                    uid = f"fake-bug-uid-edit-{object_id}"
+                    action = f"/index.php?m=bug&amp;f=edit&amp;bugID={object_id}"
+                    stage = "bug_edit"
+                    form_stage = "bug_edit_form"
+                if self.command == "GET":
+                    state.record({"endpoint_id": "web.bug.form", "method": self.command, "path": "/index.php", "query": query, "body": {}})
+                    fault = state.next_web_fault(form_stage)
+                    if self._handle_web_fault(fault):
+                        return
+                    uid_fields = state.bug_form_uid_fields
+                    if uid_fields is None:
+                        uid_fields = [("text", uid)]
+                    hidden = "".join(
+                        f'<input type="{escape(field_type)}" name="uid" value="{escape(value or "")}">'
+                        for field_type, value in uid_fields
+                    )
+                    if function == "edit":
+                        hidden += '<input type="hidden" name="openedBuild[]" value="trunk">'
+                    body = f'<html><form action="{action}" method="post">{hidden}<textarea name="steps"></textarea></form></html>'.encode("utf-8")
+                    self._send_raw(200, body, "text/html")
+                    return
+
+                body = self._read_legacy_multipart()
+                state.record({"endpoint_id": f"web.bug.{function}", "method": self.command, "path": "/index.php", "query": query, "body": body})
+                fault = state.next_web_fault(stage)
+                if self._handle_web_fault(fault):
+                    return
+                item = state.save_bug_from_form(body=body, bug_id=object_id)
+                location = f"/index.php?m=bug&f=view&bugID={item['id']}"
+                if fault in {"commit_then_drop", "drop_after_commit"}:
+                    self._drop()
+                    return
+                self._send_raw(200, f"<html><body>saved bugID={item['id']}</body></html>".encode("utf-8"), "text/html")
 
             def _handle_detail_page(self, module: str, query: dict[str, Any]) -> None:
                 if not self._authenticated():
@@ -350,7 +410,12 @@ class FakeZenTao:
                             "content_type": part.get_content_type(),
                         })
                     else:
-                        values[name] = content.decode("utf-8", errors="replace")
+                        value = content.decode("utf-8", errors="replace")
+                        if name in values:
+                            previous = values[name] if isinstance(values[name], list) else [values[name]]
+                            values[name] = [*previous, value]
+                        else:
+                            values[name] = value
                 return values
 
             def _drop(self) -> None:

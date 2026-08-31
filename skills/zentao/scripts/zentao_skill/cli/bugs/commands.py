@@ -29,6 +29,7 @@ def register(resource_subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     p_create_g_steps = p_create.add_mutually_exclusive_group(required=False)
     p_create_g_steps.add_argument('--steps', dest='steps', type=str, help='steps 参数')
     p_create_g_steps.add_argument('--steps-file', dest='steps_file', help="从 UTF-8 文件读取文本")
+    p_create.add_argument('--steps-inline-image', action='append', dest='steps_inline_images', help='将本地图片按顺序嵌入 steps；可重复')
     p_create.add_argument('--assignee', type=str, dest='assignee', help='assignee 参数')
     p_create.add_argument('--deadline', type=str, dest='deadline', help='deadline 参数')
     p_create.add_argument('--keywords', type=str, dest='keywords', help='keywords 参数')
@@ -44,6 +45,7 @@ def register(resource_subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     p_edit_g_steps = p_edit.add_mutually_exclusive_group(required=False)
     p_edit_g_steps.add_argument('--steps', dest='steps', type=str, help='steps 参数')
     p_edit_g_steps.add_argument('--steps-file', dest='steps_file', help="从 UTF-8 文件读取文本")
+    p_edit.add_argument('--steps-inline-image', action='append', dest='steps_inline_images', help='将本地图片按顺序嵌入 steps；可重复')
     p_edit.add_argument('--project', type=positive_int, dest='project', help='project 参数')
     p_edit.add_argument('--execution', type=positive_int, dest='execution', help='execution 参数')
     p_edit.add_argument('--story', type=non_negative_int, dest='story', help='story 参数；允许 0 表示解除关联')
@@ -114,14 +116,14 @@ def _run_create(services: object, args: argparse.Namespace) -> object | None:
     value_type = getattr(args, 'type', None)
     if value_type is not None and value_type not in {'install', 'performance', 'config', 'others', 'security', 'automation', 'standard', 'code-error', 'design-defect'}:
         raise UsageError("--type 不是当前 endpoint 支持的枚举值")
-    return service.create(product=getattr(args, 'product', None), title=getattr(args, 'title', None), affected_build=getattr(args, 'affected_build', None), branch=getattr(args, 'branch', None), module=getattr(args, 'module', None), project=getattr(args, 'project', None), execution=getattr(args, 'execution', None), story=getattr(args, 'story', None), task=getattr(args, 'task', None), severity=getattr(args, 'severity', None), priority=getattr(args, 'priority', None), type=getattr(args, 'type', None), os=getattr(args, 'os', None), browser=getattr(args, 'browser', None), steps=resolve_text(args, 'steps'), assignee=getattr(args, 'assignee', None), deadline=getattr(args, 'deadline', None), keywords=getattr(args, 'keywords', None))
+    return service.create(product=getattr(args, 'product', None), title=getattr(args, 'title', None), affected_build=getattr(args, 'affected_build', None), branch=getattr(args, 'branch', None), module=getattr(args, 'module', None), project=getattr(args, 'project', None), execution=getattr(args, 'execution', None), story=getattr(args, 'story', None), task=getattr(args, 'task', None), severity=getattr(args, 'severity', None), priority=getattr(args, 'priority', None), type=getattr(args, 'type', None), os=getattr(args, 'os', None), browser=getattr(args, 'browser', None), steps=resolve_text(args, 'steps'), steps_inline_images=getattr(args, 'steps_inline_images', None), assignee=getattr(args, 'assignee', None), deadline=getattr(args, 'deadline', None), keywords=getattr(args, 'keywords', None))
 
 def _run_edit(services: object, args: argparse.Namespace) -> object | None:
     service: BugsService = getattr(services, 'bug')
     value_type = getattr(args, 'type', None)
     if value_type is not None and value_type not in {'install', 'performance', 'config', 'others', 'security', 'automation', 'standard', 'code-error', 'design-defect'}:
         raise UsageError("--type 不是当前 endpoint 支持的枚举值")
-    return service.edit(item_id=args.id, title=getattr(args, 'title', None), severity=getattr(args, 'severity', None), priority=getattr(args, 'priority', None), type=getattr(args, 'type', None), affected_build=getattr(args, 'affected_build', None), steps=resolve_text(args, 'steps'), project=getattr(args, 'project', None), execution=getattr(args, 'execution', None), story=getattr(args, 'story', None))
+    return service.edit(item_id=args.id, title=getattr(args, 'title', None), severity=getattr(args, 'severity', None), priority=getattr(args, 'priority', None), type=getattr(args, 'type', None), affected_build=getattr(args, 'affected_build', None), steps=resolve_text(args, 'steps'), steps_inline_images=getattr(args, 'steps_inline_images', None), project=getattr(args, 'project', None), execution=getattr(args, 'execution', None), story=getattr(args, 'story', None))
 
 def _run_list(services: object, args: argparse.Namespace) -> object | None:
     service: BugsService = getattr(services, 'bug')

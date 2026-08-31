@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.10.0
+
+- 执行 #60：兼容 ZenTao Bug create/edit 表单中 `uid` 为 `type="text"` 的真实形态；仅按
+  `uid` 字段白名单解析，保留 hidden 兼容，并对缺失、空值和冲突值继续 fail-closed。
+
+## 1.9.0
+
+- 修复 #59 的实际编排缺口：聊天附件明确要求进入 Bug 描述/重现步骤时，强制路由到
+  `steps-inline-image`，禁止降级为评论备注；补充本地附件路径缺失和插件缓存重载边界。
+
+## 1.8.0
+
+- 执行 #59：Bug `create/edit` 新增 `--steps-inline-image`，通过固定同源页面表单把本地图片直接嵌入 `steps`，并补充 fail-closed、回读归属校验和 Fake/E2E 覆盖。
+
 ## Unreleased
 
 - 插件升级到 `1.7.0`。修复 #58：团队 active Bug 继续按 `assignedTo` 归属，resolved Bug 改按 `resolvedBy` 归入解决人的“待测试验证”，保留当前测试负责人展示，并对归属/展示字段异常 fail-visible。

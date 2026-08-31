@@ -26,6 +26,11 @@ class FakeState:
             self.web_faults: dict[str, list[str]] = {}
             self.binary_resources: dict[str, dict[str, object]] = {}
             self.redirects: dict[str, str] = {}
+            self.inline_uploads: dict[str, list[dict[str, object]]] = {}
+            # Real ZenTao 21.7.8 renders this as text. Tests can override the
+            # field list to exercise missing, empty, duplicate, and legacy
+            # hidden-field forms without changing production behavior.
+            self.bug_form_uid_fields: list[tuple[str, str | None]] | None = None
 
     def plan_faults(self, endpoint_id: str, *faults: str) -> None:
         self.faults[endpoint_id] = list(faults)
@@ -101,12 +106,52 @@ class FakeState:
             actions.append(action)
             return copy.deepcopy(action)
 
-    def add_inline_image(self, content: bytes, *, filename: str = "inline.png", content_type: str = "image/png") -> tuple[int, str]:
+    def add_inline_image(self, content: bytes, *, filename: str = "inline.png", content_type: str = "image/png", uid: str = "") -> tuple[int, str]:
         with self._lock:
             file_id = self.next_file_id
             self.next_file_id += 1
             self.add_binary("/index.php", content, content_type=content_type, filename=filename)
-            return file_id, f"/index.php?m=file&f=read&t=png&fileID={file_id}"
+            url = f"/index.php?m=file&f=read&t=png&fileID={file_id}"
+            self.inline_uploads.setdefault(uid, []).append({
+                "id": file_id,
+                "fileID": file_id,
+                "name": filename,
+                "title": filename,
+                "size": len(content),
+                "url": url,
+            })
+            return file_id, url
+
+    def save_bug_from_form(self, *, body: dict[str, object], bug_id: int | None = None) -> dict[str, object]:
+        with self._lock:
+            ident = bug_id if bug_id is not None else self.next_id
+            if bug_id is None:
+                self.next_id += 1
+            item = self.resources.setdefault("bug", {}).setdefault(str(ident), {"id": ident, "status": "active"})
+            item.update({
+                "id": ident,
+                "status": item.get("status", "active"),
+                "product": _first_form_value(body.get("product")),
+                "title": _first_form_value(body.get("title")),
+                "steps": str(body.get("steps") or ""),
+            })
+            item["productID"] = item["product"]
+            opened_build = _form_values(body.get("openedBuild[]"))
+            if opened_build:
+                item["openedBuild"] = opened_build
+            for name in ("branch", "module", "project", "execution", "story", "task", "severity", "pri", "type", "os", "browser", "assignedTo", "deadline", "keywords"):
+                value = body.get(name)
+                if value is not None:
+                    item[name] = _first_form_value(value)
+            uid = str(body.get("uid") or "")
+            files = []
+            for upload in self.inline_uploads.get(uid, []):
+                file_entry = dict(upload)
+                file_entry.update({"objectType": "bug", "objectID": ident})
+                files.append(file_entry)
+            if files:
+                item["files"] = files
+            return copy.deepcopy(item)
 
     def handle(self, route: object, path_params: dict[str, int], query: dict[str, Any], body: dict[str, Any]) -> tuple[int, object | None]:
         endpoint_id = getattr(route, "endpoint_id")
@@ -160,3 +205,18 @@ class FakeState:
                 return 200, {"status": "success", "id": ident}
             return 204, None
         return 500, {"error": "unhandled operation", "endpoint": endpoint_id}
+
+
+def _form_values(value: object) -> list[str]:
+    if isinstance(value, list):
+        values = value
+    elif value is None:
+        values = []
+    else:
+        values = [value]
+    return [str(item) for item in values if str(item)]
+
+
+def _first_form_value(value: object) -> object:
+    values = _form_values(value)
+    return values[0] if values else ""

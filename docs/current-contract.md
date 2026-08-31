@@ -68,7 +68,7 @@ project/user scope：项目配置为 `<repo>/.env`，用户配置为
 
 ## 当前实现事实
 
-- 插件版本 `1.7.0`，仍为六个正式 Skill。`zentao-personal` 提供 `team-view/add/remove/replace` 名单维护及 `team-bugs/team-brief` 查询入口；没有新增 API endpoint。
+- 插件版本 `1.10.0`，仍为六个正式 Skill。`zentao-personal` 提供 `team-view/add/remove/replace` 名单维护及 `team-bugs/team-brief` 查询入口；没有新增 API endpoint。
 - 团队配置始终保存于 `~/.zentao-ai-assistant/teams/<identity-sha256>.json`，以规范化 base URL + account 隔离，跨源码项目复用；只接受明确的名单维护请求，完整用户目录唯一解析后保存真实 account，本人自动纳入而不保存为配置成员。损坏配置、身份冲突、目录不完整和并发写入均阻止覆盖。
 - 团队 Bug 与日报共用完整分页、跨 Product/Project/Execution 扫描、ID 去重和阶段分类；`active` 按当前 `assignedTo` 归入“需要马上行动”，`resolved` 按 `resolvedBy` 归入“待测试验证”，当前 `assignedTo` 仅展示测试负责人，`closed` 排除。显式 scope 仅缩小查询。输出按阶段→成员→优先级/严重程度/旧 Bug/数值 ID 排序，全部成员和符合条件的 Bug 都保留；日报只增加汇总。
 - 团队 `--markdown` 对 active 输出四列、对 resolved 输出含“当前测试负责人”的五列表格，并调用基础 `bug web-url` 生成编号链接；机器 JSON 与默认终端 JSON 保持原始字段。`resolvedBy` 无效不回退猜测；团队内解决人的测试负责人无效时仍保留 Bug。字段失败、未知状态、日期异常、冲突和分页截断通过 `complete/partial_failures` 暴露，失败不能伪装为 0。独立查询不构成事务快照。
@@ -96,6 +96,18 @@ project/user scope：项目配置为 `<repo>/.env`，用户配置为
   上传在检测到 v2 空响应后，会先回读确认是否已经落库，未落库时才使用固定的
   `bug/edit` 页面 `files[]` 表单兼容写入，并通过 API 详情回读确认附件。该兼容路径不
   接受任意页面 URL、不使用浏览器自动化，页面写入异常只回读一次且不盲目重试。
+- Bug `create/edit` 的 `--steps-inline-image` 是不新增 endpoint 的页面兼容能力：先读取固定
+  `bug/create` 或 `bug/edit` 表单，使用该表单 `uid` 通过同源 `file/ajaxUpload` 上传本地
+  图片，再以受控 `<img src>` markup 随 `steps` 单次提交；用户步骤文本先 HTML 转义，图片
+  顺序与重复引用保留。表单只按精确字段名 `uid` 受控读取，兼容 `hidden` 和真实页面的
+  `text` 类型，不把其它可见输入加入 payload；uid 缺失、为空或出现冲突控件时继续
+  fail-closed。表单能力、上传响应、同源 URL、步骤图片和 Bug 文件归属任一无法安全确认
+  时停止；业务写入结果未知时不重试，仅按合同回读。该能力不写入评论/action。
+- 当前消息包含聊天附件图片且用户要求图片进入 Bug 描述/重现步骤时，宿主必须把可读的本地
+  附件路径传给同一次 `bug create/edit --steps-inline-image`；禁止调用 `bug comment`、
+  `--inline-image` 或创建后补备注。无法取得可读本地路径时先阻塞，不创建语义不完整的 Bug；
+  只有用户明确要求添加备注/历史记录时，才使用评论内嵌图片。Plugin 更新后需重新加载
+  当前 canonical `skills/`，否则旧缓存不会包含该路由合同。
 - 资源发现只处理当前附件区和业务富文本，不递归扫描 `actions`、`dynamics`、`history`、`diff`
   审计历史字段；`dynamics` 是 21.7.8 部分对象详情中的动态历史容器，不属于当前资源范围。
 - 统计 `by_assignee` 将空值和 ZenTao 特殊值 `closed` 显式归入 `unassigned`，不作为真实负责人统计。

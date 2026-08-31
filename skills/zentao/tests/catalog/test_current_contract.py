@@ -93,6 +93,24 @@ class CurrentContractDocumentationTest(unittest.TestCase):
                 self.assertIn("zentao-bug-resolver", document)
         self.assertIn("| `skills/zentao-bug-resolver/` |", current)
 
+    def test_bug_chat_attachment_intent_routes_to_steps_not_comment(self) -> None:
+        documents = {
+            "zentao skill": (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8"),
+            "current contract": CURRENT.read_text(encoding="utf-8"),
+        }
+        required = (
+            "聊天附件",
+            "图片进入 Bug 描述/重现步骤",
+            "--steps-inline-image",
+            "禁止调用 `bug comment`",
+            "本地路径",
+            "无法取得可读本地路径",
+        )
+        for name, document in documents.items():
+            with self.subTest(document=name):
+                for anchor in required:
+                    self.assertIn(anchor, document)
+
     def test_bug_resolver_contract_locks_read_only_r2_queue_and_evidence_boundaries(self) -> None:
         current = CURRENT.read_text(encoding="utf-8")
         for anchor in (

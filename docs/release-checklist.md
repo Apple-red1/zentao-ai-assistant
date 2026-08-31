@@ -28,6 +28,14 @@
 - [ ] 写入网络不确定返回 `UNKNOWN_WRITE_RESULT`，不自动重试、不自动 GET。
 - [ ] ZenTao 21.7.8 Bug 附件上传的 v2 空响应兼容路径仅在一次回读确认未落库后提交固定
   `bug/edit` `files[]` 表单，并通过 API 回读确认；页面会话不接受任意 URL、不泄露密码。
+- [ ] Bug `create/edit --steps-inline-image` 通过固定表单 `uid` 绑定同源 `ajaxUpload`，兼容
+  `uid` 的 hidden/text 形态且只按字段白名单读取；缺失、空值、冲突和非 uid text input
+  均有 fail-closed 覆盖。用户步骤文本转义、图片引用顺序/重复、步骤与 Bug 文件归属回读、
+  403 前置失败和未知写入不重试均有 Fake/E2E 覆盖；该能力未加入官方 endpoint catalog。
+- [ ] 聊天消息附带图片且明确要求进入 Bug 描述/重现步骤时，宿主实际传入附件本地路径并
+  调用 `--steps-inline-image`；未提供本地路径时写入前阻塞，不产生评论补偿记录。
+- [ ] 更新 Plugin 后重新加载 canonical `skills/`，并在新会话验证该自然语言路由；不得以
+  旧 Plugin cache 的测试结果代替当前版本验收。
 - [ ] `.tmp/` 已被 Git 忽略；`resource fetch` 只能从对象附件区/富文本发现资源，并拒绝跨源 URL/重定向。
 - [ ] 独立评论只复用固定同源 `LegacyWebClient`；十种对象能力、重复 `files[]`、Bug 单张
   `imgFile`、写前后 action 回读、未知结果不重放和潜在孤儿文件边界均有 Fake/E2E 覆盖；

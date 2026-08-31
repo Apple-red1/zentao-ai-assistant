@@ -16,6 +16,12 @@ Services / RuntimePaths
 ZenTao API v2 / user data roots
 ```
 
+当当前消息含图片附件且用户要求图片进入 Bug 描述/重现步骤时，AI/宿主先把附件解析为
+可读的本地路径，再在同一次 `bug create/edit` 中传入 `--steps-inline-image`。该路由
+优先级高于独立评论：不得调用 `bug comment --inline-image`，也不得先创建纯文本 Bug
+再用备注补图；宿主无法提供本地路径时应在写入前阻塞。只有用户明确要求添加备注/历史
+记录时，才路由到独立评论。
+
 根目录 `plugin.json` 是 portable manifest；`.claude-plugin/plugin.json`、
 `.claude-plugin/marketplace.json` 和 `.codex-plugin/plugin.json`、
 `.agents/plugins/marketplace.json` 只是宿主适配元数据。Plugin adapter 不进入
@@ -52,6 +58,20 @@ Bug 的单张内嵌图片先经同一 `LegacyWebClient` 的固定
 `/index.php?m=file&f=ajaxUpload&uid=...`，再把服务端返回的同源图片地址写入唯一评论；
 普通附件使用评论页面的重复 `files[]` multipart 字段。该分支不引入第二套 transport、
 数据库、MCP 或生命周期旁路。
+
+Bug 步骤图片复用同一页面 transport，但绑定 Bug 表单而不是 action/comment：
+
+```text
+bug create/edit --steps-inline-image
+  -> fixed bug create/edit form + uid
+  -> fixed file/ajaxUpload (one request per unique local file)
+  -> escaped steps + controlled img markup
+  -> one fixed bug form write
+  -> API bug view readback (steps + Bug file ownership)
+```
+
+这不是新的 API endpoint；无能力、跨源 URL、异常上传响应或无法回读时 fail closed，评论
+action 不参与该链路。
 
 ## Skill 职责
 

@@ -143,6 +143,8 @@ python3 skills/zentao/scripts/zentao.py bug list --product 1 --json
 python3 skills/zentao/scripts/zentao.py resource fetch --object-type bug --object-id 123 --json
 python3 skills/zentao/scripts/zentao.py bug comment 123 --comment "已补充验证结果" --json
 python3 skills/zentao/scripts/zentao.py bug comment 123 --comment "附图" --inline-image ./screenshot.png --json
+python3 skills/zentao/scripts/zentao.py bug create --product 1 --title "带步骤截图" --affected-build trunk --steps "复现步骤" --steps-inline-image ./screenshot.png --json
+python3 skills/zentao/scripts/zentao.py bug edit 123 --steps-inline-image ./screenshot.png --json
 ```
 
 删除属于 R3，必须有明确删除意图并传 `--yes`。
@@ -161,6 +163,15 @@ python3 skills/zentao-batch-export/scripts/zentao_batch_export.py bug:123 story:
 独立评论使用固定同源 Legacy Web 兼容路径，不计入官方 API endpoint；当前十种对象均支持评论、
 重复普通附件和重复内嵌图片，普通附件与内嵌图片也可在同一条评论中提交。写入会在单次 POST
 前后做 action snapshot/readback，结果不确定时返回 `UNKNOWN_WRITE_RESULT` 且不重放。
+
+Bug 的 `create/edit --steps-inline-image` 将本地图片直接嵌入 `steps` 富文本，用户步骤文本
+先转义，图片按参数顺序（含重复引用）写入 Bug，不会落入历史评论；能力或写入结果无法确认
+时 fail closed，不自动重试。
+
+如果当前消息带有图片附件且用户要求图片出现在 Bug 描述/重现步骤中，宿主必须使用附件的
+可读本地路径调用上述 `--steps-inline-image`，不能改用 `bug comment --inline-image` 或先
+创建后补备注；无法取得本地路径时应在创建前报告阻塞。Plugin 更新后需重新加载当前仓库
+的 canonical `skills/`，否则旧缓存仍可能执行旧的评论路由。
 
 Bug 详情链接使用固定禅道路由直接生成，不打开浏览器：
 `python3 skills/zentao/scripts/zentao.py bug web-url 3641 --json`。
