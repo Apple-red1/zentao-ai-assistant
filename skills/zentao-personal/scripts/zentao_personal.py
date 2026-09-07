@@ -16,12 +16,13 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from zentao.records import assignee, deadline_state, dedupe_records, is_open, priority, severity, title  # noqa: E402
+from zentao.records import assignee, deadline_state, dedupe_records, is_open, priority, scalar_identity, severity, title  # noqa: E402
 from zentao.identity import AmbiguousMatchError, MatchNotFoundError, resolve_user  # noqa: E402
 from zentao.runtime import get_client, store_temp_json  # noqa: E402
 from team_config import TeamError, TeamStore  # noqa: E402
 from team_report import build_team_report, collect_bugs, read_directory, resolve_members, team_members  # noqa: E402
 from team_presenter import render_team_report  # noqa: E402
+from zentao.bug_presenter import render_bug_table  # noqa: E402
 
 
 TEAM_ACTIONS = ('team-view', 'team-add', 'team-remove', 'team-replace', 'team-bugs', 'team-brief')
@@ -44,6 +45,8 @@ def _team_result(client, args):
         rows, failures = collect_bugs(client, scope=scope, scope_id=scope_id, per_page=args.per_page or 1000)
         payload = build_team_report(members, rows, scope=scope, scope_id=scope_id,
                                     failures=failures, today=args.today)
+        payload["team_domain"] = "personal_development"
+        payload["source"] = "personal/development_team"
         if args.cache_data:
             payload['temp_data'] = store_temp_json('personal', payload)
         return payload
@@ -52,7 +55,8 @@ def _team_result(client, args):
         for failure in member['partial_failures']:
             if failure not in failures:
                 failures.append(failure)
-    return {'owner': store.identity, 'configured_accounts': configured,
+    return {'owner': store.identity, 'team_domain': 'personal_development',
+            'source': 'personal/development_team', 'configured_accounts': configured,
             'effective_accounts': [m['account'] for m in members], 'members': members,
             'complete': not failures, 'partial_failures': failures}
 
@@ -126,6 +130,151 @@ def build_worklist(account: str, resources: dict[str, list[dict[str, Any]]], *, 
     return sorted(items, key=lambda item: (item["rank"], str(item["resource"]), str(item["id"])))
 
 
+def _bug_id(value: object) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value if value > 0 else None
+    if isinstance(value, str) and value.isascii() and value.isdigit():
+        ident = int(value)
+        return ident if ident > 0 else None
+    return None
+
+
+def _raw_value(row: dict[str, Any], *keys: str) -> object | None:
+    for key in keys:
+        value = row.get(key)
+        if value not in (None, ""):
+            return value
+    return None
+
+
+def _canonical_bug_value(row: dict[str, Any], *keys: str) -> str | None:
+    value = _raw_value(row, *keys)
+    if value in (None, ""):
+        return None
+    return scalar_identity(value)
+
+
+def _bug_snapshot_conflicts(rows: list[dict[str, Any]]) -> bool:
+    fields = (
+        ("title", "name"),
+        ("status", "stage"),
+        ("pri", "priority"),
+        ("severity",),
+        ("assignedTo", "assigned_to", "assignee", "assignedToAccount", "owner"),
+        ("resolvedBy", "resolvedByAccount"),
+        ("openedDate", "createdDate"),
+        ("resolvedDate",),
+    )
+    for keys in fields:
+        values = {_canonical_bug_value(row, *keys) for row in rows}
+        if len(values - {None}) > 1:
+            return True
+    return False
+
+
+def build_personal_bug_rows(
+    account: str,
+    resources: dict[str, list[dict[str, Any]]],
+    *,
+    open_only: bool = False,
+) -> tuple[list[dict[str, Any]], list[dict[str, object]]]:
+    """Normalize personal Bug records for the shared human presenter only."""
+    candidates: dict[int, list[dict[str, Any]]] = {}
+    failures: list[dict[str, object]] = []
+    for row in resources.get("bug", []):
+        if not isinstance(row, dict) or assignee(row) != account:
+            continue
+        if open_only and not is_open("bug", row):
+            continue
+        ident = _bug_id(row.get("id"))
+        if ident is None:
+            failures.append({"code": "BUG_ID_INVALID"})
+            continue
+        candidates.setdefault(ident, []).append(row)
+
+    result: list[dict[str, Any]] = []
+    for ident in sorted(candidates):
+        rows = candidates[ident]
+        if _bug_snapshot_conflicts(rows):
+            failures.append({"code": "BUG_SNAPSHOT_CONFLICT", "bug_id": ident})
+            continue
+        row = max(
+            rows,
+            key=lambda value: (
+                sum(_raw_value(value, *keys) not in (None, "") for keys in (
+                    ("title", "name"), ("status", "stage"), ("pri", "priority"), ("severity",),
+                    ("assignedTo", "assigned_to", "assignee", "assignedToAccount", "owner"),
+                    ("resolvedBy", "resolvedByAccount"), ("openedDate", "createdDate"), ("resolvedDate",),
+                )),
+                json.dumps(value, ensure_ascii=False, sort_keys=True, default=str),
+            ),
+        )
+        result.append({
+            "id": ident,
+            "title": _raw_value(row, "title", "name"),
+            "status": _raw_value(row, "status", "stage"),
+            "priority": _raw_value(row, "pri", "priority"),
+            "severity": _raw_value(row, "severity"),
+            "assignee": _raw_value(row, "assignedTo", "assigned_to", "assignee", "assignedToAccount", "owner"),
+            "resolvedBy": _raw_value(row, "resolvedBy", "resolvedByAccount"),
+            "openedDate": _raw_value(row, "openedDate", "createdDate"),
+            "resolvedDate": _raw_value(row, "resolvedDate"),
+        })
+    return result, failures
+
+
+def _bug_urls(client: object, ids: list[int]) -> tuple[dict[int, str], list[dict[str, object]]]:
+    if not ids:
+        return {}, []
+    failures: list[dict[str, object]] = []
+    try:
+        payload = client.bug_web_urls(ids)
+        rows = payload if isinstance(payload, list) else [payload]
+    except Exception:
+        return {}, [{"code": "BUG_WEB_URL_FAILED"}]
+    mapping: dict[int, str] = {}
+    for row in rows:
+        if not isinstance(row, dict) or type(row.get("id")) is not int:
+            failures.append({"code": "BUG_WEB_URL_FAILED"})
+            continue
+        ident = row["id"]
+        url = row.get("url")
+        if ident not in ids or ident in mapping or not isinstance(url, str) or not url:
+            failures.append({"code": "BUG_WEB_URL_FAILED", "bug_id": ident})
+            continue
+        mapping[ident] = url
+    for ident in ids:
+        if ident not in mapping:
+            failures.append({"code": "BUG_WEB_URL_FAILED", "bug_id": ident})
+    return mapping, failures
+
+
+def render_personal_bugs(
+    account: str,
+    resources: dict[str, list[dict[str, Any]]],
+    *,
+    complete: bool,
+    partial_failures: list[dict[str, object]] | None = None,
+    urls: dict[int | str, str] | None = None,
+    open_only: bool = False,
+) -> str:
+    items, row_failures = build_personal_bug_rows(account, resources, open_only=open_only)
+    failures = list(partial_failures or [])
+    for failure in row_failures:
+        if failure not in failures:
+            failures.append(failure)
+    return render_bug_table(
+        items,
+        urls=urls,
+        heading="## 我的未关闭 Bug" if open_only else "## 我的 Bug",
+        empty_message="没有未关闭 Bug。" if open_only else "没有 Bug。",
+        complete=complete and not row_failures,
+        partial_failures=failures,
+    )
+
+
 def _collect(client) -> tuple[dict[str, list[dict[str, Any]]], list[dict[str, object]]]:
     resources: dict[str, list[dict[str, Any]]] = {name: [] for name in ("bug", "task", "story", "requirement", "ticket", "feedback")}
     failures: list[dict[str, object]] = []
@@ -174,7 +323,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cache-data", action="store_true")
     output = parser.add_mutually_exclusive_group()
     output.add_argument("--json", action="store_true")
-    output.add_argument("--markdown", action="store_true", help="团队 Bug/日报阶段表格")
+    output.add_argument("--markdown", action="store_true", help="输出确定性的个人或团队 Bug Markdown 表格")
     parser.add_argument("--member", action="append", help="团队成员 account/唯一姓名，可重复")
     parser.add_argument("--clear", action="store_true", help="显式清空配置成员，仍保留本人")
     parser.add_argument("--per-page", type=int)
@@ -195,8 +344,10 @@ def main(argv: list[str] | None = None) -> int:
         parser.error('请明确提供 --member；清空名单使用 team-replace --clear')
     if args.clear and (args.action != 'team-replace' or args.member):
         parser.error('--clear 只能单独用于 team-replace')
-    if (args.markdown or any(getattr(args, k) is not None for k in ('product', 'project', 'execution'))) and not query:
-        parser.error('范围和 Markdown 参数仅用于 team-bugs/team-brief')
+    if any(getattr(args, k) is not None for k in ('product', 'project', 'execution')) and not query:
+        parser.error('范围参数仅用于 team-bugs/team-brief')
+    if args.markdown and team and not query:
+        parser.error('团队 Markdown 仅用于 team-bugs/team-brief')
     if team and not query and (args.today or args.cache_data):
         parser.error('团队名单维护不接受 --today/--cache-data')
     if args.per_page is not None and not 1 <= args.per_page <= 1000:
@@ -235,7 +386,21 @@ def main(argv: list[str] | None = None) -> int:
             payload = overview
         if args.cache_data and isinstance(payload, dict):
             payload["temp_data"] = store_temp_json("personal", {"account": account, "resources": resources})
-        print(json.dumps(payload, ensure_ascii=False, separators=(",", ":") if args.json else None, indent=None if args.json else 2))
+        if args.markdown:
+            open_only = args.action in ("worklist", "brief")
+            items, row_failures = build_personal_bug_rows(account, resources, open_only=open_only)
+            urls, url_failures = _bug_urls(client, [item["id"] for item in items])
+            all_failures = [*failures, *row_failures, *url_failures]
+            print(render_personal_bugs(
+                account,
+                resources,
+                urls=urls,
+                open_only=open_only,
+                complete=overview["complete"] and not row_failures and not url_failures,
+                partial_failures=all_failures,
+            ))
+        else:
+            print(json.dumps(payload, ensure_ascii=False, separators=(",", ":") if args.json else None, indent=None if args.json else 2))
         return 0
     except TeamError as exc:
         print(json.dumps({'error': {'code': exc.code, 'message': str(exc), 'details': exc.details}}, ensure_ascii=False), file=sys.stderr)

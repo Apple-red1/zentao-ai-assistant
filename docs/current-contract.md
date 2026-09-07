@@ -1,7 +1,7 @@
 # ZenTao AI 项目管理 Skills 当前合同入口
 
 > 状态：**CURRENT / 当前唯一权威入口**
-> 更新日期：2026-08-31
+> 更新日期：2026-09-03
 > 适用范围：仓库内所有 ZenTao Skills、API v2 基础能力、共享脚本、测试和发布检查。
 
 本页是“现在应该相信什么”的索引。历史设计文档只用于追溯，不能覆盖本页指向的当前源码、测试与合同。
@@ -16,10 +16,11 @@
 | `skills/zentao-project-management/` | Project / Execution 的进度事实、风险信号和工作量分布 |
 | `skills/zentao-bug-resolver/` | 证据驱动的 Bug 只读 `select` / `snapshot` / `compare` 与 Agent 编排 |
 | `skills/zentao-batch-export/` | 多个 ZenTao 对象的完整 `view` 字段、资源与 ZIP 批量资料导出 |
+| `skills/zentao-testing/` | 测试端项目/模块上下文、Bug 创建编排、本人未关闭 Bug 与日常操作路由 |
 
 共享低层辅助位于 `skills/_shared/zentao/`，它没有 `SKILL.md`，不参与 Skill 路由。
 
-当前公开 surface 为 6 Skills，且只有仓库根目录的这一份 `skills/` 是 canonical
+当前公开 surface 为 7 Skills，且只有仓库根目录的这一份 `skills/` 是 canonical
 业务能力源。Clone 与 Plugin 入口共用相同 Skill 文件：
 
 ```text
@@ -55,8 +56,10 @@ project/user scope：项目配置为 `<repo>/.env`，用户配置为
 | API Skill 用户调用、风险和输出 | `skills/zentao/SKILL.md` |
 | 高层 Skill 调用 | 各自 `SKILL.md` |
 | 个人默认团队配置、查询与展示 | `skills/zentao-personal/references/team.md` |
+| 测试团队全局默认、项目覆盖、导入与独立存储 | `skills/zentao-testing/references/team.md` |
 | 所有 Skill 的聊天 Bug ID 展示 | `skills/zentao/references/bug-display.md` |
 | Bug 证据驱动流程、授权和生命周期边界 | `skills/zentao-bug-resolver/SKILL.md` 与 `skills/zentao-bug-resolver/references/workflow.md` |
+| 测试端项目/模块上下文、本人 Bug 与测试工作流 | `skills/zentao-testing/SKILL.md` 与 `skills/zentao-testing/references/workflow.md` |
 | 高层 Skill → API 基础层程序化合同 | `skills/zentao/references/programmatic.md` |
 | endpoint method/path/参数/兼容元数据 | `skills/zentao/references/api-v2/endpoints.json` |
 | 独立官方 API v2 evidence | `skills/zentao/references/api-v2/official-contract.json` |
@@ -68,11 +71,21 @@ project/user scope：项目配置为 `<repo>/.env`，用户配置为
 
 ## 当前实现事实
 
-- 插件版本 `1.10.0`，仍为六个正式 Skill。`zentao-personal` 提供 `team-view/add/remove/replace` 名单维护及 `team-bugs/team-brief` 查询入口；没有新增 API endpoint。
-- 团队配置始终保存于 `~/.zentao-ai-assistant/teams/<identity-sha256>.json`，以规范化 base URL + account 隔离，跨源码项目复用；只接受明确的名单维护请求，完整用户目录唯一解析后保存真实 account，本人自动纳入而不保存为配置成员。损坏配置、身份冲突、目录不完整和并发写入均阻止覆盖。
+- 插件版本 `1.13.0`，共有七个正式 Skill。`zentao-personal` 提供 `team-view/add/remove/replace` 名单维护、`team-bugs/team-brief` 查询入口和个人 Bug Markdown presenter；`zentao-testing` 提供独立测试团队、测试项目/模块上下文、本人未关闭 Bug 聚合和测试端 Bug 工作流路由；本次没有新增官方 API endpoint。
+- 开发/个人团队配置保存于 `~/.zentao-ai-assistant/teams/<identity-sha256>.json`，测试团队配置保存于 `~/.zentao-ai-assistant/testing-teams/<identity-sha256>.json`，测试项目上下文保存于 `testing-projects/`；三者按规范化 base URL + account 隔离，跨源码项目复用但互不覆盖。成员写入只接受明确的对应 Skill 请求，完整用户目录唯一解析后保存真实 account，本人自动纳入而不保存为配置成员。损坏配置、身份冲突、目录不完整和并发写入均阻止覆盖。
 - 团队 Bug 与日报共用完整分页、跨 Product/Project/Execution 扫描、ID 去重和阶段分类；`active` 按当前 `assignedTo` 归入“需要马上行动”，`resolved` 按 `resolvedBy` 归入“待测试验证”，当前 `assignedTo` 仅展示测试负责人，`closed` 排除。显式 scope 仅缩小查询。输出按阶段→成员→优先级/严重程度/旧 Bug/数值 ID 排序，全部成员和符合条件的 Bug 都保留；日报只增加汇总。
 - 团队 `--markdown` 对 active 输出四列、对 resolved 输出含“当前测试负责人”的五列表格，并调用基础 `bug web-url` 生成编号链接；机器 JSON 与默认终端 JSON 保持原始字段。`resolvedBy` 无效不回退猜测；团队内解决人的测试负责人无效时仍保留 Bug。字段失败、未知状态、日期异常、冲突和分页截断通过 `complete/partial_failures` 暴露，失败不能伪装为 0。独立查询不构成事务快照。
 - facade 新增只读 `connection_identity` 和可选 `list_all(preserve_partial=True)`；后者在页读取失败时保留已读页且不重试，默认调用行为不变。团队本地配置写入不扩展 facade 的 ZenTao 写入权限。
+- 共享身份存储将测试项目配置与个人团队配置按规范化 base URL + account 隔离，使用用户级 `0700/0600` 目录/文件、锁目录、原子替换和大小/schema/owner/符号链接校验；不保存密码、Token 或姓名。
+- 测试项目配置文件固定为 `~/.zentao-ai-assistant/testing-projects/<identity-sha256>.json`，与连接配置、Token cache 和运行临时目录分离。
+- `zentao-testing` 的测试团队文件固定为 `~/.zentao-ai-assistant/testing-teams/<identity-sha256>.json`，包含一份全局默认测试团队和每个已保存测试项目最多一份完整覆盖；项目覆盖只影响对应项目，未配置时回退全局默认团队，当前账号只在运行时加入。
+- `zentao-testing team-view/add/remove/replace` 只写测试团队全局域；`project-team-*` 只写目标项目覆盖域；`team-import-personal` 仅在用户明确要求时一次性复制 `zentao-personal` 团队，导入后不自动同步。模糊“设置团队”意图在类型明确前写入次数为 0，明确“测试团队”不得覆盖开发/个人团队。
+- 测试团队命令返回 `source`、项目范围、配置成员和生效成员，并保留 `complete/partial_failures`；用户目录/配置/锁/原子写失败只影响目标测试团队域，不覆盖个人团队、测试项目或其它项目覆盖。
+- `zentao-testing` 的 `project-set` 校验真实 Product/Build 候选；Project ID 可选，提供时才校验 Project/Product 关联证据，缺失时关联状态为 `not_applicable`。`module-set` 唯一解析前后端真实 account，并优先使用 Product 详情中的模块集合；无法证明已提供的关联时保存但返回 `complete=false`，明确不匹配时拒绝覆盖，项目/产品更新会标记模块 stale。
+- `zentao-testing` 的 `my-bugs` 默认查询当前测试 Project；若当前配置没有 Project ID，则按当前 Product 查询；只有显式 `--all-projects` 扫描全局 Product/Project/Execution。按当前账号 assignedTo、排除 closed，完整分页、ID 去重/冲突检测、稳定排序，并通过基础公开 Bug URL 合同生成链接。它保留 `complete/partial_failures`，不把不完整空结果当作无 Bug。
+- Bug `steps` 统一使用真实 Unicode 文本和 LF；CLI `--steps-file` 在 UTF-8 读取边界归一实际 CRLF/CR，`--steps-json` 只解码明确的 JSON 字符串一次，普通文本中的字面量 `\\n` 不自动改写。Bug create/edit 的最终请求保持同一文本语义，不新增官方 API endpoint。
+- 个人 `overview/worklist/brief --markdown` 和测试端 `my-bugs --markdown` 共用共享 Bug presenter：固定九列表头、一行一 Bug、稳定排序/去重、缺失字段显示 `—`，链接失败和 `complete/partial_failures` 在表格后显式呈现；个人 `--json` 原始结构保持不变。
+- 测试端明确创建 Bug 时只编排一次基础 `zentao` CLI R1 create，不补造缺失字段或用备注补图；测试端可路由 view/comment/activate/close。active Bug 独立指派未通过真实 ZenTao 21.7.8 能力探测和写后回读门槛时必须报告 `INCONCLUSIVE/ENVIRONMENT_BLOCKER`，不得用 lifecycle 代替。
 - `zentao` API catalog 仍覆盖 20 个资源、**120 个 ZenTao API v2 endpoint**，API 实现、CLI、Skill 路由、Fake、合同和 CLI E2E 保持 `120/120`。
 - 高层 Skill 不改变 endpoint catalog，也不把 API 组合能力冒充官方 endpoint。
 - `zentao-batch-export` 是只读批量资料编排：首版支持 `bug / epic / execution / feedback / product / product-plan / program / requirement / story / task / test-case / ticket / user`；输入显式使用 `type:id`，脚本按 `type + id` 去重。
@@ -112,7 +125,7 @@ project/user scope：项目配置为 `<repo>/.env`，用户配置为
   审计历史字段；`dynamics` 是 21.7.8 部分对象详情中的动态历史容器，不属于当前资源范围。
 - 统计 `by_assignee` 将空值和 ZenTao 特殊值 `closed` 显式归入 `unassigned`，不作为真实负责人统计。
 - 单对象/单资源失败不阻断后续导出；最终 ZIP 位于当前 scope 的 `.tmp/zentao/zentao-batch-export/<run-id>/` 或 `~/.zentao-ai-assistant/tmp/zentao/zentao-batch-export/<run-id>/`，文件名为动态 `zentao-export-<timestamp>-<short-id>.zip`，不接受调用方任意输出路径。
-- 统计、个人、项目管理和 Bug resolver 的读取脚本通过 `zentao_skill.public` 复用现有 Services/Session；`zentao-batch-export` 通过 public runtime bridge 取得 scope 路径并组合基础 `zentao` CLI。所有高层 Skill 都禁止直接访问 `internal/http` 或拼接 API URL。
+- 统计、个人、项目管理、Bug resolver 和 `zentao-testing` 的读取脚本通过 `zentao_skill.public` 复用现有 Services/Session；`zentao-batch-export` 通过 public runtime bridge 取得 scope 路径并组合基础 `zentao` CLI。所有高层 Skill 都禁止直接访问 `internal/http` 或拼接 API URL。
 - `zentao-bug-resolver` 是第四个高层 Skill：其脚本只做证据驱动的只读 `select`、`snapshot`、`compare`，通过 `zentao_skill.public` 的只读 facade 取数；Agent 负责基于结果编排业务仓库证据、最小修改、验证和写前复查。这些脚本操作不是新的 API endpoint，不新增、不计入基础 `zentao` 的 120 个 API endpoint。
 - 统计、个人与项目管理的关键数量由脚本确定性计算；所有高层结果的 `complete/partial_failures` 必须保留。Bug resolver 还必须保留 `complete=false`、`pending_queue`、`unsupported_filters` 和 `unavailable_fields`；候选不完整时不得声称证据完整。
 - 普通流程的 `pending_queue` 只记录待处理 ID，不自动继续；下一项必须由用户再次明确继续，并重新解析授权与起始 snapshot。
@@ -122,7 +135,7 @@ project/user scope：项目配置为 `<repo>/.env`，用户配置为
 - 信息不足的 `UNCLEAR` / `NO_CODE_EVIDENCE` 不修改业务代码；`will-not-fix` 仅表示按门槛退回补充信息，不是技术修复结论。
 - 当前不宣称 module 名称映射、Bug 历史、ETag 或其它未经真实证据验证的字段/接口。
 - `bug web-url` 按固定禅道路由本地生成链接，不是新的 API endpoint，不访问页面或打开浏览器。
-- 所有六个 Skill 的聊天回复只要展示 Bug ID，编号本身就是可点击链接；统一消费 `bug web-url` 返回的 `id → url`，不按数组位置配对。不改变原始 ID、机器 JSON、查询和写入合同；CLI 终端输出与 ZIP 内 `content.md` 的 Markdown 导出格式分别遵守各自合同。新 Skill 继承共享展示规则。
+- 所有七个 Skill 的聊天回复只要展示 Bug ID，编号本身就是可点击链接；统一消费 `bug web-url` 返回的 `id → url`，不按数组位置配对。不改变原始 ID、机器 JSON、查询和写入合同；CLI 终端输出与 ZIP 内 `content.md` 的 Markdown 导出格式分别遵守各自合同。新 Skill 继承共享展示规则。
 - `HUMAN_ATTESTED_RESOLVE`：当前消息明确确认已解决且目标唯一，即人工结论与对应 Bug 的 R2 授权；最小 bug view → active 时一次 fixed resolve → 显式 bug view 回读。不读取业务仓库/源码/提交/测试/diff/附件/patch，不运行 select/snapshot/compare，不套用普通证据门槛。
 - 人工确认默认显式 `--resolved-build trunk`，用户明确指定其它值时覆盖；负责人按“用户显式指定 assignee > Bug creator account > BLOCKED”确定，显式人员需由完整真实用户数据唯一解析，未指定时使用当前 Bug 的创建人 account，兼容 openedByAccount/openedBy.account；`openedBy` 字符串须经完整真实用户目录做区分大小写的 account 精确校验，不按姓名或大小写回退匹配；缺失、重名、冲突或数据不完整时停止，不回退、不猜测。resolve 必须显式传 `--assignee <target-account>`，回读同时验证 `status=resolved` 且 `assignedTo=target_account`；默认不传 resolved-date，自动生成 `[CODEX-HUMAN-ATTESTED-RESOLUTION]` 备注，不伪造代码或测试事实。resolved/closed 不重复写；当前消息明确列出的多个 Bug 按输入顺序去重并严格串行；真实阻塞停止，`UNKNOWN_WRITE_RESULT` 停止整个队列、只读回读且绝不重试。仅在真实阻塞时提问，不自动 close 或切换 endpoint。
 - “帮我解决/修复”与不确定表达不触发人工确认；人工确认是 Agent 指令分支，没有新增 Python lifecycle 编排器，不改变 120 endpoint 或只读 facade。

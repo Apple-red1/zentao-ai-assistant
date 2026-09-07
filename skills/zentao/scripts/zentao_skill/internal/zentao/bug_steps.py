@@ -9,6 +9,7 @@ from urllib.parse import parse_qs, urljoin, urlsplit
 
 from ..errors import ApiError, UsageError
 from ..http.legacy import LegacyForm
+from ...text_contract import normalize_multiline_text
 from .comments import InlineUpload, append_inline_image
 from .common import map_enum
 
@@ -71,7 +72,7 @@ def form_values(value: object) -> list[str]:
 
 
 def render_steps(steps: object | None, uploads: tuple[InlineUpload, ...]) -> str:
-    rendered = html.escape("" if steps is None else str(steps), quote=False)
+    rendered = html.escape(normalize_multiline_text(steps) or "", quote=False)
     for upload in uploads:
         rendered = append_inline_image(rendered, upload.url)
     return rendered

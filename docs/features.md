@@ -1,6 +1,6 @@
 # 功能概览
 
-当前产品是面向 AI 的 ZenTao 项目管理 Skill 集合：一个基础 API Skill 加五个
+当前产品是面向 AI 的 ZenTao 项目管理 Skill 集合：一个基础 API Skill 加七个
 高层 Skill。Plugin 与 Clone 共用仓库根目录的同一份 `skills/`，`_shared` 不是
 公开 Skill。
 
@@ -46,6 +46,22 @@ Project / Execution 的资源概览、风险信号和开放事项工作量分布
 `pending_queue` 只保留待处理项，不自动继续；`complete=false`、`partial_failures`、`unsupported_filters` 和 `unavailable_fields` 必须作为证据边界保留。该 Skill 的脚本/组合能力不是 API endpoint，不计入基础 `zentao` 的 120 个 ZenTao API v2 endpoint；程序化 facade 只读，需要 R2 生命周期写入时必须回到基础 `zentao` CLI，并取得当前用户明确授权。
 
 高层 Skill 测试使用标准库桩或本地 FakeZenTao，不访问真实 ZenTao（`Real API calls: 0`）。
+
+## `zentao-testing`
+
+测试端工作台保存按站点/账号隔离的可选 Project、Product、默认 affected-build、Module
+和前后端真实 account；候选集合完整且唯一时才保存事实。提供 Project ID 但缺少
+Project/Product 或模块关联证据会以 `complete=false` 暴露，明确不匹配则拒绝保存；没有
+Project ID 时不强求 Project/Product 关联，`my-bugs` 默认按 Product 读取，显式
+`--all-projects` 才扫描全局，按当前 assignedTo、非 closed 状态筛选，执行
+完整分页、去重、稳定排序并生成基础 Bug 链接。创建 Bug 仍经基础 `zentao` CLI 的一次
+R1 写入；测试端不执行 resolve。active Bug 独立指派需真实 ZenTao 21.7.8 能力探测和
+写后回读；当前状态为 `INCONCLUSIVE/ENVIRONMENT_BLOCKER`，不以生命周期动作代替。
+
+测试团队使用独立的 `testing-teams/<identity-sha256>.json` 配置域，提供全局默认名单、
+每测试项目一份完整覆盖、当前账号运行时自动包含、分别查看/更新以及明确的一次性个人团队
+导入。它与 `zentao-personal` 的 `teams/` 开发/个人默认团队互不覆盖或自动同步；项目覆盖
+只影响对应项目，未配置时回退全局测试团队。类型不明确的“团队”意图先澄清，不产生写入。
 
 Plugin 配置使用 `setup --scope user`，连接配置位于
 `~/.zentao-ai-assistant/config.env`，Token/cache/tmp 不写入 Claude/Codex

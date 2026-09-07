@@ -23,6 +23,7 @@ PUBLIC_SKILLS = (
     "zentao-project-management",
     "zentao-bug-resolver",
     "zentao-batch-export",
+    "zentao-testing",
 )
 PORTABLE_MANIFEST_FIELDS = {
     "$schema",
@@ -37,7 +38,7 @@ PORTABLE_MANIFEST_FIELDS = {
     "extensions",
 }
 PLUGIN_NAME = "zentao-ai-assistant"
-PLUGIN_VERSION = "1.10.0"
+PLUGIN_VERSION = "1.13.0"
 PLUGIN_DESCRIPTION = "ZenTao project management skills for AI coding agents."
 PLUGIN_REPOSITORY_PATH = "Apple-red1/zentao-ai-assistant"
 PLUGIN_SCHEMA = "https" + "://agent-" + "plugins.org/schemas/1.0.0/plugin.schema.json"
@@ -62,7 +63,7 @@ class PluginContractTests(unittest.TestCase):
         self.assertEqual(PLUGIN_REPOSITORY_PATH, urlsplit(manifest["repository"]).path.strip("/"))
         self.assertEqual("MIT", manifest["license"])
 
-    def test_public_skill_surface_has_exactly_six_skills(self) -> None:
+    def test_public_skill_surface_has_exactly_seven_skills(self) -> None:
         skills_root = REPOSITORY_ROOT / "skills"
         immediate_skill_names = sorted(
             path.name for path in skills_root.iterdir() if path.is_dir()

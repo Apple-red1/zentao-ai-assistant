@@ -12,6 +12,7 @@ from zentao_skill.public import ZentaoClient
 - `ZentaoClient.list_page(...)`：读取一个列表页；
 - `ZentaoClient.list_all(...)`：按 pager 读取完整分页；重复页/无进展时返回 `PAGINATION_STALLED`，不误报完整；
 - `ZentaoClient.view(...)`：读取单对象；
+- `ZentaoClient.bug_web_urls(ids)`：通过基础 Bug 展示合同生成不访问页面的 `id → url` 映射；
 - `ZentaoClient.account`：当前配置账号。
 - `ZentaoClient.connection_identity`：当前连接的规范化 `{base_url, account}`，
   不含密码/Token；供用户级团队配置隔离使用。拒绝 URL 内凭据、query/fragment。

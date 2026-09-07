@@ -50,3 +50,11 @@ Bug 列表的官方 `browseType` 范围按 scope 区分：产品支持
 
 `bug web-url` 是本地只读组合能力，按固定禅道路由
 `ZENTAO_BASE_URL/index.php?m=bug&f=view&bugID=<id>` 生成单个或批量链接，不发送页面请求，也不启动浏览器。
+
+## 多行 steps 输入
+
+`bug create` 和 `bug edit` 的 `--steps`、`--steps-file` 与 `--steps-json` 都写入同一个 `steps`
+字段。`--steps-file` 使用 UTF-8 文件并在边界把实际 `CRLF`/`CR` 归一为 `LF`；`--steps-json`
+只把一个明确的 JSON 字符串解码一次。普通文本中的字面量 `\\n` 不会被猜测为换行，若需要表达
+序列化后的真实换行，应使用 `--steps-json` 或优先使用 `--steps-file`。三种输入方式不会改变
+中文、URL、引号、反斜杠和等号等其它字符。

@@ -162,7 +162,8 @@
             "type": "string",
             "required": false,
             "repeatable": false,
-            "file_variant": "--steps-file"
+            "file_variant": "--steps-file",
+            "encoded_variant": "--steps-json"
           },
           {
             "api_name": "assignedTo",
@@ -295,7 +296,8 @@
             "type": "string",
             "required": false,
             "repeatable": false,
-            "file_variant": "--steps-file"
+            "file_variant": "--steps-file",
+            "encoded_variant": "--steps-json"
           },
           {
             "api_name": "project",

@@ -92,3 +92,36 @@ URL scheme/host 小写、去默认端口、去路径末尾 `/`，保留安装路
 名单修改前完整解析真实用户目录，任一输入失败不写入；完整替换空名单须显式
 `team-replace --clear`。维护命令与结果详见
 [团队合同](../skills/zentao-personal/references/team.md)。
+
+## 测试端工作台配置
+
+`zentao-testing` 的 Project/Module 上下文独立保存到：
+
+```text
+~/.zentao-ai-assistant/testing-projects/<identity-sha256>.json
+```
+
+身份键是规范化 base URL 与区分大小写的当前 account；文件不保存密码、Token 或姓名。
+目录/文件权限为 `0700/0600`，使用锁目录和原子替换，并校验 schema、owner、大小、普通
+文件和符号链接。Project 绑定一个 Product 与默认 `affected-build`；模块保存真实
+Module ID 及前后端 account。Project ID 可选；提供 Project ID 时，Project/Product/Module
+关联无法由当前只读返回值证明，命令会显式返回 `complete=false`，不会把未验证事实当成已验证；
+未提供 Project ID 时不要求 Project/Product 关联。Project 更新会使已有
+模块 stale，须重新设置模块。
+
+### 测试团队
+
+`zentao-testing` 的测试团队独立保存到：
+
+```text
+~/.zentao-ai-assistant/testing-teams/<identity-sha256>.json
+```
+
+该配置与开发/个人团队的 `teams/`、测试项目上下文的 `testing-projects/` 分离。它包含一份
+全局默认测试团队和可选的每项目完整覆盖；项目覆盖存在时不与全局名单合并，不存在时才回退
+全局名单。当前登录账号仅在查询时自动包含，不写入成员列表。
+
+测试团队成员保存前必须经过完整用户目录的 account/唯一姓名解析。只有明确的
+`team-import-personal` 请求才会把个人团队一次性复制到全局测试团队，之后不自动同步。配置
+使用与个人团队相同的身份隔离、`0700/0600` 权限、锁、原子替换、损坏保护和 symlink 拒绝规则；
+目标域失败不会覆盖另一团队配置。

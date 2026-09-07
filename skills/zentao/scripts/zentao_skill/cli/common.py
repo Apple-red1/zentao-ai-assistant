@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from ..internal.errors import UsageError
+from ..text_contract import decode_json_text, normalize_multiline_text
 
 
 def positive_int(value: str) -> int:
@@ -84,7 +85,7 @@ def read_text_file(path: str | None) -> str | None:
     if not target.is_file():
         raise UsageError(f"文本文件不存在: {target}")
     try:
-        return target.read_text(encoding="utf-8")
+        return normalize_multiline_text(target.read_text(encoding="utf-8"))
     except UnicodeDecodeError as exc:
         raise UsageError(
             "文本文件必须使用 UTF-8 编码",
@@ -97,7 +98,16 @@ def resolve_text(args: argparse.Namespace, dest: str) -> object | None:
     file_value = getattr(args, dest + "_file", None)
     if file_value is not None:
         return read_text_file(file_value)
-    return value
+    return normalize_multiline_text(value)
+
+
+def resolve_multiline_text(args: argparse.Namespace, dest: str) -> str | None:
+    """Resolve direct/file text or an explicitly JSON-encoded text value."""
+    encoded = getattr(args, dest + "_json", None)
+    if encoded is not None:
+        return decode_json_text(encoded, option=f"--{dest}-json")
+    value = resolve_text(args, dest)
+    return value if isinstance(value, str) or value is None else str(value)
 
 
 class Parser(argparse.ArgumentParser):

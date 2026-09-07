@@ -24,6 +24,7 @@ from .bug_steps import (
 )
 from .comments import page_origin, parse_inline_upload_response
 from .session import ZentaoSession
+from ...text_contract import normalize_multiline_text
 
 
 class BugsAPI:
@@ -36,6 +37,7 @@ class BugsAPI:
 
     @endpoint('bug.create')
     def create(self, *, affected_build: list[object] | None, product: object | None, title: object | None, assignee: object | None = None, branch: object | None = None, browser: object | None = None, deadline: object | None = None, execution: object | None = None, keywords: object | None = None, module: object | None = None, os: object | None = None, priority: object | None = None, project: object | None = None, severity: object | None = None, steps: object | None = None, steps_inline_images: Iterable[str | Path] = (), story: object | None = None, task: object | None = None, type: object | None = None) -> object | None:
+        steps = normalize_multiline_text(steps)
         inline_images = validate_inline_images(steps_inline_images)
         if inline_images:
             return self._create_with_inline_images(
@@ -86,6 +88,7 @@ class BugsAPI:
 
     @endpoint('bug.edit')
     def edit(self, *, item_id: int, affected_build: list[object] | None = None, execution: object | None = None, priority: object | None = None, project: object | None = None, severity: object | None = None, steps: object | None = None, steps_inline_images: Iterable[str | Path] = (), story: object | None = None, title: object | None = None, type: object | None = None) -> object | None:
+        steps = normalize_multiline_text(steps)
         inline_images = validate_inline_images(steps_inline_images)
         if inline_images:
             return self._edit_with_inline_images(

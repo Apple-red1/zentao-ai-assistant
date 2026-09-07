@@ -48,9 +48,9 @@ python skills/zentao/tests/run_all.py
 
 ## Skill 或宿主发现不完整
 
-发现结果必须精确包含六个正式 Skill：`zentao`、`zentao-statistics`、
+发现结果必须精确包含七个正式 Skill：`zentao`、`zentao-statistics`、
 `zentao-personal`、`zentao-project-management`、`zentao-bug-resolver`、
-`zentao-batch-export`。
+`zentao-batch-export`、`zentao-testing`。
 `skills/_shared/zentao/` 没有 `SKILL.md`，不应被安装为公开 Skill。先检查
 宿主安装记录、marketplace 条目和缓存中的根目录结构；不要复制第二份
 `skills/` 来绕过发现问题。

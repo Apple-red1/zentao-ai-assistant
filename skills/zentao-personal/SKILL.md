@@ -21,6 +21,8 @@ description: Use for personal ZenTao workload, pending work, and summaries, or m
 python skills/zentao-personal/scripts/zentao_personal.py overview --json
 python skills/zentao-personal/scripts/zentao_personal.py worklist --user alice --json
 python skills/zentao-personal/scripts/zentao_personal.py brief --json
+# 个人 Bug 明细按固定表格输出；--json 仍保持机器字段
+python skills/zentao-personal/scripts/zentao_personal.py worklist --markdown
 ```
 
 `--user` 支持 account / realname；重名时返回歧义，禁止猜测。需要保存中间数据时使用 `--cache-data`。
@@ -49,4 +51,8 @@ python skills/zentao-personal/scripts/zentao_personal.py team-brief --markdown
 - 个人报告是事实整理，不把工作量直接解释成绩效评价。
 - 优先级建议必须能追溯到 ZenTao 的 priority、severity、deadline、status 等字段。
 - 组合查询允许部分成功，但必须保留 `partial_failures` 和 `complete`。
+- 个人 `overview / worklist / brief --markdown` 中只要有 Bug 明细，就使用固定表头和确定性
+  一行一 Bug 的表格；字段缺失显示 `—`，Bug ID 链接复用基础 `bug web-url`，完整性提示放在表格后。
+- 个人 Markdown presenter 与 `zentao-testing my-bugs --markdown` 共用同一套 Bug 行字段和表格
+  合同，不修改 `--json` 原始结构。
 - 需要修改 ZenTao 时，切换到 `zentao` Skill 的明确写操作，不在本 Skill 内绕过授权合同。

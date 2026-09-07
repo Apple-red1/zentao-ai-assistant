@@ -87,6 +87,27 @@ project 为 `.tmp/zentao/<skill>/`，user 为
 
 `zentao-batch-export` 只读复用基础 CLI：对象详情来自 `view`，资源来自 `resource fetch`。脚本不接受任意输出路径，project/user scope 分别只写入 `.tmp/zentao/zentao-batch-export/` 与 `~/.zentao-ai-assistant/tmp/zentao/zentao-batch-export/`。资源复制只接受基础资源目录 `zentao-resources` 下的普通文件，拒绝符号链接与目录逃逸；动态 ZIP 文件名不拼接对象标题或其它业务内容。部分失败通过 manifest 显式保留，不触发隐式重试。
 
+## 测试端身份配置
+
+`zentao-testing` 和 `zentao-personal` 共用身份范围明确的本地 JSON 存储，但使用不同
+namespace。测试项目配置使用 `testing-projects/`，测试团队配置使用独立的
+`testing-teams/`，个人/开发团队使用 `teams/`；三者不会通过同一个“默认团队”键互相覆盖。
+测试配置仅以规范化站点 + account 的 SHA-256 文件名隔离；目录/文件固定
+为 `0700/0600`，拒绝符号链接、非普通文件、错误 owner/schema、超限或损坏 JSON，并
+通过独占锁、临时文件 fsync 和原子替换避免半文件。提供 Project ID 时，任何
+Project/Product/Module 关联无法由公开只读证据确认必须保留不完整标记，明确不匹配则不写入；
+未提供 Project ID 时不要求 Project/Product 关联。
+
+测试团队配置只包含全局默认成员和按项目隔离的覆盖成员；当前登录账号仅运行时合并。成员
+写入前完整解析用户目录，只有显式 `team-import-personal` 才读取个人团队并一次性复制，
+不会建立双向同步。全局更新、单项目覆盖更新或导入失败时，原测试团队配置、个人团队配置
+和其它项目覆盖均保持不变。
+
+测试端的 `project-set`、`module-set`、`context-use` 和 `my-bugs` 不直接访问 HTTP；
+只通过 `zentao_skill.public` 读取。提 Bug 时，AI 只有在用户明确创建意图和完整上下文
+可用时，才调用基础 `zentao` CLI 一次 R1 create；active Bug 独立指派必须先通过真实
+21.7.8 能力探测和写后回读，不得以 activate/resolve 等生命周期动作伪装转派。
+
 ## 对象资源下载
 
 `resource fetch` 继续只获取对象附件区和富文本发现的同源资源，流式保存到当前

@@ -6,7 +6,7 @@
 - [ ] 根目录 `plugin.json`、`.claude-plugin/plugin.json`、
   `.claude-plugin/marketplace.json`、`.codex-plugin/plugin.json` 和
   `.agents/plugins/marketplace.json` 与 `docs/current-contract.md` 同步。
-- [ ] 仓库根目录 `skills/` 精确包含六个正式 Skill；`skills/_shared/zentao/`
+- [ ] 仓库根目录 `skills/` 精确包含七个正式 Skill；`skills/_shared/zentao/`
   没有 `SKILL.md`，不成为公开 Skill；不存在第二份 Skills tree。
 - [ ] Clone 的 `AGENTS.md`、`CLAUDE.md`、`GEMINI.md` 路由不复制业务规则；Gemini
   Plugin/Extension、Cursor/Copilot/VS Code Plugin 不写成 v1 已验证支持。
@@ -32,6 +32,10 @@
   `uid` 的 hidden/text 形态且只按字段白名单读取；缺失、空值、冲突和非 uid text input
   均有 fail-closed 覆盖。用户步骤文本转义、图片引用顺序/重复、步骤与 Bug 文件归属回读、
   403 前置失败和未知写入不重试均有 Fake/E2E 覆盖；该能力未加入官方 endpoint catalog。
+- [ ] Bug `steps` 的直接文本、UTF-8 文件和显式 JSON 输入只在明确边界处理编码；实际换行、CRLF/CR
+  归一化和字面量 `\\n` 保留均有 Fake/E2E 覆盖，不使用全局字符串替换。
+- [ ] 个人与测试端 Bug Markdown 共用 presenter，固定一行一 Bug、链接/占位/完整性提示和
+  0/1/多条回归均通过，且个人 `--json` 结构未改变。
 - [ ] 聊天消息附带图片且明确要求进入 Bug 描述/重现步骤时，宿主实际传入附件本地路径并
   调用 `--steps-inline-image`；未提供本地路径时写入前阻塞，不产生评论补偿记录。
 - [ ] 更新 Plugin 后重新加载 canonical `skills/`，并在新会话验证该自然语言路由；不得以
@@ -51,6 +55,9 @@
 ## 全量覆盖
 
 - [ ] 个人默认团队只写用户 `teams/`，按站点与账号隔离；完整目录解析、原子写入、并发/损坏拒绝、两种查询入口一致性和失败不误报 0 已通过。本地 Fake/复制插件目录测试不能替代真实宿主验收。
+- [ ] 测试团队只写用户 `testing-teams/`，与个人 `teams/`、测试项目 `testing-projects/`
+  分域；全局/项目覆盖、显式个人导入、旧个人配置兼容、模糊意图零写入、失败原子性和
+  跨身份隔离回归均通过。
 
 执行：
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "ZenTao Testing"
+  short_description: "测试端 Bug 工作台与项目上下文"
+  default_prompt: "使用 $zentao-testing 管理独立测试团队/项目上下文、创建并追踪测试 Bug；遵守团队域隔离、只读高层脚本、基础 CLI 写入和未验证指派阻断合同。"

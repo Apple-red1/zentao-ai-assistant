@@ -57,6 +57,7 @@ class CatalogContractTest(unittest.TestCase):
         self.assertEqual("--affected-build", affected["cli"]); self.assertTrue(affected["repeatable"])
         steps=next(param for param in bug_create["parameters"]["body"] if param["api_name"]=="steps")
         self.assertEqual("--steps-file", steps["file_variant"])
+        self.assertEqual("--steps-json", steps["encoded_variant"])
 
     def test_semantic_parameter_domains_are_explicit(self) -> None:
         by_id = {item["endpoint_id"]: item for item in CATALOG}

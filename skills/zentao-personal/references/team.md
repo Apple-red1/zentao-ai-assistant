@@ -89,6 +89,8 @@ account。写入前完整读取 `inside/outside` 所有页；重名、账号不�
 错误 JSON 在 stderr；用法错误 exit 2。不能只看退出码声称数据完整。
 `--today YYYY-MM-DD` 只用于指定快照日期（例如测试），不筛选 Bug；正常查询省略。
 `--cache-data` 将当前报告存入既有 scope 的 `personal` 临时目录，不能用作名单事实源。
+机器结果标明 `team_domain=personal_development` 和
+`source=personal/development_team`，用于与 `zentao-testing` 的独立测试团队结果区分。
 
 ## 持久化与安全
 

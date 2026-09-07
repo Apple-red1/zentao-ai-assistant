@@ -38,7 +38,7 @@ python skills/zentao/scripts/zentao.py <resource> <action> [scope] [parameters] 
 - `test-task` → `references/api-v2/test-tasks.md`
 - `ticket` → `references/api-v2/tickets.md`
 - `user` → `references/api-v2/users.md`
-Bug 链接固定使用 `ZENTAO_BASE_URL/index.php?m=bug&f=view&bugID=<id>`，直接执行 `zentao.py bug web-url <id> [<id> ...] --json`；此路径不打开浏览器、不访问页面。
+Bug 链接固定使用 `ZENTAO_BASE_URL/index.php?m=bug&f=view&bugID=<id>`，直接执行 `zentao.py bug web-url <id> [<id> ...] --json`；此路径不打开浏览器、不访问页面。Bug 多行 `steps` 优先使用 UTF-8 `--steps-file`，序列化字符串才使用 `--steps-json` 单次解码；普通文本中的字面量 `\\n` 不自动替换，详见对应 Bug reference。
 Token 登录由内部 `token.login` 认证适配自动完成，不建立业务 `token` 命令域；`doctor` 可验证配置和登录。仓库内其他高层 Skill 通过 `references/programmatic.md` 说明的 public facade 复用该基础能力。
 ## Bug 描述图片路由
 当用户要求图片进入 Bug 描述/重现步骤，且当前消息含聊天附件时，图片属于 `steps`，不是评论或普通附件。宿主提供本地路径时，按附件顺序把路径传给同一次 `bug create/edit --steps-inline-image`；保留“附件1...”等说明文字，禁止调用 `bug comment`、`--inline-image`，或先创建后补备注。

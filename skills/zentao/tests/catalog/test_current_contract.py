@@ -18,7 +18,7 @@ class CurrentContractDocumentationTest(unittest.TestCase):
     def test_current_contract_documents_plugin_clone_and_runtime_contract(self) -> None:
         current = CURRENT.read_text(encoding="utf-8")
         for required in (
-            "6 Skills",
+            "7 Skills",
             "CLAUDE.md / GEMINI.md",
             "plugin.json / .claude-plugin / .codex-plugin",
             "project/user scope",
@@ -60,6 +60,7 @@ class CurrentContractDocumentationTest(unittest.TestCase):
             "zentao-personal",
             "zentao-project-management",
             "zentao-batch-export",
+            "zentao-testing",
             "zentao_skill.public",
             ".tmp/zentao/auth/",
             "R3 delete",
@@ -92,6 +93,16 @@ class CurrentContractDocumentationTest(unittest.TestCase):
             with self.subTest(document=name):
                 self.assertIn("zentao-bug-resolver", document)
         self.assertIn("| `skills/zentao-bug-resolver/` |", current)
+
+    def test_testing_workbench_is_registered_across_current_documentation_surfaces(self) -> None:
+        current = CURRENT.read_text(encoding="utf-8")
+        readme = README.read_text(encoding="utf-8")
+        features = FEATURES.read_text(encoding="utf-8")
+        for name, document in (("current contract", current), ("README", readme), ("features", features)):
+            with self.subTest(document=name):
+                for anchor in ("zentao-testing", "my-bugs", "INCONCLUSIVE/ENVIRONMENT_BLOCKER"):
+                    self.assertIn(anchor, document)
+        self.assertIn("testing-projects/<identity-sha256>.json", current)
 
     def test_bug_chat_attachment_intent_routes_to_steps_not_comment(self) -> None:
         documents = {

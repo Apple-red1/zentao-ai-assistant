@@ -69,6 +69,8 @@ class TeamTests(unittest.TestCase):
 
     def test_empty_team_includes_self_without_writing_config(self):
         result = self.ok('team-view')
+        self.assertEqual('personal_development', result['team_domain'])
+        self.assertEqual('personal/development_team', result['source'])
         self.assertEqual([], result['configured_accounts'])
         self.assertEqual(['me'], result['effective_accounts'])
         self.assertEqual([], list(self.home.rglob('*.json')))

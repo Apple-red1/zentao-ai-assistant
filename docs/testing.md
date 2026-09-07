@@ -24,7 +24,7 @@ surface 不可用时，结果必须记录为 `BLOCKED_ENVIRONMENT`，不能降�
 python tests/run_all.py
 ```
 
-该入口先执行 `zentao` API Skill 的完整门槛，再执行 `zentao-statistics`、`zentao-personal`、`zentao-project-management`、`zentao-bug-resolver`、`zentao-batch-export` 的专项单元/行为测试。
+该入口先执行 `zentao` API Skill 的完整门槛，再执行 `zentao-statistics`、`zentao-personal`、`zentao-project-management`、`zentao-bug-resolver`、`zentao-batch-export`、`zentao-testing` 的专项单元/行为测试。
 
 ## API Skill
 
@@ -48,10 +48,18 @@ cache。
 ## 高层 Skill
 
 - `zentao-statistics`：去重、状态/负责人/优先级/严重程度、Task deadline、compare。
-- `zentao-personal`：用户重名、个人过滤、严重 Bug、逾期 Task；默认团队名单隔离和原子写入、完整目录校验、跨范围分页、重复/冲突 ID、active/assignedTo 与 resolved/resolvedBy 阶段归属、测试负责人展示、异常字段 fail-visible、零结果与部分失败、日期排序、两种入口的相同分类结果。
+- `zentao-personal`：用户重名、个人过滤、严重 Bug、逾期 Task；默认团队名单隔离和原子写入、完整目录校验、跨范围分页、重复/冲突 ID、active/assignedTo 与 resolved/resolvedBy 阶段归属、测试负责人展示、异常字段 fail-visible、零结果与部分失败、日期排序、两种入口的相同分类结果；个人 Bug Markdown 的 0/1/多条、缺失字段、重复 ID、链接映射和完整性提示。
+- `zentao` Bug steps：直接文本、UTF-8 文件、CRLF/CR 归一化、显式 JSON 单次解码、字面量 `\\n` 保留、非法 JSON 前置失败，以及 Fake 请求字段中的真实换行。
 - `zentao-project-management`：事实型 health signals、无数值健康分、开放事项 workload。
 - `zentao-bug-resolver`：只读 `select`、Bug snapshot、写前 `compare` 及证据完整性边界。
 - `zentao-batch-export`：混合类型去重、完整字段 Markdown、资源归档、部分失败继续、动态 ZIP、runtime scope 与路径安全。
+- `zentao-testing`：身份隔离 JSON、项目/产品/模块证据、负责人唯一解析、上下文 stale、
+  测试团队与个人团队共存、全局/项目覆盖、显式个人团队导入、更新隔离、旧配置兼容、失败
+  原子性、本人 Bug 过滤/去重/排序/链接和部分完整性。
+
+- `zentao-testing` 的 active Bug 独立指派不由 Fake 验收；必须先完成真实 ZenTao 21.7.8
+能力探测和写后回读。当前没有专用实例，T04/T05 记录为
+`INCONCLUSIVE/ENVIRONMENT_BLOCKER`，见 [`docs/acceptance/zentao-21.7.8-testing-assign.md`](acceptance/zentao-21.7.8-testing-assign.md)。
 - `zentao` 独立评论：十种对象能力矩阵、正文来源互斥、重复 Unicode `files[]`、Bug 单张
   内嵌图片、固定同源页面路由、action 差集唯一确认、未知结果不重放、并发字段变化和
   `--include-comments` 的 Bug/Story 资源追溯范围。
@@ -69,6 +77,10 @@ Issue #48/#58 的 `skills/zentao-personal/tests/test_team.py` 从实际个人 CL
 业务请求必须全为 GET；没有真实 ZenTao 写入。复制目录 smoke 不代表真实宿主
 install/discovery 或自然语言路由已经验收。
 
+个人 Bug 的 `--markdown` 与测试端 `my-bugs --markdown` 使用共享 presenter：固定表头、
+一行一 Bug、空字段占位、Bug ID 链接和表格后的 `complete/partial_failures` 均由代码输出，
+不会改变个人查询的 `--json` 合同。
+
 README 的团队使用示例也由 smoke 测试直接提取命令，在临时 HOME / Fake 中执行，
 验证名单维护、全量明细、JSON/Markdown 与显式清空；不会拿真实团队配置试跑示例。
 
@@ -84,7 +96,7 @@ facade 测试同时验证 `preserve_partial=True` 保留已读页、默认异常
 
 ## Bug ID 聊天展示
 
-统一合同位于 `skills/zentao/references/bug-display.md`，六个 `SKILL.md` 均直接引用。
+统一合同位于 `skills/zentao/references/bug-display.md`，七个 `SKILL.md` 均直接引用。
 Issue #46 r3 实施时用户确认：不包含 CLI 不带 `--json` 的终端输出和 ZIP 内
 `content.md`；只改变聊天富文本，原始机器数据与业务流程保持不变。
 
@@ -110,7 +122,7 @@ python3 -B -m unittest discover -s tests -p 'test_web_url_route.py'
 它是基础能力回归，不是自然语言展示行为测试；原有生产 Python 不变，这些测试
 在指令修改前也应通过，不能称作由新展示规则修复的 Red。
 
-Agent 场景走查应分别提供上述六个 Skill 和虚构的已有结果，不提供预期回答。
+Agent 场景走查应分别提供上述七个 Skill 和虚构的已有结果，不提供预期回答。
 检查表格、正文、摘要/候选项以及导出结果回复中的编号是否可点击、是否按 ID
 关联 URL，并检查相同编号的 Task 不误链、纯统计不补明细、失败不猜 URL、
 resolver 不继续处理或写入。记录实际输出和工具调用；文档关键词检查或手工

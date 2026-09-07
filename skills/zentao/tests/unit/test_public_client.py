@@ -100,6 +100,14 @@ class PublicClientTests(unittest.TestCase):
         with self.assertRaises(UsageError):
             client.call('bug', 'delete', item_id=1)
 
+    def test_bug_web_urls_are_a_read_only_id_mapping(self) -> None:
+        client = ZentaoClient(services=SimpleNamespace(
+            session=SimpleNamespace(config=SimpleNamespace(base_url='https://localhost/zentao', account='admin'))))
+        self.assertEqual([1, 4], [item['id'] for item in client.bug_web_urls([1, 4])])
+        self.assertIn('bugID=4', client.bug_web_urls([4])[0]['url'])
+        with self.assertRaises(UsageError):
+            client.bug_web_urls([0])
+
 
 if __name__ == '__main__':
     unittest.main()

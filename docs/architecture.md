@@ -83,6 +83,7 @@ action 不参与该链路。
 | `zentao-project-management` | 聚合 Project / Execution 的进度事实、风险信号和工作量分布；只读，不臆造健康分或绩效结论。 |
 | `zentao-bug-resolver` | 以 Bug 为单位执行证据驱动的选择、快照、代码证据、最小修复与验证编排；resolver script 只读，生命周期写入由 Agent 回到基础 CLI。 |
 | `zentao-batch-export` | 按显式 `type:id` 批量导出多个对象的完整字段与资源，生成 manifest 和动态 ZIP；只读，复用基础 CLI 的 `view/resource fetch`。 |
+| `zentao-testing` | 保存独立测试团队及 Project/Product/Module 上下文，编排测试端 Bug 创建与日常操作，并提供本人未关闭 Bug 聚合；ZenTao 写入仍回到基础 CLI。 |
 
 统计、个人和项目管理脚本负责确定性分页、去重和聚合，向上保留 `complete` 与 `partial_failures`。Bug resolver 同样保留读取完整性和不可用字段；它的业务证据与本地修复属于 Agent 工作流，不扩展 API endpoint surface。
 
@@ -92,6 +93,7 @@ action 不参与该链路。
 zentao-statistics ---------┐
 zentao-personal -----------+--> skills/_shared/zentao
 zentao-project-management -┘        |
+zentao-testing ------------┘        |
                                      v
                               zentao_skill.public
                                      |
@@ -120,6 +122,17 @@ config/cache/tmp 三类路径；高层 Skill 仍只能通过 public facade，不
 呈现为 active 四列、resolved 五列的阶段表格。`team-bugs` 与 `team-brief` 不各自维护
 查询实现。名单属于个人业务配置，不进入 `_shared` 或连接 `.env`；只读 facade
 提供不含秘密的连接身份和显式保留部分页能力，不执行团队或 ZenTao 写入。
+
+## 测试团队
+
+`zentao-testing/scripts/testing_team.py` 使用独立的 `testing-teams/` identity-scoped JSON
+存储全局默认测试团队和项目覆盖。它读取 `testing-projects/` 仅用于解析已保存项目身份，
+不会把成员写入项目上下文，也不访问 `zentao-personal` 的 `teams/`，除非用户明确发起一次性
+导入。项目覆盖按项目别名及 Project/Product 身份保存，生效时完整替代全局名单；没有覆盖或
+覆盖失效时回退全局名单，并在结果中保留来源和完整性信息。
+
+测试团队与个人团队的读改写分别经过同一个低层安全 JSON store 的独占锁、fsync 原子替换、
+权限和符号链接检查；两域不共享文件，因而目标域的损坏、并发或写入失败不会覆盖另一域。
 
 ## Bug resolver 工作流链路
 

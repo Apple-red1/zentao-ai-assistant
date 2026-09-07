@@ -6,6 +6,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 from ..internal.errors import ApiError, UsageError
 from ..services.container import Services
+from ..internal.web_urls import render_bug_web_urls
 
 
 _LIST_ACTIONS: dict[str, dict[str | None, str]] = {
@@ -189,6 +190,12 @@ class ZentaoClient:
         if item_id <= 0:
             raise UsageError("id 必须是正整数")
         return self.call(resource, "view", item_id=item_id)
+
+    def bug_web_urls(self, ids: list[int]) -> list[dict[str, Any]]:
+        """Build standard Bug links through the base Skill's public contract."""
+        if any(isinstance(item, bool) or not isinstance(item, int) or item <= 0 for item in ids):
+            raise UsageError("Bug ID 必须是正整数")
+        return render_bug_web_urls(self.connection_identity["base_url"], ids)
 
     def _service(self, resource: str) -> object:
         attr = resource.replace("-", "_")

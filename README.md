@@ -1,7 +1,7 @@
 # zentao-ai-assistant
 
 让 AI 通过 ZenTao 官方 API v2 查询项目、统计工作量、整理个人待办，并按明确授权处理 Bug。
-提供 **6 个 Skills**，支持直接 Clone 使用，也提供 Claude Code / Codex 插件安装入口；
+提供 **7 个 Skills**，支持直接 Clone 使用，也提供 Claude Code / Codex 插件安装入口；
 两种方式共用根目录的同一份 `skills/`。
 
 当前行为与开发事实入口：[`docs/current-contract.md`](docs/current-contract.md)。
@@ -16,6 +16,7 @@
 | [`zentao-project-management`](skills/zentao-project-management/SKILL.md) | 项目/执行进度事实、风险信号和工作量分布 | “分析项目 12 的进展和阻塞” |
 | [`zentao-bug-resolver`](skills/zentao-bug-resolver/SKILL.md) | Bug 证据分析、本地修复编排，以及明确人工确认后的受控回写 | “分析 Bug 123 的根因”；“Bug 123 已解决，标记已解决” |
 | [`zentao-batch-export`](skills/zentao-batch-export/SKILL.md) | 多个 ZenTao 对象的完整字段、附件/富文本资源与 ZIP 打包 | “把 bug:123、story:78 的完整资料和附件打包下载” |
+| [`zentao-testing`](skills/zentao-testing/SKILL.md) | 独立测试团队/项目覆盖、测试项目/模块上下文、提 Bug、我的未关闭 Bug 与测试日常操作路由 | “设置商城测试团队并查询我的 Bug” |
 
 基础 API 覆盖 **20 个资源、120 个 endpoint**。统计和项目分析基于实际返回数据，
 不编造历史趋势、健康分或绩效结论；不完整数据会保留完整性标记。
@@ -43,7 +44,7 @@ python3 --version
 
 适合在本仓库中使用或开发。Codex 读取 `AGENTS.md`；Claude Code 和 Gemini CLI
 分别通过 `CLAUDE.md` / `GEMINI.md` 引用同一份规则，按用户目标读取对应 Skill。
-不需要将六个 Skill 单独复制到宿主目录。
+不需要将七个 Skill 单独复制到宿主目录。
 
 ```bash
 python3 skills/zentao/scripts/zentao.py setup --scope project
@@ -71,7 +72,7 @@ python3 skills/zentao/scripts/zentao.py setup --scope user
 python3 skills/zentao/scripts/zentao.py doctor --json
 ```
 
-如宿主提示重载，执行 `/reload-plugins`，再开启新会话确认六个 Skill 可用。
+如宿主提示重载，执行 `/reload-plugins`，再开启新会话确认七个 Skill 可用。
 仅做本地开发加载时可使用 `claude --plugin-dir .`，不必再执行 marketplace 安装。
 宿主命令参考 [Claude Code 官方安装说明](https://code.claude.com/docs/en/plugin-marketplaces)。
 
@@ -86,7 +87,7 @@ codex
 ```
 
 在 Codex CLI 中输入 `/plugins`，选择 `zentao-ai-assistant` marketplace，安装
-同名插件；安装后开启新会话，检查六个正式 Skill。`_shared` 只是共享实现，不是第七个 Skill。
+同名插件；安装后开启新会话，检查七个正式 Skill。`_shared` 只是共享实现，不是公开 Skill。
 插件浏览器与新会话要求见 [OpenAI 官方插件文档](https://learn.chatgpt.com/docs/plugins)。
 
 首次配置在另一个终端的仓库根目录执行；若已配置 user scope，可跳过 `setup`：
@@ -145,6 +146,10 @@ python3 skills/zentao/scripts/zentao.py bug comment 123 --comment "已补充验�
 python3 skills/zentao/scripts/zentao.py bug comment 123 --comment "附图" --inline-image ./screenshot.png --json
 python3 skills/zentao/scripts/zentao.py bug create --product 1 --title "带步骤截图" --affected-build trunk --steps "复现步骤" --steps-inline-image ./screenshot.png --json
 python3 skills/zentao/scripts/zentao.py bug edit 123 --steps-inline-image ./screenshot.png --json
+
+# 多行 Bug steps 优先使用 UTF-8 文件；序列化字符串才使用 --steps-json
+python3 skills/zentao/scripts/zentao.py bug create --product 1 --title "多行步骤" --affected-build trunk --steps-file ./steps.txt --json
+python3 skills/zentao/scripts/zentao.py bug create --product 1 --title "JSON 步骤" --affected-build trunk --steps-json '"第一行\n第二行"' --json
 ```
 
 删除属于 R3，必须有明确删除意图并传 `--yes`。
@@ -156,9 +161,31 @@ python3 skills/zentao-statistics/scripts/zentao_statistics.py summary bug --prod
 python3 skills/zentao-personal/scripts/zentao_personal.py overview --json
 python3 skills/zentao-project-management/scripts/zentao_project_management.py health --project 12 --json
 python3 skills/zentao-batch-export/scripts/zentao_batch_export.py bug:123 story:78 task:90 --json
+python3 skills/zentao-testing/scripts/zentao_testing.py project-list --json
+python3 skills/zentao-testing/scripts/zentao_testing.py my-bugs --json
+python3 skills/zentao-testing/scripts/zentao_testing.py my-bugs --markdown
+python3 skills/zentao-testing/scripts/zentao_testing.py team-view --json
+python3 skills/zentao-testing/scripts/zentao_testing.py team-replace --member alice --member bob --json
+python3 skills/zentao-testing/scripts/zentao_testing.py project-team-replace --project-alias mall --member alice --json
+python3 skills/zentao-testing/scripts/zentao_testing.py team-import-personal --json
 ```
 
 `zentao-batch-export` 只读复用基础 `view` 与 `resource fetch`，把每个对象的完整字段格式化写入 `content.md`，把附件/富文本资源归档到对象目录，并将已成功归档的正文资源引用改为 `resources/<file>`，再在当前 runtime scope 下生成动态命名的 ZIP。单项失败继续导出并完整保留到 `manifest.json` 的 `complete/failures`。
+
+`zentao-testing` 用用户级、按站点/账号隔离的安全 JSON 保存测试 Project/Product、默认
+affected-build、Module 和前后端 account；Project ID 可选，没有 Project ID 时不强求
+Project/Product 关联并按 Product 工作；`project-set`、`module-set`、`context-use`
+和 `my-bugs` 入口负责确定性校验与读取。提 Bug 仍只经基础 `zentao` CLI 执行一次 R1
+创建；active Bug 独立指派只有在真实 21.7.8 环境验证支持后才可执行，当前门槛见
+[`docs/acceptance/zentao-21.7.8-testing-assign.md`](docs/acceptance/zentao-21.7.8-testing-assign.md)。
+当前 active Bug 独立指派状态为 `INCONCLUSIVE/ENVIRONMENT_BLOCKER`，没有可用的专用
+21.7.8 实例时不会声称支持，也不会用生命周期动作代替指派。
+
+测试团队与开发/个人团队独立保存。测试团队配置位于
+`~/.zentao-ai-assistant/testing-teams/<identity-sha256>.json`，提供一份全局默认团队和
+每个已保存测试项目一份完整覆盖；项目覆盖只影响该项目，未配置时回退全局团队。当前
+账号只在运行时自动加入，不保存为成员。`team-import-personal` 只有在用户明确要求时
+执行一次性复制，导入后不自动同步；类型不明确的“设置团队”必须先澄清，不执行写入。
 
 独立评论使用固定同源 Legacy Web 兼容路径，不计入官方 API endpoint；当前十种对象均支持评论、
 重复普通附件和重复内嵌图片，普通附件与内嵌图片也可在同一条评论中提交。写入会在单次 POST
@@ -176,7 +203,7 @@ Bug 的 `create/edit --steps-inline-image` 将本地图片直接嵌入 `steps` �
 Bug 详情链接使用固定禅道路由直接生成，不打开浏览器：
 `python3 skills/zentao/scripts/zentao.py bug web-url 3641 --json`。
 
-六个 Skill 的聊天回复中，Bug 编号本身统一显示为可点击链接，规则见[Bug 展示说明](skills/zentao/references/bug-display.md)。原始 ID、机器 JSON、查询和写入行为不变；CLI 终端输出与 ZIP 内 `content.md` 各自遵循对应输出合同。
+七个 Skill 的聊天回复中，Bug 编号本身统一显示为可点击链接，规则见[Bug 展示说明](skills/zentao/references/bug-display.md)。原始 ID、机器 JSON、查询和写入行为不变；CLI 终端输出与 ZIP 内 `content.md` 各自遵循对应输出合同。
 
 Bug 证据驱动流程的确定性脚本入口为：
 
@@ -282,10 +309,10 @@ python3 skills/zentao-personal/scripts/zentao_personal.py team-bugs --json
 
 ### 3. 保存位置与清空名单
 
-每个“禅道地址 + 登录账号”只有一个默认团队，保存在本机
-`~/.zentao-ai-assistant/teams/`。同一身份跨项目、跨工作区复用；切换地址或账号后
-使用另一份名单。名单不写入项目 `.env`、Git 仓库或插件缓存，也不随 Git 推送到远程。
-团队配置只影响自己的查询范围，不会修改禅道用户、Bug 指派或生命周期状态。
+开发/个人默认团队按每个“禅道地址 + 登录账号”保存在本机
+`~/.zentao-ai-assistant/teams/`。测试团队使用独立的 `testing-teams/`，两者都按身份
+隔离，名单不写入项目 `.env`、Git 仓库或插件缓存，也不随 Git 推送到远程。两类团队
+配置只影响各自查询范围，不会修改禅道用户、Bug 指派或生命周期状态。
 
 只有确实需要清空配置成员时才执行下面的命令；清空后仍保留本人：
 
@@ -295,6 +322,9 @@ python3 skills/zentao-personal/scripts/zentao_personal.py team-replace --clear -
 
 完整参数、排序和异常规则见[团队合同](skills/zentao-personal/references/team.md)，
 连接配置与身份隔离规则见[配置说明](docs/configuration.md#个人默认团队)。
+
+测试团队的设置、项目覆盖、显式个人团队导入和失败语义见
+[测试团队配置合同](skills/zentao-testing/references/team.md)；设置测试团队不会覆盖开发/个人团队。
 
 ## 测试
 

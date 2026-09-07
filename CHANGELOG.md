@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.13.0
+
+- 执行 Issue #66：为 `zentao-testing` 增加独立测试团队配置、全局默认/项目覆盖、显式个人团队导入和隔离失败语义，避免设置测试团队覆盖开发/个人团队。
+
+## 1.12.0
+
+- 执行 #63：统一 Bug `steps` 的真实换行合同，支持 UTF-8 文件和显式 JSON 单次解码，归一实际
+  CRLF/CR 但保留字面量 `\\n`，并补充 create/edit 的 Fake/E2E 回归。
+- 执行 #64：新增个人 `overview/worklist/brief --markdown` 的确定性 Bug 表格，并与测试端
+  `my-bugs --markdown` 共用固定列、链接、占位和完整性呈现；保持个人 `--json` 合同不变。
+
+## 1.11.0
+
+- 执行 #62：新增 `zentao-testing` 测试端 Bug 工作台，提供身份隔离的测试项目/模块配置、
+  负责人解析、本人未关闭 Bug 聚合和测试端操作边界。
+- 测试项目的 Project ID 改为可选；缺失时不强求 Project/Product 关联，`my-bugs` 按 Product 范围读取。
+- 共享本地 JSON 存储统一提供锁、权限、符号链接、schema/owner/大小校验和原子写入；
+  active Bug 独立指派保留真实 ZenTao 21.7.8 环境门槛，当前为 `INCONCLUSIVE/ENVIRONMENT_BLOCKER`。
+
 ## 1.10.0
 
 - 执行 #60：兼容 ZenTao Bug create/edit 表单中 `uid` 为 `type="text"` 的真实形态；仅按

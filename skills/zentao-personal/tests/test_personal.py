@@ -117,6 +117,94 @@ class PersonalTests(unittest.TestCase):
         story = next(item for item in items if item['resource'] == 'story')
         self.assertIsNone(story['deadline_state'])
 
+    def test_personal_bug_markdown_is_one_row_per_bug_with_stable_columns(self) -> None:
+        resources = {
+            'bug': [
+                {'id': '2', 'title': '二号 | 标题', 'assignedTo': 'alice', 'status': 'resolved',
+                 'pri': 2, 'severity': 3, 'resolvedBy': {'realname': '李四'},
+                 'openedDate': '2026-09-03 10:00:00', 'resolvedDate': '2026-09-03 10:05:00'},
+                {'id': 1, 'title': '一号', 'assignedTo': 'alice', 'status': 'active', 'pri': 1, 'severity': 1},
+                {'id': 1, 'title': '一号', 'assignedTo': 'alice', 'status': 'active', 'pri': 1, 'severity': 1},
+            ],
+        }
+        rendered = mod.render_personal_bugs(
+            'alice', resources, complete=True, partial_failures=[],
+            urls={1: 'http://localhost:8080/bug/1', 2: 'http://localhost:8080/bug/2'},
+        )
+        self.assertEqual(1, rendered.count('| [1]('))
+        self.assertEqual(1, rendered.count('| [2]('))
+        self.assertIn('| Bug ID | 标题 | 状态 | 优先级 | 严重程度 | 当前指派 | 解决人 | 创建时间 | 解决时间 |', rendered)
+        self.assertIn('二号 \\| 标题', rendered)
+        self.assertIn('李四', rendered)
+        self.assertNotIn('- Bug：', rendered)
+
+    def test_personal_bug_markdown_dedupes_equivalent_nested_values(self) -> None:
+        resources = {
+            'bug': [
+                {'id': 8, 'title': '同一条', 'assignedTo': {'realname': 'Alice', 'account': 'alice'},
+                 'status': 'active', 'pri': 1},
+                {'id': '8', 'title': '同一条', 'assignedTo': {'account': 'alice', 'realname': 'Alice'},
+                 'status': 'active', 'pri': '1', 'severity': 2},
+            ],
+        }
+        rendered = mod.render_personal_bugs('alice', resources, complete=True,
+                                             urls={8: 'http://localhost:8080/bug/8'})
+        self.assertEqual(1, rendered.count('| [8]('))
+        self.assertNotIn('BUG_SNAPSHOT_CONFLICT', rendered)
+        self.assertIn('| P1 | S2 |', rendered)
+
+    def test_personal_markdown_keeps_partial_failure_after_table(self) -> None:
+        resources = {'bug': [{'id': 3, 'title': '部分结果', 'assignedTo': 'alice', 'status': 'active'}]}
+        rendered = mod.render_personal_bugs(
+            'alice', resources, complete=False,
+            partial_failures=[{'code': 'PAGE_READ_FAILED', 'page': 2}],
+        )
+        self.assertLess(rendered.index('| Bug ID |'), rendered.index('## 数据完整性'))
+        self.assertIn('PAGE_READ_FAILED', rendered)
+
+    def test_personal_markdown_has_fixed_table_for_zero_and_reports_link_failure(self) -> None:
+        empty = mod.render_personal_bugs('alice', {'bug': []}, complete=True, urls={})
+        self.assertIn('| Bug ID | 标题 | 状态 | 优先级 | 严重程度 | 当前指派 | 解决人 | 创建时间 | 解决时间 |', empty)
+        self.assertIn('查询到 0 条 Bug。', empty)
+        self.assertIn('没有 Bug。', empty)
+
+        missing_link = mod.render_personal_bugs(
+            'alice',
+            {'bug': [{'id': 4, 'title': '无链接', 'assignedTo': 'alice', 'status': 'active'}]},
+            complete=True,
+            urls={},
+        )
+        self.assertIn('| 4（链接生成失败） |', missing_link)
+        self.assertIn('## 链接生成', missing_link)
+
+    def test_personal_cli_markdown_uses_url_mapping_and_json_stays_machine_readable(self) -> None:
+        resources = {
+            'bug': [{'id': 9, 'title': '一个 Bug', 'assignedTo': 'alice', 'status': 'active', 'pri': 1, 'severity': 2}],
+            'task': [], 'story': [], 'requirement': [], 'ticket': [], 'feedback': [],
+        }
+
+        class FakeClient:
+            account = 'alice'
+
+            def bug_web_urls(self, ids: list[int]) -> list[dict[str, object]]:
+                return [{'id': ident, 'url': f'http://localhost:8080/index.php?bugID={ident}'} for ident in ids]
+
+        with patch.object(mod, 'get_client', return_value=FakeClient()), patch.object(mod, '_collect', return_value=(resources, [])):
+            markdown = io.StringIO()
+            with contextlib.redirect_stdout(markdown):
+                code = mod.main(['worklist', '--markdown'])
+            self.assertEqual(0, code)
+            self.assertIn('| [9](http://localhost:8080/index.php?bugID=9) |', markdown.getvalue())
+            self.assertEqual(1, markdown.getvalue().count('| [9]('))
+
+            machine = io.StringIO()
+            with contextlib.redirect_stdout(machine):
+                code = mod.main(['worklist', '--json'])
+            self.assertEqual(0, code)
+            payload = json.loads(machine.getvalue())
+            self.assertEqual(['bug'], [item['resource'] for item in payload['items']])
+            self.assertNotIn('| Bug ID |', machine.getvalue())
+
 
 if __name__ == '__main__':
     unittest.main()
