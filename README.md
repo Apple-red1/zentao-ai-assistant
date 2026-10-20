@@ -298,12 +298,13 @@ python3 skills/zentao-personal/scripts/zentao_personal.py team-bugs --json
 结果按“处理阶段 → 阶段责任人”展示：
 
 - **需要马上行动**：`active` Bug，按当前负责人 `assignedTo` 归属。
-- **待测试验证**：`resolved` 但尚未关闭的 Bug，按解决人 `resolvedBy` 归属；
-  当前 `assignedTo` 作为测试负责人单独展示，即使其不属于团队也不会漏掉解决成果。
-- `closed` 不进入清单。“需要马上行动”为四列，待测试验证增加第五列
-  **当前测试负责人**；Bug 编号可点击，成员名下按优先级、严重程度、创建时间由早到晚排序。
-- `resolvedBy` 无法解析时不猜测归属；测试负责人缺失时仍保留有效解决人的 Bug，
-  显示 `—` 并通过完整性信息报告。
+- **待测试验证**：`resolved` 但尚未关闭的 Bug，按当前测试负责人 `assignedTo` 归属；
+  `resolvedBy` 仅展示开发解决人，不会因为开发人员不在测试团队而漏掉 Bug。
+- `closed` 不进入清单。“需要马上行动”为四列，待测试验证增加两列
+  **当前测试负责人**、**开发解决人**；Bug 编号可点击，成员名下按优先级、严重程度、
+  创建时间由早到晚排序。
+- `assignedTo` 无法解析时不猜测归属；有效测试负责人的 Bug 即使 `resolvedBy` 缺失或无效
+  也会保留，并显示 `—`，同时通过完整性信息报告。
 - 成功查询但没有 Bug 的成员显示 0；读取失败或分页不完整会明确提示，不能解释为 0。
   JSON 返回部分结果时可能仍为 exit 0，必须检查 `complete` 和 `partial_failures`。
 

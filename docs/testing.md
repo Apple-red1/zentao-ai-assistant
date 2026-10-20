@@ -48,7 +48,7 @@ cache。
 ## 高层 Skill
 
 - `zentao-statistics`：去重、状态/负责人/优先级/严重程度、Task deadline、compare。
-- `zentao-personal`：用户重名、个人过滤、严重 Bug、逾期 Task；默认团队名单隔离和原子写入、完整目录校验、跨范围分页、重复/冲突 ID、active/assignedTo 与 resolved/resolvedBy 阶段归属、测试负责人展示、异常字段 fail-visible、零结果与部分失败、日期排序、两种入口的相同分类结果；个人 Bug Markdown 的 0/1/多条、缺失字段、重复 ID、链接映射和完整性提示。
+- `zentao-personal`：用户重名、个人过滤、严重 Bug、逾期 Task；默认团队名单隔离和原子写入、完整目录校验、跨范围分页、重复/冲突 ID、active/resolved 均按 assignedTo 阶段归属、开发解决人展示、异常字段 fail-visible、零结果与部分失败、日期排序、两种入口的相同分类结果；个人 Bug Markdown 的 0/1/多条、缺失字段、重复 ID、链接映射和完整性提示。
 - `zentao` Bug steps：直接文本、UTF-8 文件、CRLF/CR 归一化、显式 JSON 单次解码、字面量 `\\n` 保留、非法 JSON 前置失败，以及 Fake 请求字段中的真实换行。
 - `zentao-project-management`：事实型 health signals、无数值健康分、开放事项 workload。
 - `zentao-bug-resolver`：只读 `select`、Bug snapshot、写前 `compare` 及证据完整性边界。

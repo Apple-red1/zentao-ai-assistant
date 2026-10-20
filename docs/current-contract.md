@@ -1,7 +1,7 @@
 # ZenTao AI 项目管理 Skills 当前合同入口
 
 > 状态：**CURRENT / 当前唯一权威入口**
-> 更新日期：2026-09-03
+> 更新日期：2026-09-07
 > 适用范围：仓库内所有 ZenTao Skills、API v2 基础能力、共享脚本、测试和发布检查。
 
 本页是“现在应该相信什么”的索引。历史设计文档只用于追溯，不能覆盖本页指向的当前源码、测试与合同。
@@ -71,10 +71,10 @@ project/user scope：项目配置为 `<repo>/.env`，用户配置为
 
 ## 当前实现事实
 
-- 插件版本 `1.13.0`，共有七个正式 Skill。`zentao-personal` 提供 `team-view/add/remove/replace` 名单维护、`team-bugs/team-brief` 查询入口和个人 Bug Markdown presenter；`zentao-testing` 提供独立测试团队、测试项目/模块上下文、本人未关闭 Bug 聚合和测试端 Bug 工作流路由；本次没有新增官方 API endpoint。
+- 插件版本 `1.14.0`，共有七个正式 Skill。`zentao-personal` 提供 `team-view/add/remove/replace` 名单维护、`team-bugs/team-brief` 查询入口和个人 Bug Markdown presenter；`zentao-testing` 提供独立测试团队、测试项目/模块上下文、本人未关闭 Bug 聚合和测试端 Bug 工作流路由；本次没有新增官方 API endpoint。
 - 开发/个人团队配置保存于 `~/.zentao-ai-assistant/teams/<identity-sha256>.json`，测试团队配置保存于 `~/.zentao-ai-assistant/testing-teams/<identity-sha256>.json`，测试项目上下文保存于 `testing-projects/`；三者按规范化 base URL + account 隔离，跨源码项目复用但互不覆盖。成员写入只接受明确的对应 Skill 请求，完整用户目录唯一解析后保存真实 account，本人自动纳入而不保存为配置成员。损坏配置、身份冲突、目录不完整和并发写入均阻止覆盖。
-- 团队 Bug 与日报共用完整分页、跨 Product/Project/Execution 扫描、ID 去重和阶段分类；`active` 按当前 `assignedTo` 归入“需要马上行动”，`resolved` 按 `resolvedBy` 归入“待测试验证”，当前 `assignedTo` 仅展示测试负责人，`closed` 排除。显式 scope 仅缩小查询。输出按阶段→成员→优先级/严重程度/旧 Bug/数值 ID 排序，全部成员和符合条件的 Bug 都保留；日报只增加汇总。
-- 团队 `--markdown` 对 active 输出四列、对 resolved 输出含“当前测试负责人”的五列表格，并调用基础 `bug web-url` 生成编号链接；机器 JSON 与默认终端 JSON 保持原始字段。`resolvedBy` 无效不回退猜测；团队内解决人的测试负责人无效时仍保留 Bug。字段失败、未知状态、日期异常、冲突和分页截断通过 `complete/partial_failures` 暴露，失败不能伪装为 0。独立查询不构成事务快照。
+- 团队 Bug 与日报共用完整分页、跨 Product/Project/Execution 扫描、ID 去重和阶段分类；`active` 按当前 `assignedTo` 归入“需要马上行动”，`resolved` 也按当前 `assignedTo` 归入“待测试验证”，`resolvedBy` 仅展示开发解决人，`closed` 排除。显式 scope 仅缩小查询。输出按阶段→成员→优先级/严重程度/旧 Bug/数值 ID 排序，全部成员和符合条件的 Bug 都保留；日报只增加汇总。
+- 团队 `--markdown` 对 active 输出四列、对 resolved 输出含“当前测试负责人”和“开发解决人”的六列表格，并调用基础 `bug web-url` 生成编号链接；机器 JSON 与默认终端 JSON 保持原始字段。`assignedTo` 无效不回退猜测；有效测试负责人的 Bug 即使 `resolvedBy` 无效仍保留并报告完整性错误。字段失败、未知状态、日期异常、冲突和分页截断通过 `complete/partial_failures` 暴露，失败不能伪装为 0。独立查询不构成事务快照。
 - facade 新增只读 `connection_identity` 和可选 `list_all(preserve_partial=True)`；后者在页读取失败时保留已读页且不重试，默认调用行为不变。团队本地配置写入不扩展 facade 的 ZenTao 写入权限。
 - 共享身份存储将测试项目配置与个人团队配置按规范化 base URL + account 隔离，使用用户级 `0700/0600` 目录/文件、锁目录、原子替换和大小/schema/owner/符号链接校验；不保存密码、Token 或姓名。
 - 测试项目配置文件固定为 `~/.zentao-ai-assistant/testing-projects/<identity-sha256>.json`，与连接配置、Token cache 和运行临时目录分离。

@@ -76,10 +76,10 @@ def render_team_report(report, *, brief=False):
             if state == 'active':
                 lines.extend(['| Bug ID | 标题 | 优先级 | 状态 |', '|---|---|---|---|'])
             else:
-                lines.extend(['| Bug ID | 标题 | 优先级 | 状态 | 当前测试负责人 |',
-                              '|---|---|---|---|---|'])
+                lines.extend(['| Bug ID | 标题 | 优先级 | 状态 | 当前测试负责人 | 开发解决人 |',
+                              '|---|---|---|---|---|---|'])
             for bug in bugs:
-                owner = bug_account(bug) if state == 'active' else bug_resolver_account(bug)
+                owner = bug_account(bug)
                 if bug.get('status') != state or owner != member['account']:
                     raise TeamError('TEAM_PRESENTATION_CONFLICT', 'Bug 状态或负责人和分组不一致')
                 ident = int(bug['id'])
@@ -89,7 +89,7 @@ def render_team_report(report, *, brief=False):
                 title = bug.get('title') if isinstance(bug.get('title'), str) else '（标题缺失）'
                 row = f"| {link} | {escape(title)} | {priority} | {'激活' if state == 'active' else '已解决'}"
                 if state == 'resolved':
-                    row += f" | {escape(bug_account(bug) or '—')}"
+                    row += f" | {escape(owner or '—')} | {escape(bug_resolver_account(bug) or '—')}"
                 lines.append(row + ' |')
             lines.append('')
     if report['partial_failures']:

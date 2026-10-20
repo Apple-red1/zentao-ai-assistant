@@ -2,8 +2,8 @@
 
 本功能归 `zentao-personal`，不新增 Skill/API endpoint。初始需求依据为
 [Issue #48 的决策评论](https://github.com/Apple-red1/zentao-ai-assistant/issues/48)，
-阶段归属由 [Issue #58](https://github.com/Apple-red1/zentao-ai-assistant/issues/58)
-修订为 `active → assignedTo`、`resolved → resolvedBy`。
+阶段归属由 [Issue #67](https://github.com/Apple-red1/zentao-ai-assistant/issues/67)
+修订为 `active → assignedTo`、`resolved → assignedTo`；`resolvedBy` 仅作为开发解决人展示。
 
 ## 自然语言与命令
 
@@ -39,13 +39,13 @@ account。写入前完整读取 `inside/outside` 所有页；重名、账号不�
 - `active` 使用当前 `assignedTo` 的 account（兼容 `assignedTo.account` /
   `assignedToAccount`）归入“需要马上行动”；团队外负责人、空值和特殊值 `closed`
   不分配给团队成员，历史 `resolvedBy` 不参与当前归属。
-- `resolved` 使用 `resolvedBy` 的 account（兼容 `resolvedBy.account` /
-  `resolvedByAccount`）归入解决人的“待测试验证”；当前 `assignedTo` 只表示测试负责人，
-  无论其是否属于团队都不改变归属。同一 Bug 只归解决人一次；`closed` 不纳入。
-- `resolvedBy` 缺失、非法或矛盾时报告 `BUG_RESOLVER_INVALID`，不回退到当前负责人；
-  团队内解决人的 `assignedTo` 无效时仍保留 Bug，以 `—` 展示测试负责人并报告
-  `BUG_VERIFICATION_ASSIGNEE_INVALID`。未知/缺失状态、无效 ID、无法解析阶段负责人或
-  同 ID 快照冲突也进入失败信息，不静默归类。
+- `resolved` 使用当前 `assignedTo` 的 account（兼容 `assignedTo.account` /
+  `assignedToAccount`）归入测试负责人的“待测试验证”；`resolvedBy` 仅表示开发解决人，
+  不决定是否属于测试团队。同一 Bug 只归当前测试负责人一次；`closed` 不纳入。
+- `resolvedBy` 缺失、非法或矛盾时报告 `BUG_RESOLVER_INVALID`，但只要 `assignedTo` 是有效的
+  团队成员，仍保留该 Bug 并以 `—` 展示开发解决人；`assignedTo` 缺失或无效时报告
+  `BUG_ASSIGNEE_INVALID`，不猜测测试负责人。未知/缺失状态、无效 ID、无法解析阶段负责人
+  或同 ID 快照冲突也进入失败信息，不静默归类。
 - 不提供事务快照；分页/跨范围读取期间如果同 ID 的关键事实冲突，排除冲突项并报告
   `BUG_SNAPSHOT_CONFLICT`。不能把多次独立查询间的真实变化误认为两种入口数据不一致。
 
@@ -58,8 +58,8 @@ account。写入前完整读取 `inside/outside` 所有页；重名、账号不�
    可比较的带时区时间换算 UTC，同组混合带/不带时区时报告
    `BUG_DATE_INCOMPARABLE` 并改用 ID 稳定排序，不猜本地时区。
 4. “需要马上行动”固定四列：`Bug ID / 标题 / 优先级 / 状态`；“待测试验证”固定
-   五列：`Bug ID / 标题 / 优先级 / 状态 / 当前测试负责人`。标题保留真实内容并
-   转义 Markdown，优先级或测试负责人缺失显示 `—`，状态显示“激活/已解决”。
+   六列：`Bug ID / 标题 / 优先级 / 状态 / 当前测试负责人 / 开发解决人`。标题保留真实内容并
+   转义 Markdown，优先级、测试负责人或开发解决人缺失显示 `—`，状态显示“激活/已解决”。
 5. 两个阶段都保留全部成员；只有完整且无结果才显示 `0` 和“暂无符合条件的 Bug”。
    不完整成员显示“数据不完整”，已有数量只能称作“已获取”。
 6. 日报只在相同明细前添加快照日期和团队汇总，不删减普通 Bug，不重新排序或查询重点项。
@@ -80,8 +80,8 @@ account。写入前完整读取 `inside/outside` 所有页；重名、账号不�
 `{account, realname, bugs, complete, partial_failures}`；所有数字由脚本计算。
 `summary.total_not_closed = active_immediate_action + resolved_awaiting_verification`。
 `bug_ids` 是数值升序的规范化 ID 集合，明细保留 API 原始 ID；数量只计算已获取的有效项。
-`awaiting_verification` 的成员 account 是规范化 `resolvedBy`，Bug 原始 `assignedTo`
-保留给机器数据和“当前测试负责人”展示，不形成第二份统计归属。
+`awaiting_verification` 的成员 account 是规范化 `assignedTo`，Bug 原始 `resolvedBy`
+保留给机器数据和“开发解决人”展示，不形成第二份统计归属。
 
 `--per-page 1..1000` 默认 1000；读取途中失败保留已读页，其他范围继续。
 整个 scope 的失败会影响全部成员完整性；单成员数据异常保留在对应成员和总结果中。

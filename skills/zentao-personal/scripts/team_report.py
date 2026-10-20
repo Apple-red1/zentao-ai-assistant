@@ -189,10 +189,9 @@ def build_team_report(members, rows, *, scope=None, scope_id=None, failures=None
             before = seen[ident]
             def signature(value):
                 status = value.get('status')
-                owner = (bug_account(value) if status == 'active'
-                         else bug_resolver_account(value) if status == 'resolved' else None)
-                verification = bug_account(value) if status == 'resolved' else None
-                return (owner, verification, status, value.get('title'),
+                owner = bug_account(value) if status in ('active', 'resolved') else None
+                resolver = bug_resolver_account(value) if status == 'resolved' else None
+                return (owner, resolver, status, value.get('title'),
                         value.get('pri', value.get('priority')), value.get('severity'),
                         value.get('openedDate'))
             if signature(before) != signature(row) and ident not in conflicted:
@@ -216,15 +215,18 @@ def build_team_report(members, rows, *, scope=None, scope_id=None, failures=None
             if account not in by_account:
                 continue
         else:
-            account = bug_resolver_account(row)
+            # A resolved-but-not-closed Bug belongs to the current tester who
+            # must verify it. resolvedBy identifies the developer and is only
+            # supplemental display/quality information.
+            account = bug_account(row)
             if not valid_account(account):
-                record({'code': 'BUG_RESOLVER_INVALID', 'bug_id': ident, 'field': 'resolvedBy'})
+                record({'code': 'BUG_ASSIGNEE_INVALID', 'bug_id': ident, 'field': 'assignedTo'})
                 continue
             if account not in by_account:
                 continue
-            if not valid_account(bug_account(row)):
-                record({'code': 'BUG_VERIFICATION_ASSIGNEE_INVALID', 'bug_id': ident,
-                        'field': 'assignedTo', 'account': account}, account)
+            if not valid_account(bug_resolver_account(row)):
+                record({'code': 'BUG_RESOLVER_INVALID', 'bug_id': ident,
+                        'field': 'resolvedBy', 'account': account}, account)
         if created_time(row) is None:
             record({'code': 'BUG_DATE_INVALID', 'bug_id': ident, 'account': account}, account)
         if not isinstance(row.get('title'), str) or not row['title']:
