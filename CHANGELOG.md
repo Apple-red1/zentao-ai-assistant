@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.16.0
+
+- 修复 `zentao-bug-board` 只能接受 Project ID 的范围识别缺口：新增 Product ID 与跨 Project/Product 的精确名称解析，使“WebHub-独立站营销智能体项目”正确命中 Product 15，而不误用相近的 Project 12。保留原 Project 入口和全范围只读评审口径。
+
 ## 1.15.0
 
 - 执行 Issue #69：新增独立只读 `zentao-bug-board`，按单 Project 全量 Bug 和北京时间

@@ -97,8 +97,11 @@ def _sort_key(row: dict[str, Any]) -> tuple[int, str, int, str]:
 
 
 def build_board(project_id: int, project_name: str | None, rows: Iterable[dict[str, Any]],
-                now: datetime, *, partial_failures: Iterable[dict[str, Any]] = ()) -> dict[str, Any]:
+                now: datetime, *, partial_failures: Iterable[dict[str, Any]] = (),
+                scope: str = "project") -> dict[str, Any]:
     """Classify one captured list snapshot; never writes to ZenTao."""
+    if scope not in {"project", "product"}:
+        raise ValueError("Bug 评审表仅支持 Project 或 Product 范围")
     if now.tzinfo is None:
         raise ValueError("now must contain a timezone")
     now = now.astimezone(TZ)
@@ -187,7 +190,7 @@ def build_board(project_id: int, project_name: str | None, rows: Iterable[dict[s
         for item in items:
             item.pop("priority_number")
     return {
-        "project": {"id": project_id, "name": project_name},
+        scope: {"id": project_id, "name": project_name},
         "as_of": now.isoformat(timespec="seconds"), "timezone": "Asia/Shanghai",
         "complete": not failures and not warnings,
         "partial_failures": failures, "data_warnings": warnings,
@@ -196,25 +199,58 @@ def build_board(project_id: int, project_name: str | None, rows: Iterable[dict[s
     }
 
 
-def collect_board(client: Any, project_id: int, now: datetime) -> dict[str, Any]:
+def resolve_target(client: Any, name: str) -> tuple[str, int]:
+    """Resolve a unique visible Project/Product name, allowing a spoken 项目 suffix."""
+    requested = name.strip()
+    if not requested:
+        raise ValueError("请提供 Project 或 Product 名称")
+    candidates: list[tuple[str, int, str]] = []
+    for scope in ("project", "product"):
+        options = {"browse": "all"} if scope == "product" else {}
+        listed = client.list_all(scope, preserve_partial=True, **options)
+        if not listed.complete:
+            raise ValueError("Project/Product 列表查询不完整，无法唯一确认名称")
+        for row in listed.items:
+            try:
+                row_id = int(row.get("id"))
+            except (TypeError, ValueError):
+                continue
+            if row_id > 0 and isinstance(row.get("name"), str):
+                candidates.append((scope, row_id, row["name"].strip()))
+    for candidate_name in (requested, requested[:-2].strip() if requested.endswith("项目") else ""):
+        if not candidate_name:
+            continue
+        matches = {(scope, row_id) for scope, row_id, row_name in candidates if row_name == candidate_name}
+        if len(matches) == 1:
+            return next(iter(matches))
+        if len(matches) > 1:
+            raise ValueError("Project/Product 名称重名，无法唯一确认；请提供明确的 --project 或 --product ID")
+    raise ValueError("未找到该名称的可见 Project 或 Product；请核对名称或提供明确 ID")
+
+
+def collect_board(client: Any, project_id: int, now: datetime, *, scope: str = "project") -> dict[str, Any]:
+    if scope not in {"project", "product"}:
+        raise ValueError("Bug 评审表仅支持 Project 或 Product 范围")
+    label = scope.capitalize()
     if project_id <= 0:
-        raise ValueError("Project ID 必须为正整数")
-    listed_projects = client.list_all("project", preserve_partial=True)
-    matches = [row for row in listed_projects.items if str(row.get("id")) == str(project_id)]
+        raise ValueError(f"{label} ID 必须为正整数")
+    options = {"browse": "all"} if scope == "product" else {}
+    listed_scope = client.list_all(scope, preserve_partial=True, **options)
+    matches = [row for row in listed_scope.items if str(row.get("id")) == str(project_id)]
     names = {str(row.get("name") or "") for row in matches}
     if not matches or len(names) != 1:
-        raise ValueError("Project 不存在、不可见或项目列表不完整，无法唯一确认 Project ID")
-    listed_bugs = client.list_all("bug", scope="project", scope_id=project_id,
+        raise ValueError(f"{label} 不存在、不可见或列表不完整，无法唯一确认 {label} ID")
+    listed_bugs = client.list_all("bug", scope=scope, scope_id=project_id,
                                   browse="all", preserve_partial=True)
     failures = list(listed_bugs.partial_failures)
-    if not listed_projects.complete:
-        failures.extend({"resource": "project", **failure} for failure in listed_projects.partial_failures)
-        if not listed_projects.partial_failures:
-            failures.append({"code": "PROJECT_LIST_INCOMPLETE", "resource": "project"})
+    if not listed_scope.complete:
+        failures.extend({"resource": scope, **failure} for failure in listed_scope.partial_failures)
+        if not listed_scope.partial_failures:
+            failures.append({"code": f"{scope.upper()}_LIST_INCOMPLETE", "resource": scope})
     if not listed_bugs.complete and not listed_bugs.partial_failures:
         failures.append({"code": "BUG_LIST_INCOMPLETE"})
     report = build_board(project_id, str(matches[0].get("name") or ""), listed_bugs.items, now,
-                         partial_failures=failures)
+                         partial_failures=failures, scope=scope)
     ids = sorted({int(item["id"]) for queue in report["queues"].values() for item in queue
                   if _valid_bug_id(item.get("id"))})
     if ids:
@@ -246,8 +282,9 @@ def _cell(value: Any) -> str:
 
 
 def render_board(report: Mapping[str, Any]) -> str:
-    project = report["project"]
-    lines = [f"# 16:00 Bug 评审表 · {_cell(project.get('name'))} (Project {project['id']})", "",
+    scope = "product" if "product" in report else "project"
+    target = report[scope]
+    lines = [f"# 16:00 Bug 评审表 · {_cell(target.get('name'))} ({scope.capitalize()} {target['id']})", "",
              f"查询时刻：{report['as_of']}（{report['timezone']}）", "",
              "数据状态：" + ("完整" if report["complete"] else "查询不完整或存在待核定数据"), "",
              "期限依据：按当前优先级和创建时刻推算；历史优先级变更未由本次列表核验。", ""]
@@ -269,7 +306,7 @@ def render_board(report: Mapping[str, Any]) -> str:
             lines.append("| " + " | ".join((id_cell, *(_cell(value) for value in values))) + " |")
         lines.append("")
     if not report["complete"]:
-        lines.extend(["## 数据完整性", "", "查询不完整；以上仅是已读取且可分类的记录，不能视作项目全部待办。", ""])
+        lines.extend(["## 数据完整性", "", "查询不完整；以上仅是已读取且可分类的记录，不能视作目标范围全部待办。", ""])
     for failure in report["partial_failures"]:
         lines.append(f"- 读取失败：{_cell(failure.get('code'))}，第 {_cell(failure.get('page'))} 页")
     for warning in report["data_warnings"]:

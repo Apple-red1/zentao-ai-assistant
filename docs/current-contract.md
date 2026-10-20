@@ -17,7 +17,7 @@
 | `skills/zentao-bug-resolver/` | 证据驱动的 Bug 只读 `select` / `snapshot` / `compare` 与 Agent 编排 |
 | `skills/zentao-batch-export/` | 多个 ZenTao 对象的完整 `view` 字段、资源与 ZIP 批量资料导出 |
 | `skills/zentao-testing/` | 测试端项目/模块上下文、Bug 创建编排、本人未关闭 Bug 与日常操作路由 |
-| `skills/zentao-bug-board/` | 手动指定单 Project 的 16:00 Bug 交付、历史未完成与待测试验证只读表 |
+| `skills/zentao-bug-board/` | 手动指定单 Project/Product 的 16:00 Bug 交付、历史未完成与待测试验证只读表 |
 
 共享低层辅助位于 `skills/_shared/zentao/`，它没有 `SKILL.md`，不参与 Skill 路由。
 
@@ -72,8 +72,8 @@ project/user scope：项目配置为 `<repo>/.env`，用户配置为
 
 ## 当前实现事实
 
-- 插件版本 `1.15.0`，共有八个正式 Skill。`zentao-bug-board` 提供单项目 16:00 Bug 评审只读表；`zentao-personal` 提供团队名单与日报；`zentao-testing` 提供独立测试团队、项目/模块上下文和本人未关闭 Bug 工作流。本次没有新增官方 API endpoint。
-- `zentao-bug-board` 通过 public facade 读取单个已确认 Project 的全部 Bug，保留分页与数据失败并按 ID 去重；业务时区为 `Asia/Shanghai`，`pri=0..4` 按本实例用户确认映射为 P0～P4，`active/resolved/closed` 分别代表待研发、待测试、已验收。已关闭不展示；历史未完成、今天下班前、下一个中国法定工作日 12:00 前、16:00 后新增和待测试验证互斥。工作日日历仅核验 2025、2026 年；其它年份或关键字段缺失标为待核定，历史期限按当前优先级推算且历史变更未核验。
+- 插件版本 `1.16.0`，共有八个正式 Skill。`zentao-bug-board` 提供单 Project/Product 16:00 Bug 评审只读表；`zentao-personal` 提供团队名单与日报；`zentao-testing` 提供独立测试团队、项目/模块上下文和本人未关闭 Bug 工作流。本次没有新增官方 API endpoint。
+- `zentao-bug-board` 通过 public facade 跨 Project/Product 完整目录唯一解析目标名称，完整名称优先，末尾口语“项目”只在无精确匹配时去掉；显式 ID 可选择 `--project` 或 `--product`。按目标类型读取其全部可见 Bug，保留分页与数据失败并按 ID 去重；业务时区为 `Asia/Shanghai`，`pri=0..4` 按本实例用户确认映射为 P0～P4，`active/resolved/closed` 分别代表待研发、待测试、已验收。已关闭不展示；历史未完成、今天下班前、下一个中国法定工作日 12:00 前、16:00 后新增和待测试验证互斥。工作日日历仅核验 2025、2026 年；其它年份或关键字段缺失标为待核定，历史期限按当前优先级推算且历史变更未核验。
 - 开发/个人团队配置保存于 `~/.zentao-ai-assistant/teams/<identity-sha256>.json`，测试团队配置保存于 `~/.zentao-ai-assistant/testing-teams/<identity-sha256>.json`，测试项目上下文保存于 `testing-projects/`；三者按规范化 base URL + account 隔离，跨源码项目复用但互不覆盖。成员写入只接受明确的对应 Skill 请求，完整用户目录唯一解析后保存真实 account，本人自动纳入而不保存为配置成员。损坏配置、身份冲突、目录不完整和并发写入均阻止覆盖。
 - 团队 Bug 与日报共用完整分页、跨 Product/Project/Execution 扫描、ID 去重和阶段分类；`active` 按当前 `assignedTo` 归入“需要马上行动”，`resolved` 也按当前 `assignedTo` 归入“待测试验证”，`resolvedBy` 仅展示开发解决人，`closed` 排除。显式 scope 仅缩小查询。输出按阶段→成员→优先级/严重程度/旧 Bug/数值 ID 排序，全部成员和符合条件的 Bug 都保留；日报只增加汇总。
 - 团队 `--markdown` 对 active 输出四列、对 resolved 输出含“当前测试负责人”和“开发解决人”的六列表格，并调用基础 `bug web-url` 生成编号链接；机器 JSON 与默认终端 JSON 保持原始字段。`assignedTo` 无效不回退猜测；有效测试负责人的 Bug 即使 `resolvedBy` 无效仍保留并报告完整性错误。字段失败、未知状态、日期异常、冲突和分页截断通过 `complete/partial_failures` 暴露，失败不能伪装为 0。独立查询不构成事务快照。

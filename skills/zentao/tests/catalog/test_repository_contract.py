@@ -106,7 +106,7 @@ class RepositoryContractTests(unittest.TestCase):
             "自己/某人的待办、风险、工作摘要": "zentao-personal",
             "数量、分布、汇总、比较": "zentao-statistics",
             "设置测试项目/模块负责人、测试提 Bug、测试查询/操作 Bug": "zentao-testing",
-            "指定 Project 查询 16:00 Bug 交付、逾期和待测试验证表": "zentao-bug-board",
+            "指定 Project/Product 查询 16:00 Bug 交付、逾期和待测试验证表": "zentao-bug-board",
             "原子 ZenTao read/write/lifecycle/delete/resource": "zentao",
         }
         for goal, skill_name in routes.items():

@@ -1,4 +1,4 @@
 interface:
   display_name: "16 点 Bug 评审表"
   short_description: "按项目查看修复期限、逾期和待测试验证 Bug"
-  default_prompt: "先确认唯一 Project ID，再运行 zentao-bug-board 的只读报表。说明日历、字段和分页的不完整信息。"
+  default_prompt: "从用户话语提取目标名称，按 Project/Product 唯一解析并运行 zentao-bug-board 的只读报表。说明日历、字段和分页的不完整信息。"

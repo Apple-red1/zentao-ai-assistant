@@ -2,15 +2,20 @@ from __future__ import annotations
 
 import sys
 import unittest
+from contextlib import redirect_stdout
 from datetime import datetime
+from io import StringIO
 from pathlib import Path
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPTS = ROOT / "skills" / "zentao-bug-board" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
+import board  # noqa: E402
 from board import build_board, collect_board, render_board  # noqa: E402
+from zentao_bug_board import main  # noqa: E402
 from workdays import next_workday  # noqa: E402
 
 
@@ -23,6 +28,106 @@ def bug(bug_id, opened, pri=1, status="active", assigned="dev", **extra):
 
 
 class BoardRulesTests(unittest.TestCase):
+    def test_product_scope_does_not_read_same_numbered_project(self):
+        class Listed:
+            def __init__(self, rows):
+                self.items, self.complete, self.partial_failures = rows, True, []
+
+        class Client:
+            def __init__(self):
+                self.calls = []
+
+            def list_all(self, resource, **kwargs):
+                self.calls.append((resource, kwargs))
+                if resource == "product":
+                    return Listed([{"id": 15, "name": "WebHub-独立站营销智能体"}])
+                if resource == "bug" and kwargs.get("scope") == "product":
+                    return Listed([bug(69, "2026-10-20 15:00:00")])
+                raise AssertionError((resource, kwargs))
+
+            def bug_web_urls(self, ids):
+                return [{"id": 69, "url": "https://example.test/69"}]
+
+        client = Client()
+        report = collect_board(client, 15, datetime(2026, 10, 20, 16, 1, tzinfo=TZ), scope="product")
+        self.assertEqual({"id": 15, "name": "WebHub-独立站营销智能体"}, report["product"])
+        self.assertNotIn("project", report)
+        self.assertEqual([69], [row["id"] for row in report["queues"]["today"]])
+        self.assertEqual(("bug", {"scope": "product", "scope_id": 15, "browse": "all",
+                                  "preserve_partial": True}), client.calls[1])
+        self.assertIn("(Product 15)", render_board(report))
+
+    def test_name_resolution_prefers_exact_then_unique_project_suffix(self):
+        class Listed:
+            def __init__(self, rows):
+                self.items, self.complete, self.partial_failures = rows, True, []
+
+        class Client:
+            def list_all(self, resource, **kwargs):
+                if resource == "project":
+                    return Listed([{"id": 12, "name": "WebHub设计器"}])
+                if resource == "product":
+                    return Listed([{"id": 15, "name": "WebHub-独立站营销智能体"}])
+                raise AssertionError(resource)
+
+        self.assertEqual(("product", 15), board.resolve_target(Client(), "WebHub-独立站营销智能体项目"))
+        self.assertEqual(("product", 15), board.resolve_target(Client(), "WebHub-独立站营销智能体"))
+        self.assertEqual(("project", 12), board.resolve_target(Client(), "WebHub设计器"))
+
+        class ExactProject(Client):
+            def list_all(self, resource, **kwargs):
+                if resource == "project":
+                    return Listed([{"id": 17, "name": "WebHub-独立站营销智能体项目"}])
+                return super().list_all(resource, **kwargs)
+
+        self.assertEqual(("project", 17), board.resolve_target(ExactProject(), "WebHub-独立站营销智能体项目"))
+
+    def test_name_resolution_rejects_duplicate_or_incomplete_directory(self):
+        class Listed:
+            def __init__(self, rows, complete=True):
+                self.items, self.complete, self.partial_failures = rows, complete, []
+
+        class Client:
+            def __init__(self, products, complete=True):
+                self.products, self.complete = products, complete
+
+            def list_all(self, resource, **kwargs):
+                if resource == "project":
+                    return Listed([{"id": 12, "name": "Target"}])
+                return Listed(self.products, self.complete)
+
+        with self.assertRaisesRegex(ValueError, "重名|唯一"):
+            board.resolve_target(Client([{"id": 15, "name": "Target"}]), "Target")
+        with self.assertRaisesRegex(ValueError, "不完整"):
+            board.resolve_target(Client([], complete=False), "Target")
+        with self.assertRaisesRegex(ValueError, "未找到"):
+            board.resolve_target(Client([]), "Unknown")
+
+    def test_cli_accepts_product_and_natural_name(self):
+        class Listed:
+            def __init__(self, rows):
+                self.items, self.complete, self.partial_failures = rows, True, []
+
+        class Client:
+            def list_all(self, resource, **kwargs):
+                if resource == "product":
+                    return Listed([{"id": 15, "name": "WebHub-独立站营销智能体"}])
+                if resource == "project":
+                    return Listed([])
+                if resource == "bug":
+                    self_scope = kwargs.get("scope")
+                    if self_scope != "product":
+                        raise AssertionError(self_scope)
+                    return Listed([])
+                raise AssertionError(resource)
+
+        for arguments in (["--product", "15", "--json"],
+                          ["--name", "WebHub-独立站营销智能体项目", "--json"]):
+            output = StringIO()
+            with self.subTest(arguments=arguments), patch("zentao_bug_board.get_client", return_value=Client()), redirect_stdout(output):
+                self.assertEqual(0, main(arguments))
+                self.assertIn('"product":{"id":15,"name":"WebHub-独立站营销智能体"}', output.getvalue())
+
     def test_classifies_one_snapshot_by_state_cutoff_and_deadline(self):
         rows = [
             bug(1, "2026-10-20 15:59:59", 1),

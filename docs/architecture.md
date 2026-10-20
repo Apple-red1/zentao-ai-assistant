@@ -84,7 +84,7 @@ action 不参与该链路。
 | `zentao-bug-resolver` | 以 Bug 为单位执行证据驱动的选择、快照、代码证据、最小修复与验证编排；resolver script 只读，生命周期写入由 Agent 回到基础 CLI。 |
 | `zentao-batch-export` | 按显式 `type:id` 批量导出多个对象的完整字段与资源，生成 manifest 和动态 ZIP；只读，复用基础 CLI 的 `view/resource fetch`。 |
 | `zentao-testing` | 保存独立测试团队及 Project/Product/Module 上下文，编排测试端 Bug 创建与日常操作，并提供本人未关闭 Bug 聚合；ZenTao 写入仍回到基础 CLI。 |
-| `zentao-bug-board` | 对单个 Project 的全量 Bug 做 16:00 交付、历史未完成、待测试验证只读分组；确定性日历与归类留在自身脚本。 |
+| `zentao-bug-board` | 对单个 Project 或 Product 的全量 Bug 做 16:00 交付、历史未完成、待测试验证只读分组；名称解析、确定性日历与归类留在自身脚本。 |
 
 统计、个人和项目管理脚本负责确定性分页、去重和聚合，向上保留 `complete` 与 `partial_failures`。Bug resolver 同样保留读取完整性和不可用字段；它的业务证据与本地修复属于 Agent 工作流，不扩展 API endpoint surface。
 
@@ -108,7 +108,7 @@ zentao-bug-board ----------┘        |
 
 `zentao_skill.public` 是仓库内部稳定 programmatic facade，用于在一个 Python 进程内复用 Session 和完整分页。高层 Skill 禁止直接访问 `internal/zentao` / `internal/http`。
 
-`zentao-bug-board` 只调用 public facade 的 Project/Bug `list_all(preserve_partial=True)` 和
+`zentao-bug-board` 只调用 public facade 的 Project/Product/Bug `list_all(preserve_partial=True)` 和
 `bug_web_urls`，不扩展基础 API endpoint。`workdays.py` 固定保存已核验的 2025、2026 年
 国务院假期与调休补班；未知年份返回待核定。表格由同一批 Bug 列表去重、分类和排序，
 `closed` 仅参与状态判断，不进入输出清单或默认数量。

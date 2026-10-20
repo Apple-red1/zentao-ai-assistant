@@ -17,7 +17,7 @@
 | [`zentao-bug-resolver`](skills/zentao-bug-resolver/SKILL.md) | Bug 证据分析、本地修复编排，以及明确人工确认后的受控回写 | “分析 Bug 123 的根因”；“Bug 123 已解决，标记已解决” |
 | [`zentao-batch-export`](skills/zentao-batch-export/SKILL.md) | 多个 ZenTao 对象的完整字段、附件/富文本资源与 ZIP 打包 | “把 bug:123、story:78 的完整资料和附件打包下载” |
 | [`zentao-testing`](skills/zentao-testing/SKILL.md) | 独立测试团队/项目覆盖、测试项目/模块上下文、提 Bug、我的未关闭 Bug 与测试日常操作路由 | “设置商城测试团队并查询我的 Bug” |
-| [`zentao-bug-board`](skills/zentao-bug-board/SKILL.md) | 指定项目的 16:00 Bug 交付、历史未完成及待测试验证只读表 | “看项目 12 今天 16 点 Bug 过会表” |
+| [`zentao-bug-board`](skills/zentao-bug-board/SKILL.md) | 指定 Project 或 Product 的 16:00 Bug 交付、历史未完成及待测试验证只读表 | “看 WebHub-独立站营销智能体项目的 16 点 Bug 评审表” |
 
 基础 API 覆盖 **20 个资源、120 个 endpoint**。统计和项目分析基于实际返回数据，
 不编造历史趋势、健康分或绩效结论；不完整数据会保留完整性标记。
@@ -163,6 +163,8 @@ python3 skills/zentao-personal/scripts/zentao_personal.py overview --json
 python3 skills/zentao-project-management/scripts/zentao_project_management.py health --project 12 --json
 python3 skills/zentao-bug-board/scripts/zentao_bug_board.py --project 12
 python3 skills/zentao-bug-board/scripts/zentao_bug_board.py --project 12 --json
+python3 skills/zentao-bug-board/scripts/zentao_bug_board.py --product 15
+python3 skills/zentao-bug-board/scripts/zentao_bug_board.py --name 'WebHub-独立站营销智能体项目'
 python3 skills/zentao-batch-export/scripts/zentao_batch_export.py bug:123 story:78 task:90 --json
 python3 skills/zentao-testing/scripts/zentao_testing.py project-list --json
 python3 skills/zentao-testing/scripts/zentao_testing.py my-bugs --json
@@ -175,7 +177,7 @@ python3 skills/zentao-testing/scripts/zentao_testing.py team-import-personal --j
 
 `zentao-batch-export` 只读复用基础 `view` 与 `resource fetch`，把每个对象的完整字段格式化写入 `content.md`，把附件/富文本资源归档到对象目录，并将已成功归档的正文资源引用改为 `resources/<file>`，再在当前 runtime scope 下生成动态命名的 ZIP。单项失败继续导出并完整保留到 `manifest.json` 的 `complete/failures`。
 
-`zentao-bug-board` 手动读取单个 Project 的全部可见 Bug，按 `Asia/Shanghai` 业务日
+`zentao-bug-board` 手动读取单个 Project 或 Product 的全部可见 Bug；名称先在两类资源中唯一解析，口语“项目”后缀不强制限定 Project。按 `Asia/Shanghai` 业务日
 生成“历史未完成、今天下班前、下一个中国法定工作日 12:00、16:00 后新增、已解决待测试验证、待核定”
 互斥清单。`closed` 不输出；`pri=0` 按当前实例已确认的 P0 处理。年度日历目前核验到
 2025、2026 年，未知年份、缺少关键字段或部分分页失败会显式标记不完整，不修改 ZenTao。
