@@ -1,7 +1,7 @@
 # zentao-ai-assistant
 
 让 AI 通过 ZenTao 官方 API v2 查询项目、统计工作量、整理个人待办，并按明确授权处理 Bug。
-提供 **7 个 Skills**，支持直接 Clone 使用，也提供 Claude Code / Codex 插件安装入口；
+提供 **8 个 Skills**，支持直接 Clone 使用，也提供 Claude Code / Codex 插件安装入口；
 两种方式共用根目录的同一份 `skills/`。
 
 当前行为与开发事实入口：[`docs/current-contract.md`](docs/current-contract.md)。
@@ -17,6 +17,7 @@
 | [`zentao-bug-resolver`](skills/zentao-bug-resolver/SKILL.md) | Bug 证据分析、本地修复编排，以及明确人工确认后的受控回写 | “分析 Bug 123 的根因”；“Bug 123 已解决，标记已解决” |
 | [`zentao-batch-export`](skills/zentao-batch-export/SKILL.md) | 多个 ZenTao 对象的完整字段、附件/富文本资源与 ZIP 打包 | “把 bug:123、story:78 的完整资料和附件打包下载” |
 | [`zentao-testing`](skills/zentao-testing/SKILL.md) | 独立测试团队/项目覆盖、测试项目/模块上下文、提 Bug、我的未关闭 Bug 与测试日常操作路由 | “设置商城测试团队并查询我的 Bug” |
+| [`zentao-bug-board`](skills/zentao-bug-board/SKILL.md) | 指定项目的 16:00 Bug 交付、历史未完成及待测试验证只读表 | “看项目 12 今天 16 点 Bug 过会表” |
 
 基础 API 覆盖 **20 个资源、120 个 endpoint**。统计和项目分析基于实际返回数据，
 不编造历史趋势、健康分或绩效结论；不完整数据会保留完整性标记。
@@ -44,7 +45,7 @@ python3 --version
 
 适合在本仓库中使用或开发。Codex 读取 `AGENTS.md`；Claude Code 和 Gemini CLI
 分别通过 `CLAUDE.md` / `GEMINI.md` 引用同一份规则，按用户目标读取对应 Skill。
-不需要将七个 Skill 单独复制到宿主目录。
+不需要将八个 Skill 单独复制到宿主目录。
 
 ```bash
 python3 skills/zentao/scripts/zentao.py setup --scope project
@@ -72,7 +73,7 @@ python3 skills/zentao/scripts/zentao.py setup --scope user
 python3 skills/zentao/scripts/zentao.py doctor --json
 ```
 
-如宿主提示重载，执行 `/reload-plugins`，再开启新会话确认七个 Skill 可用。
+如宿主提示重载，执行 `/reload-plugins`，再开启新会话确认八个 Skill 可用。
 仅做本地开发加载时可使用 `claude --plugin-dir .`，不必再执行 marketplace 安装。
 宿主命令参考 [Claude Code 官方安装说明](https://code.claude.com/docs/en/plugin-marketplaces)。
 
@@ -87,7 +88,7 @@ codex
 ```
 
 在 Codex CLI 中输入 `/plugins`，选择 `zentao-ai-assistant` marketplace，安装
-同名插件；安装后开启新会话，检查七个正式 Skill。`_shared` 只是共享实现，不是公开 Skill。
+同名插件；安装后开启新会话，检查八个正式 Skill。`_shared` 只是共享实现，不是公开 Skill。
 插件浏览器与新会话要求见 [OpenAI 官方插件文档](https://learn.chatgpt.com/docs/plugins)。
 
 首次配置在另一个终端的仓库根目录执行；若已配置 user scope，可跳过 `setup`：
@@ -160,6 +161,8 @@ python3 skills/zentao/scripts/zentao.py bug create --product 1 --title "JSON 步
 python3 skills/zentao-statistics/scripts/zentao_statistics.py summary bug --product 1 --json
 python3 skills/zentao-personal/scripts/zentao_personal.py overview --json
 python3 skills/zentao-project-management/scripts/zentao_project_management.py health --project 12 --json
+python3 skills/zentao-bug-board/scripts/zentao_bug_board.py --project 12
+python3 skills/zentao-bug-board/scripts/zentao_bug_board.py --project 12 --json
 python3 skills/zentao-batch-export/scripts/zentao_batch_export.py bug:123 story:78 task:90 --json
 python3 skills/zentao-testing/scripts/zentao_testing.py project-list --json
 python3 skills/zentao-testing/scripts/zentao_testing.py my-bugs --json
@@ -171,6 +174,11 @@ python3 skills/zentao-testing/scripts/zentao_testing.py team-import-personal --j
 ```
 
 `zentao-batch-export` 只读复用基础 `view` 与 `resource fetch`，把每个对象的完整字段格式化写入 `content.md`，把附件/富文本资源归档到对象目录，并将已成功归档的正文资源引用改为 `resources/<file>`，再在当前 runtime scope 下生成动态命名的 ZIP。单项失败继续导出并完整保留到 `manifest.json` 的 `complete/failures`。
+
+`zentao-bug-board` 手动读取单个 Project 的全部可见 Bug，按 `Asia/Shanghai` 业务日
+生成“历史未完成、今天下班前、下一个中国法定工作日 12:00、16:00 后新增、已解决待测试验证、待核定”
+互斥清单。`closed` 不输出；`pri=0` 按当前实例已确认的 P0 处理。年度日历目前核验到
+2025、2026 年，未知年份、缺少关键字段或部分分页失败会显式标记不完整，不修改 ZenTao。
 
 `zentao-testing` 用用户级、按站点/账号隔离的安全 JSON 保存测试 Project/Product、默认
 affected-build、Module 和前后端 account；Project ID 可选，没有 Project ID 时不强求
@@ -203,7 +211,7 @@ Bug 的 `create/edit --steps-inline-image` 将本地图片直接嵌入 `steps` �
 Bug 详情链接使用固定禅道路由直接生成，不打开浏览器：
 `python3 skills/zentao/scripts/zentao.py bug web-url 3641 --json`。
 
-七个 Skill 的聊天回复中，Bug 编号本身统一显示为可点击链接，规则见[Bug 展示说明](skills/zentao/references/bug-display.md)。原始 ID、机器 JSON、查询和写入行为不变；CLI 终端输出与 ZIP 内 `content.md` 各自遵循对应输出合同。
+八个 Skill 的聊天回复中，Bug 编号本身统一显示为可点击链接，规则见[Bug 展示说明](skills/zentao/references/bug-display.md)。原始 ID、机器 JSON、查询和写入行为不变；CLI 终端输出与 ZIP 内 `content.md` 各自遵循对应输出合同。
 
 Bug 证据驱动流程的确定性脚本入口为：
 

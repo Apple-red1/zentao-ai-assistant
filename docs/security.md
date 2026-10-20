@@ -78,6 +78,10 @@ fail-closed。uid 绑定图片临时上传，用户 `steps` 文本先 HTML 转�
 
 ## 高层 Skill 数据
 
+`zentao-bug-board` 只通过 public facade 读取一个 Project 的完整 Bug 列表与本地生成的
+Bug URL。报表不保存历史快照、不修改 ZenTao、不访问新网络服务；工作日日历是仓库内
+已核验的年度通知数据，缺失年份明确返回待核定。部分页和关键字段异常不会被当成完整清单。
+
 统计/个人/项目管理在 `--cache-data` 时可以把大批量中间 JSON 放到当前 scope：
 project 为 `.tmp/zentao/<skill>/`，user 为
 `~/.zentao-ai-assistant/tmp/zentao/<skill>/`。这些数据是临时运行材料，不得作为

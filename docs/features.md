@@ -35,6 +35,13 @@
 
 Project / Execution 的资源概览、风险信号和开放事项工作量分布。默认不发明数值健康分或人员绩效结论。
 
+## `zentao-bug-board`
+
+手动指定单个 Project，读取全部可见 Bug，按北京时间 16:00 和已核验的中国法定工作日日历
+生成历史未完成、今日下班前、下一工作日 12:00 前、16:00 后新增、已解决待测试验证及待核定
+清单。`closed` 不输出；优先级使用本实例确认的 `pri=0..4` 映射，日期或字段不可核实时明确保留
+不完整状态。只读，不自动推送或修改 Bug。
+
 ## `zentao-batch-export`
 
 按显式 `type:id` 批量导出多个 ZenTao 对象，首版覆盖当前 13 种同时具备 `view + resource fetch` 的 canonical 类型。每个对象的 `content.md` 以可读 Markdown 保存完整字段，附件和富文本资源进入独立 `resources/`，正文中已成功归档的资源引用改为解压后可用的相对路径，根 `manifest.json` 只记录路径、完整性与失败清单。单项失败继续导出；最终 ZIP 位于当前 runtime scope 的 `zentao/zentao-batch-export/<run-id>/` 并动态命名。

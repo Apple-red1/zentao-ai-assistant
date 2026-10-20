@@ -18,7 +18,7 @@ class CurrentContractDocumentationTest(unittest.TestCase):
     def test_current_contract_documents_plugin_clone_and_runtime_contract(self) -> None:
         current = CURRENT.read_text(encoding="utf-8")
         for required in (
-            "7 Skills",
+            "8 Skills",
             "CLAUDE.md / GEMINI.md",
             "plugin.json / .claude-plugin / .codex-plugin",
             "project/user scope",
@@ -61,6 +61,7 @@ class CurrentContractDocumentationTest(unittest.TestCase):
             "zentao-project-management",
             "zentao-batch-export",
             "zentao-testing",
+            "zentao-bug-board",
             "zentao_skill.public",
             ".tmp/zentao/auth/",
             "R3 delete",

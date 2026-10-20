@@ -6,7 +6,7 @@
 - [ ] 根目录 `plugin.json`、`.claude-plugin/plugin.json`、
   `.claude-plugin/marketplace.json`、`.codex-plugin/plugin.json` 和
   `.agents/plugins/marketplace.json` 与 `docs/current-contract.md` 同步。
-- [ ] 仓库根目录 `skills/` 精确包含七个正式 Skill；`skills/_shared/zentao/`
+- [ ] 仓库根目录 `skills/` 精确包含八个正式 Skill；`skills/_shared/zentao/`
   没有 `SKILL.md`，不成为公开 Skill；不存在第二份 Skills tree。
 - [ ] Clone 的 `AGENTS.md`、`CLAUDE.md`、`GEMINI.md` 路由不复制业务规则；Gemini
   Plugin/Extension、Cursor/Copilot/VS Code Plugin 不写成 v1 已验证支持。
@@ -21,6 +21,7 @@
 
 - [ ] API 基础实现位于 `skills/zentao/`；高层能力位于各自 Skill / `skills/_shared/zentao/`，不存在 MCP Server、独立 `src/zentao_ai/` 主实现或系统级 `zentao-ai` 产品入口。
 - [ ] 运行时与测试只使用 Python 标准库。
+- [ ] `zentao-bug-board` 的单项目全量读取、P0～P4、16:00 与 12:00 边界、官方假期/调休、未知年份待核定、互斥队列、closed 排除和部分数据提示通过；没有 ZenTao 写操作。
 - [ ] `.env.example` 只有三项连接模板，真实 `.env` 不进入 Git。
 - [ ] CLI/Services 不直接使用 `urllib` 或拼接 `/api.php/v2`。
 - [ ] Token 不写回 `.env`；若启用 `.tmp/zentao/auth/` 短期缓存，则权限、TTL、401 刷新和脱敏合同均通过。

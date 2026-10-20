@@ -14,6 +14,7 @@ skills/zentao-project-management/ # Project / Execution 管理分析
 skills/zentao-bug-resolver/       # Bug 证据驱动分析、修复编排和受控 resolve
 skills/zentao-batch-export/       # 多对象完整资料、附件与 ZIP 批量导出
 skills/zentao-testing/            # 测试端团队、Bug 工作台、项目/模块上下文与只读聚合
+skills/zentao-bug-board/          # 单项目 16:00 Bug 交付与测试回归只读评审表
 ```
 
 `zentao` 是基础能力层，继续通过 Python 标准库访问 ZenTao 官方 API v2；高层 Skill 组合只读能力形成项目管理信息。后续可以增加新的高层 Skill，但不得把同一职责复制到多个 Skill。
@@ -42,7 +43,7 @@ Claude Clone    -> CLAUDE.md -> AGENTS.md
 Gemini Clone    -> GEMINI.md -> AGENTS.md
 ```
 
-正式 Skill inventory 只有以下七个：
+正式 Skill inventory 只有以下八个：
 
 | Skill | 主要职责 |
 |---|---|
@@ -53,6 +54,7 @@ Gemini Clone    -> GEMINI.md -> AGENTS.md
 | `skills/zentao-bug-resolver/` | Bug 证据、修复编排和受控 resolve |
 | `skills/zentao-batch-export/` | 多个 ZenTao 对象的完整字段、资源与 ZIP 资料包导出 |
 | `skills/zentao-testing/` | 独立测试团队/项目覆盖、测试端项目/模块上下文、Bug 创建编排、本人未关闭 Bug 与日常操作路由 |
+| `skills/zentao-bug-board/` | 单 Project 全量 Bug 的 16:00 交付、历史未完成和待测试验证评审表 |
 
 `skills/_shared/zentao/` 只是共享实现目录，没有 `SKILL.md`，不得作为公开
 Skill 或独立路由目标。
@@ -68,6 +70,7 @@ Skill 或独立路由目标。
 | 我的默认团队名单、团队 Bug、今日团队日报 | `zentao-personal` |
 | 数量、分布、汇总、比较 | `zentao-statistics` |
 | 设置测试项目/模块负责人、测试提 Bug、测试查询/操作 Bug | `zentao-testing` |
+| 指定 Project 查询 16:00 Bug 交付、逾期和待测试验证表 | `zentao-bug-board` |
 | 原子 ZenTao read/write/lifecycle/delete/resource | `zentao` |
 
 选中后必须读取对应 `skills/<name>/SKILL.md`，再按其中的职责、
@@ -114,6 +117,7 @@ zentao Skill / CLI
 
 ```text
 zentao-statistics / zentao-personal / zentao-project-management
+zentao-bug-board
   -> skills/_shared/zentao
   -> zentao_skill.public
   -> zentao Services
@@ -182,6 +186,7 @@ API endpoint 覆盖率只描述 `zentao` 基础 Skill，不能当作整个多 Sk
 - `zentao-testing` 只通过 `zentao_skill.public` 读取 Project/Product/Build/User/Bug 数据；Project ID 可选，缺失时不强求 Project/Product 关联并按 Product 工作；本地测试上下文使用按身份隔离的安全 JSON，测试端创建 Bug 仍回到基础 CLI 的一次 R1 create，测试端不得执行 resolve。
 - `zentao-testing` 的测试团队使用独立的 `testing-teams/<identity-sha256>.json`，与 `zentao-personal` 的 `teams/` 和测试项目的 `testing-projects/` 分域；全局默认与项目覆盖互不覆盖，只有明确 `team-import-personal` 才一次性复制个人团队，导入后不自动同步。模糊“设置团队”必须先澄清且写入次数为 0。
 - `zentao-testing` 的 active Bug 独立指派必须先在真实 ZenTao 21.7.8 环境证明保持 active 的原生能力并完成写后回读；没有环境时记录 `INCONCLUSIVE/ENVIRONMENT_BLOCKER`，不得新增未验证 endpoint 或用 lifecycle 模拟指派。
+- `zentao-bug-board` 只读复用 public facade 的 Project/Bug 全量分页与 Bug URL。`pri=0` 在本实例按用户确认映射为 P0；中国法定工作日仅使用已核验年度的国务院安排，未知年份或关键字段缺失时保留“待核定”与不完整标记。报表不输出 closed 清单或默认关闭数量。
 - resolver 的 `compare` 是写入前复查；`changed=true`、比较失败或关键事实不可安全比较都必须阻止写入，`changed=false` 也不提供 CAS/ETag/锁保证。
 
 ## 7. CLI 与写入安全

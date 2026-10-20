@@ -19,6 +19,7 @@ HIGH_LEVEL_SKILLS = (
     REPOSITORY_ROOT / "skills" / "zentao-bug-resolver",
     REPOSITORY_ROOT / "skills" / "zentao-batch-export",
     REPOSITORY_ROOT / "skills" / "zentao-testing",
+    REPOSITORY_ROOT / "skills" / "zentao-bug-board",
 )
 SHARED_ROOT = REPOSITORY_ROOT / "skills" / "_shared" / "zentao"
 
@@ -30,6 +31,7 @@ class RepositoryContractTests(unittest.TestCase):
             "resolver_accounts", "content_markdown",
             "team_config", "team_report", "team_presenter",
             "project_config", "assignment", "my_bugs", "presenter", "testing_team", "zentao_testing",
+            "board", "workdays", "zentao_bug_board",
         }
         third_party: list[tuple[Path, str]] = []
         roots = [PRODUCTION_ROOT, SKILL_ROOT / "tests", SHARED_ROOT, REPOSITORY_ROOT / "tests"]
@@ -94,6 +96,7 @@ class RepositoryContractTests(unittest.TestCase):
             "skills/zentao-bug-resolver/",
             "skills/zentao-batch-export/",
             "skills/zentao-testing/",
+            "skills/zentao-bug-board/",
         ):
             self.assertIn(skill_name, agents)
         routes = {
@@ -103,6 +106,7 @@ class RepositoryContractTests(unittest.TestCase):
             "自己/某人的待办、风险、工作摘要": "zentao-personal",
             "数量、分布、汇总、比较": "zentao-statistics",
             "设置测试项目/模块负责人、测试提 Bug、测试查询/操作 Bug": "zentao-testing",
+            "指定 Project 查询 16:00 Bug 交付、逾期和待测试验证表": "zentao-bug-board",
             "原子 ZenTao read/write/lifecycle/delete/resource": "zentao",
         }
         for goal, skill_name in routes.items():

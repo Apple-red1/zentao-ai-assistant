@@ -24,7 +24,7 @@ surface 不可用时，结果必须记录为 `BLOCKED_ENVIRONMENT`，不能降�
 python tests/run_all.py
 ```
 
-该入口先执行 `zentao` API Skill 的完整门槛，再执行 `zentao-statistics`、`zentao-personal`、`zentao-project-management`、`zentao-bug-resolver`、`zentao-batch-export`、`zentao-testing` 的专项单元/行为测试。
+该入口先执行 `zentao` API Skill 的完整门槛，再执行 `zentao-statistics`、`zentao-personal`、`zentao-project-management`、`zentao-bug-resolver`、`zentao-batch-export`、`zentao-testing`、`zentao-bug-board` 的专项单元/行为测试。
 
 ## API Skill
 
@@ -51,6 +51,7 @@ cache。
 - `zentao-personal`：用户重名、个人过滤、严重 Bug、逾期 Task；默认团队名单隔离和原子写入、完整目录校验、跨范围分页、重复/冲突 ID、active/resolved 均按 assignedTo 阶段归属、开发解决人展示、异常字段 fail-visible、零结果与部分失败、日期排序、两种入口的相同分类结果；个人 Bug Markdown 的 0/1/多条、缺失字段、重复 ID、链接映射和完整性提示。
 - `zentao` Bug steps：直接文本、UTF-8 文件、CRLF/CR 归一化、显式 JSON 单次解码、字面量 `\\n` 保留、非法 JSON 前置失败，以及 Fake 请求字段中的真实换行。
 - `zentao-project-management`：事实型 health signals、无数值健康分、开放事项 workload。
+- `zentao-bug-board`：项目全量 Bug 快照、P0～P4、15:59/16:00、12:00、假期和补班、跨年未知日历、resolved/closed 优先级、重复 ID、缺失字段、部分页与链接映射。
 - `zentao-bug-resolver`：只读 `select`、Bug snapshot、写前 `compare` 及证据完整性边界。
 - `zentao-batch-export`：混合类型去重、完整字段 Markdown、资源归档、部分失败继续、动态 ZIP、runtime scope 与路径安全。
 - `zentao-testing`：身份隔离 JSON、项目/产品/模块证据、负责人唯一解析、上下文 stale、
@@ -96,7 +97,7 @@ facade 测试同时验证 `preserve_partial=True` 保留已读页、默认异常
 
 ## Bug ID 聊天展示
 
-统一合同位于 `skills/zentao/references/bug-display.md`，七个 `SKILL.md` 均直接引用。
+统一合同位于 `skills/zentao/references/bug-display.md`，八个 `SKILL.md` 均直接引用。
 Issue #46 r3 实施时用户确认：不包含 CLI 不带 `--json` 的终端输出和 ZIP 内
 `content.md`；只改变聊天富文本，原始机器数据与业务流程保持不变。
 
@@ -107,6 +108,7 @@ Issue #46 r3 实施时用户确认：不包含 CLI 不带 `--json` 的终端输�
 | `zentao` 查询、链接、操作结果 | `cli/bugs/commands.py` 的原始结果；`cli/output.py` 与 `presenters/generic.py` 不改 | 正文 `Bug ID` 的编号可点击；不额外查询或改变写入结果 |
 | `zentao-personal` 列表、概览、摘要 | `zentao_personal.py` 的 `build_worklist`、`build_personal_overview`；原始 `resource/id` | 表格编号可点击，原表头、顺序、其它列和数据边界不变 |
 | `zentao-project-management` Project/Execution 风险与说明 | `zentao_project_management.py` 的 `build_health_report` / `risk_signals` | Bug 风险项加链接，混合 Task 等资源的 ID 不误链，保留部分失败 |
+| `zentao-bug-board` 单项目评审表 | `board.py` 同一快照的互斥待办队列 | 默认 Markdown 表中 Bug ID 可点击，部分页、待核定和 URL 失败可见；closed 不输出 |
 | `zentao-bug-resolver` 目标、候选、队列、状态回报 | `select_bugs` / `build_snapshot` / `compare_snapshots` 与 Agent 显式回读 | 编号链接不触发详情读取、队列继续、证据流程或生命周期写入 |
 | `zentao-statistics` 统计解释 | `summarize_records` / `compare_summaries` 通常只含聚合；scope ID 不是 Bug ID | 纯数量不生成链接；从已有明细引用单个 Bug 时才加链接，不为此取明细 |
 | `zentao-batch-export` 导出结果聊天说明 | `export_objects` 的输出与 manifest；`content.md` 的 Markdown 格式、资源相对路径、失败文件及 ZIP 内容遵守批量导出合同 | 聊天提到的成功/失败 Bug 编号可点击，完整性与失败事实不变 |
@@ -122,7 +124,7 @@ python3 -B -m unittest discover -s tests -p 'test_web_url_route.py'
 它是基础能力回归，不是自然语言展示行为测试；原有生产 Python 不变，这些测试
 在指令修改前也应通过，不能称作由新展示规则修复的 Red。
 
-Agent 场景走查应分别提供上述七个 Skill 和虚构的已有结果，不提供预期回答。
+Agent 场景走查应分别提供上述八个 Skill 和虚构的已有结果，不提供预期回答。
 检查表格、正文、摘要/候选项以及导出结果回复中的编号是否可点击、是否按 ID
 关联 URL，并检查相同编号的 Task 不误链、纯统计不补明细、失败不猜 URL、
 resolver 不继续处理或写入。记录实际输出和工具调用；文档关键词检查或手工
