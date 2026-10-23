@@ -72,7 +72,7 @@ project/user scope：项目配置为 `<repo>/.env`，用户配置为
 
 ## 当前实现事实
 
-- 插件版本 `1.16.0`，共有八个正式 Skill。`zentao-bug-board` 提供单 Project/Product 16:00 Bug 评审只读表；`zentao-personal` 提供团队名单与日报；`zentao-testing` 提供独立测试团队、项目/模块上下文和本人未关闭 Bug 工作流。本次没有新增官方 API endpoint。
+- 插件版本 `1.17.0`，共有八个正式 Skill。`zentao-bug-board` 提供单 Project/Product 16:00 Bug 评审只读表；`zentao-personal` 提供团队名单与日报；`zentao-testing` 提供独立测试团队、项目/模块上下文和本人未关闭 Bug 工作流。本次没有新增官方 API endpoint。
 - `zentao-bug-board` 通过 public facade 跨 Project/Product 完整目录唯一解析目标名称，完整名称优先，末尾口语“项目”只在无精确匹配时去掉；显式 ID 可选择 `--project` 或 `--product`。按目标类型读取其全部可见 Bug，保留分页与数据失败并按 ID 去重；业务时区为 `Asia/Shanghai`，`pri=0..4` 按本实例用户确认映射为 P0～P4，`active/resolved/closed` 分别代表待研发、待测试、已验收。已关闭不展示；历史未完成、今天下班前、下一个中国法定工作日 12:00 前、16:00 后新增和待测试验证互斥。工作日日历仅核验 2025、2026 年；其它年份或关键字段缺失标为待核定，历史期限按当前优先级推算且历史变更未核验。
 - 开发/个人团队配置保存于 `~/.zentao-ai-assistant/teams/<identity-sha256>.json`，测试团队配置保存于 `~/.zentao-ai-assistant/testing-teams/<identity-sha256>.json`，测试项目上下文保存于 `testing-projects/`；三者按规范化 base URL + account 隔离，跨源码项目复用但互不覆盖。成员写入只接受明确的对应 Skill 请求，完整用户目录唯一解析后保存真实 account，本人自动纳入而不保存为配置成员。损坏配置、身份冲突、目录不完整和并发写入均阻止覆盖。
 - 团队 Bug 与日报共用完整分页、跨 Product/Project/Execution 扫描、ID 去重和阶段分类；`active` 按当前 `assignedTo` 归入“需要马上行动”，`resolved` 也按当前 `assignedTo` 归入“待测试验证”，`resolvedBy` 仅展示开发解决人，`closed` 排除。显式 scope 仅缩小查询。输出按阶段→成员→优先级/严重程度/旧 Bug/数值 ID 排序，全部成员和符合条件的 Bug 都保留；日报只增加汇总。
@@ -93,7 +93,9 @@ project/user scope：项目配置为 `<repo>/.env`，用户配置为
 - `zentao-batch-export` 是只读批量资料编排：首版支持 `bug / epic / execution / feedback / product / product-plan / program / requirement / story / task / test-case / ticket / user`；输入显式使用 `type:id`，脚本按 `type + id` 去重。
 - 批量导出不新增基础 API endpoint：每个对象调用现有 CLI `view` 与 `resource fetch`；`content.md` 以可读 Markdown 展示完整 `view --json` 字段，成功归档的富文本资源引用改为对象目录下的相对 `resources/<file>` 路径，资源进入 `objects/<type>/<id>/resources/`，根 `manifest.json` 仍只记录索引、完整性和完整失败信息。
 - `resource fetch` 的 HTTP 200 资源还必须通过非空、明显 HTML 登录/错误页和 MIME
-  类型一致性校验；不通过时使用 `RESOURCE_CONTENT_INVALID` 保留在
+  类型一致性校验；HTML 标签空白只接受 ASCII 空白字符，避免 `<p` + `\x1c` 等二进制
+  控制字符误判。嗅探不要求整个样本为有效 UTF-8，GBK 页面、含无效字节或采样截断字符的
+  页面仍按可识别的 HTML 结构校验。不通过时使用 `RESOURCE_CONTENT_INVALID` 保留在
   `partial_failures`，旧式 `/index.php?...fileID=...` URL 按资源 ID/类型提示生成语义文件名。富文本旧式 `m=file&f=read` 图片请求仅将 `f` 改为同源 `download`，普通附件 URL 不改写，且输出保留原始 `source`。
 - 独立评论是固定同源 Legacy Web 兼容能力，不新增官方 API endpoint；当前十种对象
   `bug / story / product / task / execution / project / test-task / product-plan / release / build`

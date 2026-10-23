@@ -174,6 +174,83 @@ class ResourceFetchE2ETests(unittest.TestCase):
                 index_requests[0]["query"],
             )
 
+    def test_fetch_accepts_binary_image_sample_that_looks_like_html(self) -> None:
+        with FakeZenTao() as fake:
+            fake.state.resources["bug"]["915"] = {
+                "id": 915,
+                "steps": '<img src="/index.php?m=file&f=read&t=png&fileID=8095">',
+            }
+            png = (
+                b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x01\x00\x00\x00\x01\x00\x08\x06\x00\x00\x00"
+                b"<p\x1cIDATx\x9c\x00\x00\x01"
+            )
+            fake.state.add_binary(
+                "/index.php", png, content_type="application/octet-stream", filename="image.png"
+            )
+
+            result = run_cli(fake.base_url, [
+                "resource", "fetch", "--object-type", "bug", "--object-id", "915", "--json",
+            ])
+
+            self.assertEqual(0, result.returncode, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual([], payload["partial_failures"])
+            self.assertEqual(["image.png"], [item["file_name"] for item in payload["resources"]])
+            self.assertEqual(png, Path(payload["resources"][0]["local_path"]).read_bytes())
+
+    def test_fetch_rejects_plain_text_html_error_page_served_as_octet_stream(self) -> None:
+        with FakeZenTao() as fake:
+            fake.state.resources["bug"]["916"] = {
+                "id": 916,
+                "files": [{"url": "/assets/login-page.png"}],
+            }
+            fake.state.add_binary(
+                "/assets/login-page.png",
+                "<!DOCTYPE html><html><body>请登录</body></html>".encode("utf-8"),
+                content_type="application/octet-stream",
+            )
+
+            result = run_cli(fake.base_url, [
+                "resource", "fetch", "--object-type", "bug", "--object-id", "916", "--json",
+            ])
+
+            self.assertEqual(1, result.returncode)
+            error = json.loads(result.stderr)["error"]
+            self.assertEqual("RESOURCE_FETCH_FAILED", error["code"])
+            self.assertEqual(
+                ["RESOURCE_CONTENT_INVALID"],
+                [item["code"] for item in error["details"]["partial_failures"]],
+            )
+
+    def test_fetch_rejects_non_utf8_html_error_pages_served_as_octet_stream(self) -> None:
+        pages = {
+            "gbk": "<!DOCTYPE html><html><body>请登录</body></html>".encode("gbk"),
+            "malformed-utf8": b"<!DOCTYPE html><html><body>login\xff</body></html>",
+        }
+        for name, content in pages.items():
+            with self.subTest(name=name), FakeZenTao() as fake:
+                source = f"/assets/{name}-login.png"
+                fake.state.resources["bug"]["917"] = {
+                    "id": 917,
+                    "files": [{"url": source}],
+                }
+                fake.state.add_binary(source, content, content_type="application/octet-stream")
+
+                result = run_cli(fake.base_url, [
+                    "resource", "fetch", "--object-type", "bug", "--object-id", "917", "--json",
+                ])
+
+                self.assertEqual(1, result.returncode)
+                self.assertEqual("", result.stdout)
+                error = json.loads(result.stderr)["error"]
+                self.assertEqual("RESOURCE_FETCH_FAILED", error["code"])
+                self.assertEqual([], error["details"]["resources"])
+                self.assertEqual(
+                    ["RESOURCE_CONTENT_INVALID"],
+                    [item["code"] for item in error["details"]["partial_failures"]],
+                )
+                self.assertEqual([], list((RESOURCE_ROOT / "bug-917").iterdir()))
+
     def test_fetch_rejects_empty_and_mismatched_mime_responses(self) -> None:
         with FakeZenTao() as fake:
             fake.state.resources["bug"]["909"] = {

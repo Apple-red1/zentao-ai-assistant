@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.17.0
+
+- 修复 `resource fetch` 对合法二进制图片的 HTML 误判：标签空白只接受 ASCII 空白字符，避免 PNG 等压缩数据中偶然出现的 `<p` + `\x1c` 等控制字符触发 `RESOURCE_CONTENT_INVALID`。HTML 嗅探不要求整个样本为有效 UTF-8，保留对 GBK 页面、含无效字节或采样截断字符的页面中可识别 HTML 结构的检测；空响应、登录/错误页和 MIME 冲突校验保持不变，并新增单元与 CLI E2E 回归。
+
 ## 1.16.0
 
 - 修复 `zentao-bug-board` 只能接受 Project ID 的范围识别缺口：新增 Product ID 与跨 Project/Product 的精确名称解析，使“WebHub-独立站营销智能体项目”正确命中 Product 15，而不误用相近的 Project 12。保留原 Project 入口和全范围只读评审口径。

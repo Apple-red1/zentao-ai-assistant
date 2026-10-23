@@ -26,6 +26,11 @@ _HTML_ERROR_MARKERS = (
     "登录",
     "请登录",
 )
+_HTML_TAG_PATTERN = re.compile(
+    r"<!doctype[ \t\r\n\f\v]+html\b"
+    r"|<html(?:[ \t\r\n\f\v]|>)"
+    r"|<(?:head|body|form|br|div|p)(?:[ \t\r\n\f\v]|>)"
+)
 _RESOURCE_SAMPLE_SIZE = 8192
 
 
@@ -38,8 +43,9 @@ def _sample_text(sample: bytes) -> str:
 
 
 def _looks_like_html(sample: bytes) -> bool:
+    # Invalid UTF-8 must not hide HTML in legacy-encoded or malformed error pages.
     text = _sample_text(sample)
-    return bool(re.search(r"<!doctype\s+html\b|<html(?:\s|>)|<(?:head|body|form|br|div|p)(?:\s|>)", text[:_RESOURCE_SAMPLE_SIZE]))
+    return bool(_HTML_TAG_PATTERN.search(text[:_RESOURCE_SAMPLE_SIZE]))
 
 
 def _has_html_error_marker(sample: bytes) -> bool:

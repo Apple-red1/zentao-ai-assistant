@@ -47,7 +47,7 @@
   该能力未加入官方 endpoint catalog。
 - [ ] `resource fetch --include-comments` 默认关闭，仅 Bug/Story 扩展到已验证 comment action
   资源；批量导出只对 Bug/Story 显式包含评论资源，其它对象不扩大范围。
-- [ ] 资源文件流式写入项目 `.tmp/zentao-resources/`，同名文件不覆盖；空响应、登录/错误 HTML 和 MIME 冲突按 `RESOURCE_CONTENT_INVALID` 进入 `partial_failures`。
+- [ ] 资源文件流式写入项目 `.tmp/zentao-resources/`，同名文件不覆盖；空响应、登录/错误 HTML 和 MIME 冲突按 `RESOURCE_CONTENT_INVALID` 进入 `partial_failures`；PNG 中 `<p` + `\x1c` 等控制字符不触发 HTML 误判，GBK 或含无效 UTF-8 字节的 HTML 错误页即使以 `application/octet-stream` 返回仍拒绝，采样截断多字节字符不影响已有 HTML 结构检测。
 - [ ] `zentao-batch-export` 只写当前 scope 的 `zentao/zentao-batch-export/<run-id>/`，ZIP 动态命名；资源复制拒绝符号链接/目录逃逸，单项失败继续并完整记录到 manifest。
 - [ ] user scope 使用 `~/.zentao-ai-assistant/cache/auth/`、
   `~/.zentao-ai-assistant/tmp/`，目录/文件权限目标仍为 `0700`/`0600`；config
